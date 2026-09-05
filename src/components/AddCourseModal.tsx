@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { 
   FolderPlus, 
@@ -14,6 +14,16 @@ export const AddCourseModal: React.FC = () => {
   const [courseName, setCourseName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Escape closes this the way it closes CommandPalette and ShortcutModal.
+  useEffect(() => {
+    if (!isAddCourseModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAddCourseModal(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isAddCourseModalOpen, setAddCourseModal]);
 
   if (!isAddCourseModalOpen) return null;
 

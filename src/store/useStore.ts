@@ -833,6 +833,13 @@ export const useStore = create<StoreState>((set, get) => ({
     const { activeCourseId, activeLesson, currentTime, lastSyncedTimestamp } = get();
     if (!activeLesson) return;
 
+    // Credit only real forward playback. The old code posted a flat 15s on every
+    // sync — including every seek, pause and lesson switch — so scrubbing around
+    // inflated "hours watched" faster than actually watching did. A jump larger
+    // than a minute is a seek, not viewing, so it counts for nothing.
+    const elapsed = currentTime - lastSyncedTimestamp;
+    const watchedSeconds = elapsed > 0 && elapsed <= 60 ? Math.round(elapsed) : 0;
+
     // Only sync if timestamp shifted by more than 5s or force is true
     if (!force && Math.abs(currentTime - lastSyncedTimestamp) < 5) return;
 
@@ -847,7 +854,7 @@ export const useStore = create<StoreState>((set, get) => ({
             courseId: activeCourseId,
             lessonId: activeLesson.id,
             timestamp: currentTime,
-            streakUpdate: { addedSeconds: 15 }
+            streakUpdate: { addedSeconds: watchedSeconds }
           })
         });
         set({ lastSyncedTimestamp: currentTime });
@@ -978,13 +985,11 @@ export const useStore = create<StoreState>((set, get) => ({
       currentTime: resumeAt,
       duration: video.durationSeconds || 0,
       isPlaying: true,
-      activeTab: 'player',
       sidePanelTab: 'curriculum'
     });
 
-    if (typeof window !== 'undefined') {
-      window.history.pushState(null, '', getPathFromTab('player'));
-    }
+    // setActiveTab already syncs the URL; doing it by hand here drifted.
+    get().setActiveTab('player');
   },
 
   goToNextLesson: () => {

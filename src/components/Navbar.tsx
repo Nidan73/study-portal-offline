@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore, NavTab } from '../store/useStore';
 import { 
   ChevronDown, 
@@ -17,6 +17,7 @@ import {
   Code2,
   HelpCircle,
   Youtube,
+  Loader2,
   LucideIcon
 } from 'lucide-react';
 
@@ -59,6 +60,24 @@ export const Navbar: React.FC = () => {
   } = useStore();
 
   const [isCourseDropdownOpen, setIsCourseDropdownOpen] = useState(false);
+
+  // Background transcoding used to run silently, so an unexplained CPU spike was
+  // the only sign anything was happening. Poll it and say so.
+  const [transcode, setTranscode] = useState<{ active: boolean; currentTitle: string; done: number; total: number } | null>(null);
+  useEffect(() => {
+    let stop = false;
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/transcode/status');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!stop) setTranscode(data);
+      } catch (e) {}
+    };
+    poll();
+    const timer = setInterval(poll, 4000);
+    return () => { stop = true; clearInterval(timer); };
+  }, []);
 
   const isYouTubeActive = Boolean(activeLesson?.source === 'youtube' || activeLesson?.youtubeVideoId);
   const isVirtualCatalog = Boolean(catalog?.isVirtual);
@@ -228,6 +247,18 @@ export const Navbar: React.FC = () => {
                 />
               </div>
               <span className="text-zinc-900 dark:text-zinc-200 font-semibold">{percentage}%</span>
+            </div>
+          )}
+
+          {/* Background transcode indicator */}
+          {transcode?.active && (
+            <div
+              id="transcode-indicator"
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-600 dark:text-indigo-400 text-[11px] font-mono font-medium"
+              title={`Preparing "${transcode.currentTitle}" for instant playback (${transcode.done + 1} of ${transcode.total}). Videos in formats the browser cannot play natively are converted in the background.`}
+            >
+              <Loader2 className="w-3 h-3 animate-spin" strokeWidth={2} />
+              <span>Preparing {transcode.done + 1}/{transcode.total}</span>
             </div>
           )}
 

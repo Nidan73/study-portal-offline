@@ -38,6 +38,18 @@ export const BentoDashboard: React.FC = () => {
 
   const resumeLesson = activeLesson || catalog?.modules[0]?.lessons[0] || null;
 
+  // How far into THIS lesson you are — not course completion, which is what the
+  // bar used to show.
+  const resumeSeconds = resumeLesson
+    ? (userCourseData?.resumePositions?.[resumeLesson.id]
+       ?? (userCourseData?.lastWatched?.lessonId === resumeLesson.id ? userCourseData.lastWatched.timestampSeconds : 0)
+       ?? 0)
+    : 0;
+  const resumeDuration = resumeLesson?.durationSeconds || 0;
+  const lessonPercent = resumeDuration > 0
+    ? Math.min(100, Math.round((resumeSeconds / resumeDuration) * 100))
+    : 0;
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto py-4 sm:py-6 pb-20 select-none transition-colors">
       {/* Top Hero Banner - Double-Bezel Hardware Enclosure */}
@@ -105,11 +117,18 @@ export const BentoDashboard: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="w-full bg-black/[0.04] dark:bg-white/[0.06] h-1.5 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-indigo-500 h-full rounded-full transition-all duration-500 ease-fluid"
-                    style={{ width: `${percent}%` }}
-                  />
+                <div className="space-y-1.5">
+                  <div className="w-full bg-black/[0.04] dark:bg-white/[0.06] h-1.5 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-indigo-500 h-full rounded-full transition-all duration-500 ease-fluid"
+                      style={{ width: `${lessonPercent}%` }}
+                    />
+                  </div>
+                  {resumeDuration > 0 && (
+                    <p className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                      {Math.floor(resumeSeconds / 60)}m of {Math.round(resumeDuration / 60)}m watched
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -166,17 +185,11 @@ export const BentoDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-5 border-t border-black/[0.04] dark:border-white/[0.06] mt-6">
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
-                <div key={idx} className="flex flex-col items-center gap-2">
-                  <span className="text-[10px] font-mono text-zinc-400">{day}</span>
-                  <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                    idx <= 4 
-                      ? 'bg-zinc-900 dark:bg-white shadow-sm' 
-                      : 'bg-black/[0.06] dark:bg-white/10'
-                  }`} />
-                </div>
-              ))}
+            <div className="flex items-center justify-between pt-5 border-t border-black/[0.04] dark:border-white/[0.06] mt-6 text-[11px] font-mono text-zinc-500">
+              <span>Last studied</span>
+              <span className="text-zinc-900 dark:text-white font-bold">
+                {userData?.globalStats?.lastActiveDate || '—'}
+              </span>
             </div>
           </div>
         </div>

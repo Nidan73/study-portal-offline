@@ -342,7 +342,7 @@ export const YouTubeExplorer: React.FC = () => {
         )}
 
         {/* Curated Topic Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto py-3 no-scrollbar mt-2">
+        <div className="flex items-center justify-center gap-2 flex-wrap py-3 mt-2">
           <span className="text-[11px] font-medium text-zinc-400 shrink-0 mr-1">Trending:</span>
           {CURATED_TOPICS.map((topic) => {
             const isSelected = activeTopic === topic;

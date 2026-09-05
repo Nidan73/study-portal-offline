@@ -350,14 +350,24 @@ function crawlCourseDirectory(courseRoot: string) {
       const moduleTitle = relativeDir ? cleanTitle(path.basename(relativeDir)) : 'General Lectures';
       
       // Auto-pair companion PDFs to videos if filenames match closely
+      const normalize = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
       videos.forEach(v => {
-        const matchingPdf = pdfs.find(p => 
-          p.title.toLowerCase().includes(v.title.toLowerCase()) || 
-          v.title.toLowerCase().includes(p.title.toLowerCase())
-        );
-        if (matchingPdf) {
-          v.companionPdf = matchingPdf;
+        const vn = normalize(v.title);
+        // Exact normalized match first. A plain two-way includes() let "Week 1"
+        // claim "Week 10"'s deck, and natural sort meant the wrong one won.
+        let matchingPdf = pdfs.find(p => normalize(p.title) === vn);
+        if (!matchingPdf) {
+          matchingPdf = pdfs.find(p => {
+            const pn = normalize(p.title);
+            if (!pn || !vn) return false;
+            // Substring, but only on a word boundary, so "week 1" no longer
+            // matches "week 10".
+            const boundary = (hay: string, needle: string) =>
+              new RegExp(`(^|\\s)${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|\\s)`).test(hay);
+            return boundary(pn, vn) || boundary(vn, pn);
+          });
         }
+        if (matchingPdf) v.companionPdf = matchingPdf;
       });
 
       modules.push({
@@ -730,7 +740,32 @@ app.get('/api/youtube/info', async (req: Request, res: Response) => {
 });
 
 // Cache for course catalogs (invalidates every 5 minutes or on demand)
-const catalogCache = new Map<string, any>();
+const catalogCache = new Map<string, { catalog: any; rootMtimeMs: number }>();
+
+/** Newest mtime across the course root and its immediate subdirectories.
+ *  Cheap enough to run per request, and moves whenever a file is added or
+ *  removed at either level — which is how lessons actually get added. */
+function courseRootMtimeMs(course: CourseSummary): number {
+  if (!course.rootPath) return 0;
+  let newest = 0;
+  try {
+    newest = fs.statSync(course.rootPath).mtimeMs;
+    for (const entry of fs.readdirSync(course.rootPath, { withFileTypes: true })) {
+      if (!entry.isDirectory() || IGNORED_NAMES.has(entry.name) || entry.name.startsWith('.')) continue;
+      try {
+        newest = Math.max(newest, fs.statSync(path.join(course.rootPath, entry.name)).mtimeMs);
+      } catch (e) {}
+    }
+  } catch (e) {
+    return 0;
+  }
+  return newest;
+}
+
+function hasCourseRootChanged(course: CourseSummary, cachedMtimeMs: number): boolean {
+  if (course.isVirtual) return false;
+  return courseRootMtimeMs(course) !== cachedMtimeMs;
+}
 
 // Active remux/transcode jobs map to prevent duplicate work
 const activeRemuxJobs = new Map<string, Promise<string>>();
@@ -861,52 +896,95 @@ function ensureWebPlayableVideo(targetPath: string, stat: fs.Stats): Promise<str
 
 const warmingCourses = new Set<string>();
 
+/** What the transcoder is doing right now, surfaced at /api/transcode/status so
+ *  the UI can explain why the fan spun up instead of leaving it a mystery. */
+const transcodeStatus: {
+  active: boolean;
+  courseName: string;
+  currentTitle: string;
+  done: number;
+  total: number;
+} = { active: false, courseName: '', currentTitle: '', done: 0, total: 0 };
+
+/** Lessons in this course whose web-playable copy is genuinely missing. */
+function pendingTranscodes(course: CourseSummary): { title: string; targetPath: string; stat: fs.Stats }[] {
+  const pending: { title: string; targetPath: string; stat: fs.Stats }[] = [];
+  const cached = catalogCache.get(course.id);
+  const catalog = (cached && !hasCourseRootChanged(course, cached.rootMtimeMs))
+    ? cached.catalog
+    : crawlCourseDirectory(course.rootPath);
+
+  for (const mod of catalog.modules) {
+    for (const lesson of mod.lessons) {
+      const ext = path.extname(lesson.relativePath).toLowerCase();
+      if (ext === '.mp4' || ext === '.webm' || !VIDEO_EXTENSIONS.has(ext)) continue;
+      const targetPath = path.resolve(course.rootPath, lesson.relativePath);
+      if (!fs.existsSync(targetPath)) continue;
+      const stat = fs.statSync(targetPath);
+      const cachedFile = getVideoCachePath(targetPath, stat);
+      if (!fs.existsSync(cachedFile) || fs.statSync(cachedFile).size === 0) {
+        pending.push({ title: lesson.title, targetPath, stat });
+      }
+    }
+  }
+  return pending;
+}
+
 function warmCourseVideoCache(course: CourseSummary) {
-  if (!course || warmingCourses.has(course.id)) return;
+  if (!course || !course.rootPath || warmingCourses.has(course.id)) return;
   warmingCourses.add(course.id);
 
   setTimeout(async () => {
     try {
-      const catalog = crawlCourseDirectory(course.rootPath);
-      for (const mod of catalog.modules) {
-        for (const lesson of mod.lessons) {
-          const ext = path.extname(lesson.relativePath).toLowerCase();
-          if (ext !== '.mp4' && ext !== '.webm' && VIDEO_EXTENSIONS.has(ext)) {
-            const targetPath = path.resolve(course.rootPath, lesson.relativePath);
-            if (fs.existsSync(targetPath)) {
-              const stat = fs.statSync(targetPath);
-              const cached = getVideoCachePath(targetPath, stat);
-              if (!fs.existsSync(cached) || fs.statSync(cached).size === 0) {
-                console.log(`[Cache Warming] Pre-transcoding: ${lesson.title} (${ext})`);
-                await ensureWebPlayableVideo(targetPath, stat).catch(e => console.warn(`Failed to pre-transcode ${lesson.title}:`, e.message));
-              }
-            }
-          }
-        }
+      // Only spin anything up when there is real work. Previously this crawled
+      // and scheduled on every catalog hit, cached or not.
+      const pending = pendingTranscodes(course);
+      if (pending.length === 0) return;
+
+      transcodeStatus.active = true;
+      transcodeStatus.courseName = course.name;
+      transcodeStatus.total = pending.length;
+      transcodeStatus.done = 0;
+
+      for (const item of pending) {
+        transcodeStatus.currentTitle = item.title;
+        console.log(`[Cache Warming] Pre-transcoding: ${item.title}`);
+        await ensureWebPlayableVideo(item.targetPath, item.stat)
+          .catch(e => console.warn(`Failed to pre-transcode ${item.title}:`, e.message));
+        transcodeStatus.done += 1;
       }
     } catch (e) {
     } finally {
+      transcodeStatus.active = false;
+      transcodeStatus.currentTitle = '';
       warmingCourses.delete(course.id);
     }
   }, 300);
 }
+
+// API: What the background transcoder is doing (drives the navbar indicator)
+app.get('/api/transcode/status', (req: Request, res: Response) => {
+  res.json(transcodeStatus);
+});
 
 // API: Get Catalog for a Course
 app.get('/api/catalog/:courseId', (req: Request, res: Response) => {
   const { courseId } = req.params;
   const force = req.query.force === 'true';
 
-  if (!force && catalogCache.has(courseId)) {
-    const cached = catalogCache.get(courseId);
-    res.json(cached);
-    const courses = discoverCourses();
-    const course = courses.find(c => c.id === courseId);
-    if (course) warmCourseVideoCache(course);
+  const courses = discoverCourses();
+  const course = courses.find(c => c.id === courseId);
+
+  // Serve from cache only while the course directory is untouched. Without this
+  // check a video dropped into the folder never showed up until a restart, since
+  // nothing in the client ever passed ?force=true.
+  const cachedEntry = catalogCache.get(courseId);
+  if (!force && cachedEntry && course && !hasCourseRootChanged(course, cachedEntry.rootMtimeMs)) {
+    res.json(cachedEntry.catalog);
+    warmCourseVideoCache(course);
     return;
   }
 
-  const courses = discoverCourses();
-  const course = courses.find(c => c.id === courseId);
   if (!course) {
     return res.status(404).json({ error: 'Course not found' });
   }
@@ -921,7 +999,7 @@ app.get('/api/catalog/:courseId', (req: Request, res: Response) => {
       totalVideos: (course.modules || []).reduce((acc, m) => acc + (m.lessons || []).length, 0),
       totalPdfs: (course.modules || []).reduce((acc, m) => acc + (m.supplementaryFiles || []).length, 0)
     };
-    catalogCache.set(courseId, virtualCatalog);
+    catalogCache.set(courseId, { catalog: virtualCatalog, rootMtimeMs: 0 });
     return res.json(virtualCatalog);
   }
 
@@ -933,7 +1011,7 @@ app.get('/api/catalog/:courseId', (req: Request, res: Response) => {
     ...catalog
   };
 
-  catalogCache.set(courseId, result);
+  catalogCache.set(courseId, { catalog: result, rootMtimeMs: courseRootMtimeMs(course) });
   res.json(result);
 
   // Trigger background cache warming
@@ -1197,7 +1275,10 @@ app.get('/api/slides/all', (req: Request, res: Response) => {
   for (const c of courses) {
     if (c.isVirtual || !c.rootPath) continue;
     try {
-      const catalog = crawlCourseDirectory(c.rootPath);
+      const cached = catalogCache.get(c.id);
+      const catalog = (cached && !hasCourseRootChanged(c, cached.rootMtimeMs))
+        ? cached.catalog
+        : crawlCourseDirectory(c.rootPath);
       for (const m of catalog.modules) {
         for (const f of m.supplementaryFiles) {
           const abs = path.resolve(c.rootPath, f.relativePath);
@@ -1502,7 +1583,9 @@ app.post('/api/progress', (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Failed to persist progress' });
   }
 
-  res.json({ success: true, data: inMemoryData });
+  // Deliberately not echoing inMemoryData: the client never reads it, and this
+  // endpoint fires every couple of seconds during playback.
+  res.json({ success: true });
 });
 
 // API: Isolated Multi-Language Compiler & Runner
@@ -1719,6 +1802,11 @@ if (fs.existsSync(distPath)) {
     }
   }));
   app.get('*', (req: Request, res: Response) => {
+    // Never answer an unknown API route with the SPA shell — that turns a typo
+    // into an opaque JSON parse failure on the client.
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: `Unknown API endpoint: ${req.path}` });
+    }
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.sendFile(path.join(distPath, 'index.html'));
   });

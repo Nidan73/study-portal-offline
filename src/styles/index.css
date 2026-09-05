@@ -1,3 +1,23 @@
+/* Self-hosted so the app genuinely works offline.
+   These are variable fonts: one file covers the whole weight range, which is
+   why there is no file per weight. Previously both families were fetched from
+   fonts.googleapis.com at runtime, so offline the app silently fell back to the
+   system sans — contradicting the README's "Zero External CDNs" claim. */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('/fonts/plus-jakarta-sans-var.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/geist-mono-var.woff2') format('woff2');
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
