@@ -359,7 +359,10 @@ export const SyllabusDrawer: React.FC = () => {
                 </div>
               ) : (
                 filteredModules.map((mod) => {
-                  const isExpanded = searchQuery.trim().length > 0 ? true : (expandedModules[mod.id] ?? false);
+                  // A documents-only course has nothing at the top level, so collapsed
+                  // by default renders a wall of folder names and no files.
+                  const isExpanded = searchQuery.trim().length > 0 ? true
+                    : (expandedModules[mod.id] ?? catalog.totalVideos === 0);
                   const completedInMod = mod.lessons.filter(l => completedSet.has(l.id)).length;
                   const isModAllCompleted = mod.lessons.length > 0 && completedInMod === mod.lessons.length;
 

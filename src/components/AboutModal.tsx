@@ -37,7 +37,9 @@ const SECTIONS: { icon: typeof Video; title: string; points: string[] }[] = [
     title: 'Read slides beside the video',
     points: [
       'PDF and PowerPoint decks open in-app, next to the lecture or under it',
-      'Slide decks are found automatically across every course you have added',
+      'Point it at a folder of slides and it becomes a course, with the folders as its curriculum',
+      'Browse hundreds of decks by folder, filter by type, sort and search — arrow keys and Enter to open',
+      'The quick switcher stays scoped to the course you are in, so it never mixes every subject together',
       'A dark filter turns blinding white slides readable for late-night study',
       'Or open the deck in PowerPoint, OnlyOffice or Impress with one click'
     ]
@@ -68,7 +70,9 @@ const SECTIONS: { icon: typeof Video; title: string; points: string[] }[] = [
     points: [
       'Scan a whole drive and it lists every folder that looks like course material',
       'Course folders are told apart from downloaded media, so lectures come first',
-      'Nothing is added until you tick it — it suggests, you decide'
+      'Nothing is added until you tick it — it suggests, you decide',
+      'Folders of slides and PDFs are found too, not just video',
+      'Stop the server from the bottom of the page — no terminal needed'
     ]
   },
   {

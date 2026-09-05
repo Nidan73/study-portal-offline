@@ -9,6 +9,7 @@ import {
   Plus, 
   Clock,
   FolderPlus,
+  FolderOpen,
   Globe,
   Layers,
   Sparkles,
@@ -29,6 +30,7 @@ export const BentoDashboard: React.FC = () => {
   const setActiveTab = useStore(state => state.setActiveTab);
   const userData = useStore(state => state.userData);
   const setAddCourseModal = useStore(state => state.setAddCourseModal);
+  const setAboutOpen = useStore(state => state.setAboutOpen);
   const pushToast = useStore(state => state.pushToast);
   const isCatalogLoading = useStore(state => state.isCatalogLoading);
 
@@ -268,7 +270,77 @@ export const BentoDashboard: React.FC = () => {
           </span>
         </div>
 
-        {isCatalogLoading && courses.length === 0 ? <SkeletonCards count={3} /> : (
+        {isCatalogLoading && courses.length === 0 ? <SkeletonCards count={3} /> :
+         courses.length === 0 ? (
+          /* First run. Without this the library is a header reading "0 courses
+             loaded" above a dashed square, which tells a new user nothing about
+             where their material is supposed to go. */
+          <div className="p-1.5 rounded-[2rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
+            <div className="p-8 sm:p-10 rounded-[calc(2rem-0.375rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06]">
+              <div className="max-w-xl">
+                <div className="w-10 h-10 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 flex items-center justify-center mb-4">
+                  <FolderOpen className="w-4 h-4" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
+                  Your library is empty
+                </h3>
+                <p className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 mt-2">
+                  Nothing is uploaded anywhere — this reads folders that are already on your
+                  disk. There are two ways to fill it:
+                </p>
+
+                <ol className="mt-5 space-y-4">
+                  <li className="flex gap-3.5">
+                    <span className="w-6 h-6 rounded-full bg-black/[0.04] dark:bg-white/[0.08] text-zinc-700 dark:text-zinc-300 text-[11px] font-mono font-bold flex items-center justify-center flex-shrink-0 mt-px">1</span>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-zinc-900 dark:text-white">
+                        Put a course folder next to this app
+                      </p>
+                      <p className="text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400 mt-0.5">
+                        Any folder holding a few videos or PDFs is picked up automatically and
+                        named after the folder. Sub-folders become modules, so
+                        <span className="font-mono text-[11px]"> Rust Course/Week 1</span> reads
+                        as a week of Rust Course. Refresh once it is in place.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex gap-3.5">
+                    <span className="w-6 h-6 rounded-full bg-black/[0.04] dark:bg-white/[0.08] text-zinc-700 dark:text-zinc-300 text-[11px] font-mono font-bold flex items-center justify-center flex-shrink-0 mt-px">2</span>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-zinc-900 dark:text-white">
+                        Or point the scanner at a drive
+                      </p>
+                      <p className="text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400 mt-0.5">
+                        It searches for folders that look like study material — lectures, slides
+                        or PDFs — and lists what each one holds. Nothing is added until you pick it.
+                      </p>
+                    </div>
+                  </li>
+                </ol>
+
+                <div className="flex flex-wrap items-center gap-3 mt-7">
+                  <button
+                    onClick={() => setAddCourseModal(true)}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[12px] font-bold hover:opacity-90 transition-opacity"
+                  >
+                    <Plus className="w-3.5 h-3.5" strokeWidth={2} />
+                    <span>Scan a folder</span>
+                  </button>
+                  <button
+                    onClick={() => setAboutOpen(true)}
+                    className="px-5 py-2.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.06] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-300 text-[12px] font-medium transition-colors"
+                  >
+                    What can I do here?
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-5">
+                  You can also study from YouTube right now without adding anything.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {courses.map((course) => {
             const isCurrent = course.id === activeCourseId;
@@ -374,7 +446,7 @@ export const BentoDashboard: React.FC = () => {
                 Scan Course Folder
               </h4>
               <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5 font-mono">
-                Index directory of video lessons
+                Index videos, slides or PDFs
               </p>
             </div>
           </div>

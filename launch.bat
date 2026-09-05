@@ -42,7 +42,15 @@ if not exist "data\study-hub-data.json" (
   )
 )
 
-if not exist "dist" (
+:: Rebuilding only when dist was missing meant a pulled update kept serving
+:: the old interface. Node is verified above, so use it to compare times.
+set NEEDS_BUILD=0
+if not exist "dist\index.html" set NEEDS_BUILD=1
+if "%NEEDS_BUILD%"=="0" (
+  for /f %%i in ('node -e "const fs=require('fs'),p=require('path');const d=fs.statSync('dist/index.html').mtimeMs;let s=0;const w=x=>{for(const e of fs.readdirSync(x,{withFileTypes:true})){const f=p.join(x,e.name);if(e.isDirectory())w(f);else if(fs.statSync(f).mtimeMs>d)s=1}};w('src');for(const f of ['server.ts','index.html','package.json'])if(fs.existsSync(f)&&fs.statSync(f).mtimeMs>d)s=1;console.log(s)"') do set NEEDS_BUILD=%%i
+)
+
+if "%NEEDS_BUILD%"=="1" (
   echo [*] Building the interface...
   call npm run build
   if errorlevel 1 (
@@ -54,7 +62,8 @@ if not exist "dist" (
 
 echo.
 echo [*] Starting on http://localhost:47285
-echo     Press Ctrl+C to stop.
+echo     To stop it: press Ctrl+C here, or click "Stop the server"
+echo     at the bottom of the page in your browser.
 echo ==================================================
 start "" "http://localhost:47285"
 call npx tsx server.ts

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
+import { DeckBrowser } from './DeckBrowser';
 import { SupplementaryFile } from '../types';
 import { PptxCanvasViewer } from './PptxCanvasViewer';
 import { 
@@ -15,6 +16,7 @@ import {
   Presentation,
   FolderOpen,
   FolderPlus,
+  LayoutGrid,
   Search,
   Loader2,
   Trash2
@@ -41,6 +43,8 @@ export const SplitPdfViewer: React.FC = () => {
 
   const [availableDecks, setAvailableDecks] = useState<SupplementaryFile[]>([]);
   const [isDeckDropdownOpen, setIsDeckDropdownOpen] = useState(false);
+  // Past a certain size a dropdown stops being a way to find anything.
+  const [isBrowserOpen, setIsBrowserOpen] = useState(false);
   // A flat list of every deck across every course is unusable once you have
   // more than a handful — filter, then group by where each deck came from.
   const [deckQuery, setDeckQuery] = useState('');
@@ -57,9 +61,19 @@ export const SplitPdfViewer: React.FC = () => {
 
   // Grouped by where the deck came from, with the course you are actually in
   // listed first — a flat list mixed every course's material together.
+  // The dropdown is the switcher for the course you are in, so it lists only
+  // that curriculum's material. Everything else is a click away in the browser
+  // — mixing 156 decks from every folder into a quick-switch menu is what made
+  // it unusable.
+  const courseDecks = React.useMemo(() => {
+    if (!activeCourseId) return availableDecks;
+    const mine = availableDecks.filter(d => d.courseId === activeCourseId);
+    return mine.length > 0 ? mine : availableDecks;
+  }, [availableDecks, activeCourseId]);
+
   const groupedDecks = React.useMemo(() => {
     const q = deckQuery.trim().toLowerCase();
-    const matches = availableDecks.filter(d =>
+    const matches = courseDecks.filter(d =>
       !q ||
       d.title.toLowerCase().includes(q) ||
       (d.courseName || '').toLowerCase().includes(q) ||
@@ -79,7 +93,7 @@ export const SplitPdfViewer: React.FC = () => {
       if (b === activeName) return 1;
       return a.localeCompare(b);
     });
-  }, [availableDecks, deckQuery, catalog?.name]);
+  }, [courseDecks, deckQuery, catalog?.name]);
   const [currentDeck, setCurrentDeck] = useState<SupplementaryFile | null>(null);
   const [localBlobUrl, setLocalBlobUrl] = useState<string | null>(null);
 
@@ -314,13 +328,22 @@ export const SplitPdfViewer: React.FC = () => {
                 />
                 <div className="absolute left-0 mt-2 w-80 sm:w-96 rounded-[1.5rem] bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-2xl border border-black/[0.08] dark:border-white/10 shadow-2xl p-2 z-50 animate-in fade-in">
                   <div className="px-2 pb-2 pt-1">
+                    {(availableDecks.length > courseDecks.length || availableDecks.length > 12) && (
+                      <button
+                        onClick={() => { setIsDeckDropdownOpen(false); setIsBrowserOpen(true); }}
+                        className="w-full flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[12px] font-bold hover:opacity-90 transition-opacity"
+                      >
+                        <LayoutGrid className="w-3.5 h-3.5" strokeWidth={2} />
+                        <span>Browse all {availableDecks.length} by folder</span>
+                      </button>
+                    )}
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
                       <input
                         id="deck-search-input"
                         value={deckQuery}
                         onChange={(e) => setDeckQuery(e.target.value)}
-                        placeholder={`Search ${availableDecks.length} slides and PDFs...`}
+                        placeholder={`Search ${courseDecks.length} in this course...`}
                         className="w-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.06] dark:border-white/10 rounded-lg pl-8 pr-2.5 py-1.5 text-[11.5px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                       />
                     </div>
@@ -671,6 +694,20 @@ export const SplitPdfViewer: React.FC = () => {
           )}
         </div>
       </div>
+
+      {isBrowserOpen && (
+        <DeckBrowser
+          decks={availableDecks}
+          currentDeckId={currentDeck?.id}
+          onSelect={(deck) => {
+            setCurrentDeck(deck);
+            setLocalBlobUrl(null);
+            selectPdf(deck);
+            setIsBrowserOpen(false);
+          }}
+          onClose={() => setIsBrowserOpen(false)}
+        />
+      )}
     </div>
   );
 };

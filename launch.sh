@@ -3,6 +3,24 @@ set -euo pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
+SELF="$DIR/$(basename "${BASH_SOURCE[0]}")"
+
+# Double-clicking a .sh in a file manager runs it with no terminal attached, so
+# there is nothing to see and nothing to press Ctrl+C in — the server ends up
+# running invisibly. Re-launch inside a real terminal window when that happens.
+if [ ! -t 1 ] && [ -z "${STUDYHUB_IN_TERMINAL:-}" ] && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+  INNER="STUDYHUB_IN_TERMINAL=1 \"$SELF\"; echo; echo \"Study Hub has stopped. You can close this window.\"; exec bash"
+  for TERM_APP in x-terminal-emulator gnome-terminal ptyxis tilix konsole xfce4-terminal alacritty kitty foot xterm; do
+    command -v "$TERM_APP" >/dev/null 2>&1 || continue
+    case "$TERM_APP" in
+      gnome-terminal|ptyxis|tilix)
+        exec "$TERM_APP" -- bash -c "$INNER" ;;
+      konsole|xfce4-terminal|alacritty|kitty|foot|xterm|x-terminal-emulator)
+        exec "$TERM_APP" -e bash -c "$INNER" ;;
+    esac
+  done
+  # No terminal emulator found: carry on headless rather than doing nothing.
+fi
 
 echo "=================================================="
 echo "      🎓 Starting Universal Study Hub             "
@@ -45,7 +63,18 @@ if [ ! -f "data/study-hub-data.json" ]; then
 fi
 
 # --- Build --------------------------------------------------------------
-if [ ! -d "dist" ]; then
+# Rebuilding only when dist is missing meant that after a `git pull` the old
+# interface kept being served, with no sign anything was stale.
+NEEDS_BUILD=0
+if [ ! -f "dist/index.html" ]; then
+  NEEDS_BUILD=1
+elif [ -n "$(find src server.ts index.html package.json vite.config.* tailwind.config.* \
+             -newer dist/index.html 2>/dev/null | head -1)" ]; then
+  echo "🔄 Source files changed since the last build."
+  NEEDS_BUILD=1
+fi
+
+if [ "$NEEDS_BUILD" = "1" ]; then
   echo "🔨 Building the interface..."
   npm run build
 fi
@@ -79,7 +108,8 @@ open_when_ready() {
 
 open_when_ready &
 
-echo "Press Ctrl+C to stop the server."
+echo "To stop it: press Ctrl+C here, or click \"Stop the server\" at the"
+echo "bottom of the page in your browser."
 echo "=================================================="
 
 npx tsx server.ts 2>&1 | tee "$LOG"

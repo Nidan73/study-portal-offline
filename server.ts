@@ -455,6 +455,8 @@ function cleanTitle(filename: string): string {
   return filename
     .replace(/\.(mp4|mkv|webm|mov|m4v|avi|ts|m2ts|flv|wmv|vob|ogv|3gp|f4v|asf|pdf)$/i, '')
     .replace(/^Week\s*[-_]?\s*/i, 'Week ')
+    .replace(/_+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -613,6 +615,9 @@ function courseIdFor(relPath: string): string {
 /** "AI_and_ML Bootcamp" -> "AI and ML Bootcamp" */
 function prettyCourseName(folderName: string): string {
   return folderName
+    // People number folders to order them ("01_Academics"); the number is for
+    // the file manager, not a name.
+    .replace(/^\d{1,2}[\s._-]+(?=\D)/, '')
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -719,6 +724,36 @@ function discoverCourses(): CourseSummary[] {
   }
 
   discovered.sort((a, b) => a.name.localeCompare(b.name));
+
+  // A registered slide folder is study material the user explicitly pointed at,
+  // so it belongs in the library with a curriculum of its own. It used to live
+  // only in the slide switcher: adding a folder of 130 PDFs put them in a
+  // dropdown and nowhere else — no course, no curriculum, no structure.
+  for (const dir of inMemoryData.slideFolders || []) {
+    const resolved = path.resolve(dir);
+    if (!fs.existsSync(resolved)) continue;
+    // Skip anything a scan already turned into a course, or that sits inside one.
+    if (discovered.some(d => d.rootPath &&
+        (path.resolve(d.rootPath) === resolved || isInside(d.rootPath, resolved)))) continue;
+
+    const { videos, docs } = looksLikeCourse(resolved);
+    if (videos === 0 && docs === 0) continue;
+
+    const base = path.basename(resolved) || resolved;
+    const id = courseIdFor(base);
+    if (discovered.some(d => d.id === id)) continue;
+
+    discovered.push({
+      id,
+      name: prettyCourseName(base),
+      rootPath: resolved,
+      badge: videos > 0 ? 'Local Course' : 'Reading Material',
+      gradient: COURSE_GRADIENTS[discovered.length % COURSE_GRADIENTS.length],
+      description: videos > 0
+        ? `${videos} video${videos === 1 ? '' : 's'} and ${docs} document${docs === 1 ? '' : 's'} in a folder you added.`
+        : `${docs} document${docs === 1 ? '' : 's'} in a folder you added.`
+    });
+  }
 
   // Anything the user added explicitly, including virtual YouTube courses.
   if (Array.isArray(inMemoryData.customCourses)) {
@@ -2753,6 +2788,17 @@ app.get('/favicon.ico', (req: Request, res: Response) => {
 });
 
 // Serve production build if exists with strict no-cache on index.html
+// Someone who launched this by double-clicking has no terminal to press Ctrl+C
+// in, so the app needs a way to stop its own server.
+app.post('/api/shutdown', (_req: Request, res: Response) => {
+  res.json({ success: true });
+  console.log('[Study Hub Backend] Stop requested from the app. Flushing and exiting...');
+  setTimeout(() => {
+    try { flushProgressNow(); } catch (e) {}
+    process.exit(0);
+  }, 150);
+});
+
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath, {

@@ -66,6 +66,20 @@ courses, folders of slides and PDFs become slide libraries, and each candidate
 is labelled so you can see which is which before adding it. Nested folders are
 collapsed to the outermost, since adding a parent indexes everything under it.
 
+### Folders of slides and PDFs
+
+A folder of study material with no video in it is a course too. Register one and
+it joins the library with a curriculum built from its sub-folders, so 139 files
+read as nineteen named sections rather than one flat list. The quick switcher
+beside the viewer stays scoped to the course you are in; **Browse all** opens the
+whole library with a folder tree, type filters, sort and search.
+
+### Stopping it
+
+Click **Stop the server** at the bottom of the page, or press Ctrl+C in the
+terminal the launcher opened. Double-clicking `launch.sh` opens a terminal
+window of its own, so there is always something visible to close.
+
 ### Pointing it at your courses
 By default it looks for course folders **beside** the project directory. If your
 library lives elsewhere:

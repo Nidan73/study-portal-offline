@@ -286,6 +286,67 @@ try {
     }
   }
 
+  // ------------------------------------------------ slide folders as courses
+  section('A folder of slides is a course');
+  {
+    // Registering a folder of PDFs used to put them in the slide dropdown and
+    // nowhere else — no card in the library, no curriculum, no structure.
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const pathMod = (await import('path')).default;
+
+    const lib = mkdtempSync(pathMod.join(tmpdir(), 'studyhub-empty-'));
+    const decks = mkdtempSync(pathMod.join(tmpdir(), 'Seminar Slides-'));
+    mkdirSync(pathMod.join(decks, 'Week 1'), { recursive: true });
+    mkdirSync(pathMod.join(decks, 'Week 2'), { recursive: true });
+    writeFileSync(pathMod.join(decks, 'Week 1', 'intro.pdf'), '%PDF-1.4\n');
+    writeFileSync(pathMod.join(decks, 'Week 1', 'theory.pdf'), '%PDF-1.4\n');
+    writeFileSync(pathMod.join(decks, 'Week 2', 'applied.pdf'), '%PDF-1.4\n');
+
+    const fresh = await startServer({ coursesRoot: lib });
+    try {
+      const before = await get(fresh.base, '/api/courses');
+      check('an empty library starts with no courses',
+        (before.body?.courses || []).length === 0);
+
+      await post(fresh.base, '/api/slides/folders', { folderPath: decks });
+
+      const after = await get(fresh.base, '/api/courses');
+      const course = (after.body?.courses || [])[0];
+      check('registering a slide folder adds it to the library',
+        !!course, (after.body?.courses || []).length + ' courses');
+      check('it is badged as reading material',
+        course?.badge === 'Reading Material', course?.badge);
+
+      const cat = await get(fresh.base, `/api/catalog/${course?.id}`);
+      check('it has a curriculum even with no video in it',
+        (cat.body?.modules || []).length === 2, `${(cat.body?.modules || []).length} modules`);
+      check('the curriculum groups the files by their folders',
+        (cat.body?.modules || []).map(m => m.title).sort().join(',') === 'Week 1,Week 2',
+        (cat.body?.modules || []).map(m => m.title).join(','));
+      check('every document is listed under a module',
+        cat.body?.totalPdfs === 3, String(cat.body?.totalPdfs));
+    } finally {
+      fresh.stop();
+    }
+  }
+
+  // ------------------------------------------------------------- stop control
+  section('Stopping the server from the app');
+  {
+    // Someone who launched by double-clicking has no terminal to Ctrl+C in.
+    const fresh = await startServer();
+    const { status } = await post(fresh.base, '/api/shutdown', {});
+    check('the shutdown endpoint accepts the request', status === 200, String(status));
+    await new Promise(r => setTimeout(r, 1500));
+    let stillUp = true;
+    try {
+      await fetch(`${fresh.base}/api/courses`, { signal: AbortSignal.timeout(1500) });
+    } catch (e) { stillUp = false; }
+    check('the server actually exits', !stillUp);
+    fresh.stop();
+  }
+
   // --------------------------------------------------------------- durability
   section('Durability');
   {
