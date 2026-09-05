@@ -32,14 +32,14 @@ const LessonStrip: React.FC<{
     <div className="p-4 rounded-[calc(1rem-0.25rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
       <div className="min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] px-2 py-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] px-2 py-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-400">
             Now Playing
           </span>
         </div>
         <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate tracking-tight">
           {lesson.title}
         </h2>
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
+        <p className="text-[11px] text-zinc-600 dark:text-zinc-400 font-mono mt-0.5 truncate">
           {lesson.relativePath}
         </p>
       </div>
@@ -53,12 +53,12 @@ const LessonStrip: React.FC<{
         >
           {isSidebarOpen ? (
             <>
-              <Maximize2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />
+              <Maximize2 className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" strokeWidth={1.5} />
               <span>Expand</span>
             </>
           ) : (
             <>
-              <PanelRightOpen className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />
+              <PanelRightOpen className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" strokeWidth={1.5} />
               <span>Show Panel</span>
             </>
           )}
@@ -172,7 +172,7 @@ export const App: React.FC = () => {
           <Layers className="w-5 h-5" strokeWidth={1.5} />
         </div>
         <h2 className="text-[15px] font-bold text-zinc-900 dark:text-white tracking-tight">Initializing StudyHub Core</h2>
-        <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 mt-1">Indexing local storage & course databases</p>
+        <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 mt-1">Indexing local storage & course databases</p>
       </div>
     );
   }

@@ -115,7 +115,7 @@ export const Navbar: React.FC = () => {
               <span className="font-bold text-[13px] tracking-tight text-zinc-900 dark:text-white leading-tight">
                 StudyHub
               </span>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400 leading-none">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 dark:text-zinc-400 leading-none">
                 Offline Core
               </span>
             </div>
@@ -131,7 +131,7 @@ export const Navbar: React.FC = () => {
             >
               <span className="truncate">{activeCourse ? activeCourse.name : 'Select Course'}</span>
               <ChevronDown 
-                className={`w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 transition-transform duration-300 ease-fluid flex-shrink-0 ${isCourseDropdownOpen ? 'rotate-180' : ''}`} 
+                className={`w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 transition-transform duration-300 ease-fluid flex-shrink-0 ${isCourseDropdownOpen ? 'rotate-180' : ''}`} 
                 strokeWidth={1.5}
               />
             </button>
@@ -143,7 +143,7 @@ export const Navbar: React.FC = () => {
                   onClick={() => setIsCourseDropdownOpen(false)} 
                 />
                 <div className="absolute left-0 mt-2 w-80 rounded-[1.5rem] bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.6)] p-2 z-50 animate-in fade-in duration-200">
-                  <div className="px-3 py-1.5 text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                  <div className="px-3 py-1.5 text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-400">
                     Courses ({courses.length})
                   </div>
                   <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
@@ -164,7 +164,7 @@ export const Navbar: React.FC = () => {
                         >
                           <div className="truncate pr-2">
                             <div className="truncate font-semibold">{course.name}</div>
-                            <div className={`text-[10px] font-mono truncate mt-0.5 ${isCurrent ? 'text-white/70 dark:text-zinc-950/70' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                            <div className={`text-[10px] font-mono truncate mt-0.5 ${isCurrent ? 'text-white/70 dark:text-zinc-950/70' : 'text-zinc-600 dark:text-zinc-400'}`}>
                               {course.badge || 'Local Repository'}
                             </div>
                           </div>
@@ -217,7 +217,7 @@ export const Navbar: React.FC = () => {
                 className={`flex items-center justify-center gap-1.5 px-3 py-1 min-h-[44px] lg:min-h-0 min-w-[44px] lg:min-w-0 lg:py-1 rounded-full text-[12px] font-medium whitespace-nowrap flex-shrink-0 transition-all duration-200 ease-fluid ${
                   active
                     ? (activeClass || 'bg-white dark:bg-zinc-100 text-zinc-900 dark:text-zinc-900 shadow-sm')
-                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                 }`}
                 title={label}
               >
@@ -240,7 +240,7 @@ export const Navbar: React.FC = () => {
               <span>YouTube Live</span>
             </div>
           ) : (
-            <div className="hidden lg:flex items-center gap-2 text-[11px] font-mono text-zinc-500 dark:text-zinc-400 px-2.5 py-1 rounded-full bg-black/[0.02] dark:bg-white/[0.03]">
+            <div className="hidden lg:flex items-center gap-2 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 px-2.5 py-1 rounded-full bg-black/[0.02] dark:bg-white/[0.03]">
               <span>{completedCount}/{totalCount}</span>
               <div className="w-12 h-1 bg-black/[0.08] dark:bg-white/10 rounded-full overflow-hidden">
                 <div 
@@ -287,11 +287,11 @@ export const Navbar: React.FC = () => {
           {/* Search Trigger (Ctrl+K) */}
           <button
             onClick={() => setCommandPalette(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all duration-200 text-[11px]"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all duration-200 text-[11px]"
             title="Search (Ctrl+K)"
           >
             <Search className="w-3.5 h-3.5" strokeWidth={1.5} />
-            <kbd className="hidden md:inline-block font-mono text-[9px] px-1 py-0.5 rounded bg-black/[0.04] dark:bg-white/10 text-zinc-500 dark:text-zinc-400">
+            <kbd className="hidden md:inline-block font-mono text-[9px] px-1 py-0.5 rounded bg-black/[0.04] dark:bg-white/10 text-zinc-600 dark:text-zinc-400">
               ⌘K
             </kbd>
           </button>
@@ -300,7 +300,7 @@ export const Navbar: React.FC = () => {
           <button
             id="navbar-notepad-btn"
             onClick={() => setScratchpadOpen(true)}
-            className="w-8 h-8 rounded-full hidden sm:flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
+            className="w-8 h-8 rounded-full hidden sm:flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
             title="Notepad (Ctrl+Shift+N) — quick notes, no lecture needed"
             aria-label="Open notepad"
           >
@@ -311,7 +311,7 @@ export const Navbar: React.FC = () => {
           <button
             id="navbar-shortcuts-btn"
             onClick={() => setShortcutHelpOpen(true)}
-            className="w-8 h-8 rounded-full hidden xl:flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
+            className="w-8 h-8 rounded-full hidden xl:flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
             title="Keyboard Shortcuts (?)"
             aria-label="Keyboard Shortcuts"
           >
@@ -321,7 +321,7 @@ export const Navbar: React.FC = () => {
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
-            className="w-8 h-8 rounded-full hidden xl:flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
+            className="w-8 h-8 rounded-full hidden xl:flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
             title="Toggle Fullscreen"
           >
             <Maximize2 className="w-3.5 h-3.5" strokeWidth={1.5} />

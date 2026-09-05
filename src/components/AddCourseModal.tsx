@@ -167,12 +167,12 @@ export const AddCourseModal: React.FC = () => {
               </div>
               <div className="min-w-0">
                 <h3 className="text-[14px] font-bold tracking-tight text-zinc-900 dark:text-white">Add Courses</h3>
-                <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 truncate">Scan a drive, or point at one folder</p>
+                <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 truncate">Scan a drive, or point at one folder</p>
               </div>
             </div>
             <button
               onClick={() => setAddCourseModal(false)}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/10 transition-colors flex-shrink-0"
+              className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/10 transition-colors flex-shrink-0"
               aria-label="Close"
             >
               <X className="w-4 h-4" strokeWidth={1.5} />
@@ -190,7 +190,7 @@ export const AddCourseModal: React.FC = () => {
                   className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all duration-200 ease-fluid ${
                     mode === id
                       ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-sm'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -258,7 +258,7 @@ export const AddCourseModal: React.FC = () => {
 
               <div className="flex-1 overflow-y-auto px-5 py-4 min-h-[180px]" role="region" aria-live="polite" aria-busy={isScanning} aria-label="Scan results">
                 {isScanning && (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-10 text-zinc-500 dark:text-zinc-400">
+                  <div className="h-full flex flex-col items-center justify-center text-center py-10 text-zinc-600 dark:text-zinc-400">
                     <Loader2 className="w-5 h-5 animate-spin mb-3" strokeWidth={1.5} />
                     <p className="text-[13px]">Looking for folders of lessons…</p>
                     <p className="text-[11px] font-mono mt-1 truncate max-w-full">{scanPath}</p>
@@ -266,7 +266,7 @@ export const AddCourseModal: React.FC = () => {
                 )}
 
                 {!isScanning && candidates === null && (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-10 text-zinc-500 dark:text-zinc-400">
+                  <div className="h-full flex flex-col items-center justify-center text-center py-10 text-zinc-600 dark:text-zinc-400">
                     <Radar className="w-5 h-5 mb-3" strokeWidth={1.5} />
                     <p className="text-[13px]">Pick a drive above, or type a folder, then hit Scan.</p>
                     <p className="text-[11px] font-mono mt-1">Nothing is added until you choose it.</p>
@@ -274,7 +274,7 @@ export const AddCourseModal: React.FC = () => {
                 )}
 
                 {!isScanning && candidates?.length === 0 && (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-10 text-zinc-500 dark:text-zinc-400">
+                  <div className="h-full flex flex-col items-center justify-center text-center py-10 text-zinc-600 dark:text-zinc-400">
                     <p className="text-[13px]">No folders with 3 or more videos found here.</p>
                     <p className="text-[11px] font-mono mt-1">Try a different drive, or add the path manually.</p>
                   </div>
@@ -283,7 +283,7 @@ export const AddCourseModal: React.FC = () => {
                 {!isScanning && candidates && candidates.length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-zinc-500">
+                      <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-zinc-600 dark:text-zinc-400">
                         {candidates.length} found{scanMeta ? ` in ${scanMeta.elapsedMs}ms` : ''}
                       </span>
                       {selectable.length > 0 && (
@@ -331,7 +331,7 @@ export const AddCourseModal: React.FC = () => {
                                   Course
                                 </span>
                               ) : (
-                                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400 flex-shrink-0">
+                                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-400 flex-shrink-0">
                                   Media?
                                 </span>
                               )}
@@ -341,12 +341,12 @@ export const AddCourseModal: React.FC = () => {
                                 </span>
                               )}
                             </span>
-                            <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate mt-0.5">{c.path}</span>
-                            <span className="flex items-center gap-3 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 mt-1">
+                            <span className="block text-[10px] font-mono text-zinc-600 dark:text-zinc-400 truncate mt-0.5">{c.path}</span>
+                            <span className="flex items-center gap-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-400 mt-1">
                               <span className="flex items-center gap-1"><Film className="w-3 h-3" strokeWidth={1.5} />{c.videoCount}</span>
                               {c.docCount > 0 && <span className="flex items-center gap-1"><FileText className="w-3 h-3" strokeWidth={1.5} />{c.docCount}</span>}
                               <span>{formatSize(c.totalBytes)}</span>
-                              <span className="text-zinc-500 dark:text-zinc-400 truncate">{c.reason}</span>
+                              <span className="text-zinc-600 dark:text-zinc-400 truncate">{c.reason}</span>
                             </span>
                           </span>
                         </button>
@@ -363,7 +363,7 @@ export const AddCourseModal: React.FC = () => {
               </div>
 
               <div className="p-5 border-t border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between gap-3 flex-shrink-0 bg-black/[0.01] dark:bg-white/[0.02]">
-                <span className="text-[11px] font-mono text-zinc-500">
+                <span className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
                   {selected.size > 0 ? `${selected.size} selected` : 'Nothing selected'}
                 </span>
                 <div className="flex items-center gap-2.5">
@@ -406,7 +406,7 @@ export const AddCourseModal: React.FC = () => {
                   required
                   className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/10 rounded-xl px-3.5 py-2.5 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 font-mono transition-colors"
                 />
-                <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 mt-1 block">
+                <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 mt-1 block">
                   Provide the full path on your local drive.
                 </span>
               </div>

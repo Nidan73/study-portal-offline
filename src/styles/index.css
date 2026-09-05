@@ -147,3 +147,31 @@ body {
     mask-image: none;
   }
 }
+
+/* CodeMirror One Dark ships gutter line numbers at 3.61:1 and its dimmest
+   syntax token at 4.38:1 — both under WCAG AA for body-size text. Override just
+   those two rather than replacing the whole syntax theme, which would lose the
+   highlighting the editor is there for. */
+html.dark .cm-editor .cm-gutters {
+  color: #9aa4b8;
+}
+html.dark .cm-editor .cm-foldGutter span {
+  color: #9aa4b8;
+}
+html.dark .cm-editor .cm-lineNumbers .cm-gutterElement {
+  color: #9aa4b8;
+}
+html.dark .cm-editor .cm-activeLineGutter {
+  color: #e6ebf5;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+/* Identifier/variable token — One Dark's #e06c75 on #282c34 measures 4.38. */
+html.dark .cm-editor .ͼq {
+  color: #f2929b;
+}
+/* Comment token — One Dark's #7d8799 measures 3.86:1, under AA. Comments carry
+   the "press Ctrl+Enter to run" hint in every template, so they must be
+   readable. The class is One Dark's own generated name, confirmed at runtime. */
+html.dark .cm-editor .cm-content .ͼw {
+  color: #a1adc4;
+}

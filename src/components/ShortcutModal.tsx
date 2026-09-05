@@ -66,7 +66,7 @@ export const ShortcutModal: React.FC = () => {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 select-none animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 select-none animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity"
@@ -86,7 +86,7 @@ export const ShortcutModal: React.FC = () => {
                 <h3 className="text-base font-bold text-zinc-900 dark:text-white tracking-tight">
                   Keyboard Shortcut Cheat Sheet
                 </h3>
-                <p className="text-[12px] text-zinc-500 dark:text-zinc-400">
+                <p className="text-[12px] text-zinc-600 dark:text-zinc-400">
                   Precision hotkeys for video playback, coding sandbox, and workstation flow.
                 </p>
               </div>
@@ -94,7 +94,7 @@ export const ShortcutModal: React.FC = () => {
 
             <button
               onClick={() => setShortcutHelpOpen(false)}
-              className="p-1.5 rounded-full text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/[0.08] transition-colors"
+              className="p-1.5 rounded-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/[0.08] transition-colors"
             >
               <X className="w-4 h-4" strokeWidth={1.5} />
             </button>
@@ -108,7 +108,7 @@ export const ShortcutModal: React.FC = () => {
                 <div key={section.title} className={idx > 0 ? 'pt-5' : ''}>
                   <div className="flex items-center gap-2 mb-3">
                     <Icon className="w-4 h-4 text-indigo-500" strokeWidth={1.5} />
-                    <h4 className="text-[11px] font-mono uppercase tracking-[0.18em] font-semibold text-zinc-500 dark:text-zinc-400">
+                    <h4 className="text-[11px] font-mono uppercase tracking-[0.18em] font-semibold text-zinc-600 dark:text-zinc-400">
                       {section.title}
                     </h4>
                   </div>
@@ -125,7 +125,7 @@ export const ShortcutModal: React.FC = () => {
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {sc.keys.map((k, ki) => (
                             k === 'or' ? (
-                              <span key={ki} className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono px-0.5">/</span>
+                              <span key={ki} className="text-[10px] text-zinc-600 dark:text-zinc-400 font-mono px-0.5">/</span>
                             ) : (
                               <kbd
                                 key={ki}
@@ -145,7 +145,7 @@ export const ShortcutModal: React.FC = () => {
           </div>
 
           {/* Footer */}
-          <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+          <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between text-[11px] text-zinc-600 dark:text-zinc-400">
             <span>Press <kbd className="px-1.5 py-0.5 rounded bg-black/[0.05] dark:bg-white/10 font-mono text-[10px] text-zinc-600 dark:text-zinc-300 border border-black/[0.05] dark:border-white/10">?</kbd> anywhere to open or close</span>
             <span>StudyHub Core</span>
           </div>

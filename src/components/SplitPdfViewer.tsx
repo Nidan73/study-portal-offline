@@ -197,7 +197,7 @@ export const SplitPdfViewer: React.FC = () => {
               <span className="truncate min-w-0" title={currentDeck ? currentDeck.title : undefined}>
                 {currentDeck ? currentDeck.title : 'Select Slide Deck...'}
               </span>
-              <ChevronDown className="w-3 h-3 text-zinc-500 dark:text-zinc-400 shrink-0 ml-auto" />
+              <ChevronDown className="w-3 h-3 text-zinc-600 dark:text-zinc-400 shrink-0 ml-auto" />
             </button>
 
             {/* Dropdown Menu */}
@@ -208,7 +208,7 @@ export const SplitPdfViewer: React.FC = () => {
                   onClick={() => setIsDeckDropdownOpen(false)} 
                 />
                 <div className="absolute left-0 mt-2 w-80 sm:w-96 rounded-[1.5rem] bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-2xl border border-black/[0.08] dark:border-white/10 shadow-2xl p-2 z-50 animate-in fade-in">
-                  <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                  <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
                     <span>Available Presentations ({availableDecks.length})</span>
                     <span>PDF & PPTX</span>
                   </div>
@@ -322,7 +322,7 @@ export const SplitPdfViewer: React.FC = () => {
                 href={pdfUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] transition-colors"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] transition-colors"
                 title="Open in new window"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -333,7 +333,7 @@ export const SplitPdfViewer: React.FC = () => {
             <button
               id="close-slide-view-btn"
               onClick={handleClose}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-400 bg-black/[0.03] hover:bg-red-500/10 dark:bg-white/[0.05] dark:hover:bg-red-500/20 border border-black/[0.05] dark:border-white/[0.08] transition-colors"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-400 bg-black/[0.03] hover:bg-red-500/10 dark:bg-white/[0.05] dark:hover:bg-red-500/20 border border-black/[0.05] dark:border-white/[0.08] transition-colors"
               title="Close Slides"
             >
               <X className="w-4 h-4" />
@@ -385,7 +385,7 @@ export const SplitPdfViewer: React.FC = () => {
                 <h3 className="text-base font-bold text-zinc-900 dark:text-white tracking-tight mt-2">
                   Presentation & Slide Decks
                 </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
                   No slide deck is automatically attached to this lecture. Choose any course presentation below or drop a file from your PC to study side-by-side.
                 </p>
 
@@ -405,7 +405,7 @@ export const SplitPdfViewer: React.FC = () => {
               {/* Available Decks Grid */}
               {availableDecks.length > 0 && (
                 <div className="space-y-2.5 pt-3 border-t border-black/[0.06] dark:border-white/[0.08]">
-                  <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 px-1">
+                  <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 px-1">
                     <span>Discovered Materials ({availableDecks.length})</span>
                     <span>Ready to Study</span>
                   </div>
@@ -441,7 +441,7 @@ export const SplitPdfViewer: React.FC = () => {
                               <h4 className="text-xs font-semibold text-zinc-900 dark:text-white truncate group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors">
                                 {deck.title}
                               </h4>
-                              <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
+                              <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 truncate">
                                 {deck.courseName || deck.type.toUpperCase()} • {sizeKb} KB
                               </p>
                             </div>

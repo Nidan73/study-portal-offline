@@ -88,7 +88,7 @@ export const Scratchpad: React.FC = () => {
               </div>
               <div className="min-w-0">
                 <h3 className="text-[14px] font-bold tracking-tight text-zinc-900 dark:text-white">Notepad</h3>
-                <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
+                <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 truncate">
                   Not tied to any lecture — always available
                 </p>
               </div>
@@ -107,7 +107,7 @@ export const Scratchpad: React.FC = () => {
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Close notepad"
-                className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-700 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/10 transition-colors"
+                className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/10 transition-colors"
               >
                 <X className="w-4 h-4" strokeWidth={1.5} />
               </button>
@@ -125,7 +125,7 @@ export const Scratchpad: React.FC = () => {
               className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/10 rounded-2xl p-3 text-[13px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 resize-none transition-colors"
             />
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+              <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400">
                 {editingId ? 'Editing an existing note' : savedFlash ? 'Saved' : `${notes.length} note${notes.length === 1 ? '' : 's'}`}
               </span>
               <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ export const Scratchpad: React.FC = () => {
           {notes.length > 2 && (
             <div className="px-4 pt-3 flex-shrink-0">
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
+                <Search className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
                 <input
                   value={query}
                   onChange={e => setQuery(e.target.value)}
@@ -168,12 +168,12 @@ export const Scratchpad: React.FC = () => {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-[120px]" role="region" aria-live="polite" aria-label="Saved notepad entries">
             {notes.length === 0 ? (
-              <div className="text-center py-10 text-zinc-500 dark:text-zinc-400 text-[13px]">
+              <div className="text-center py-10 text-zinc-600 dark:text-zinc-400 text-[13px]">
                 <p>Nothing here yet.</p>
                 <p className="text-[11px] font-mono mt-1">Open this from anywhere with Ctrl+Shift+N.</p>
               </div>
             ) : visible.length === 0 ? (
-              <div className="text-center py-10 text-zinc-500 dark:text-zinc-400 text-[13px]">
+              <div className="text-center py-10 text-zinc-600 dark:text-zinc-400 text-[13px]">
                 <p>No notes match &ldquo;{query}&rdquo;.</p>
               </div>
             ) : (
@@ -189,7 +189,7 @@ export const Scratchpad: React.FC = () => {
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         onClick={() => { setEditingId(n.id); setDraft(n.content); textareaRef.current?.focus(); }}
-                        className="px-2 py-1 rounded-lg text-[10px] font-mono text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors"
+                        className="px-2 py-1 rounded-lg text-[10px] font-mono text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors"
                         title="Edit this note"
                       >
                         Edit
@@ -197,14 +197,14 @@ export const Scratchpad: React.FC = () => {
                       <button
                         onClick={() => removeNote(n.id)}
                         aria-label="Delete this note"
-                        className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                        className="p-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
                         title="Delete this note"
                       >
                         <Trash2 className="w-3 h-3" strokeWidth={1.5} />
                       </button>
                     </div>
                   </div>
-                  <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400 mt-1.5">
+                  <span className="block text-[10px] font-mono text-zinc-600 dark:text-zinc-400 mt-1.5">
                     {new Date(n.updatedAt).toLocaleString()}
                   </span>
                 </div>

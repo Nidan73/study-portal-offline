@@ -62,7 +62,7 @@ export const RightSidePanel: React.FC = () => {
                 className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-200 ease-fluid ${
                   isActive
                     ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-xs'
-                    : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={1.5} />
@@ -80,7 +80,7 @@ export const RightSidePanel: React.FC = () => {
             <button
               onClick={() => setSplitRatio(70)}
               className={`px-2 py-0.5 rounded-full transition-colors ${
-                splitRatio >= 68 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold shadow-xs' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                splitRatio >= 68 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
               }`}
               title="70% Video / 30% Side Panel (Default)"
             >
@@ -89,7 +89,7 @@ export const RightSidePanel: React.FC = () => {
             <button
               onClick={() => setSplitRatio(60)}
               className={`hidden min-[1800px]:block px-2 py-0.5 rounded-full transition-colors ${
-                splitRatio >= 55 && splitRatio < 68 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold shadow-xs' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                splitRatio >= 55 && splitRatio < 68 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
               }`}
               title="60% Video / 40% Side Panel"
             >
@@ -99,7 +99,7 @@ export const RightSidePanel: React.FC = () => {
               id="split-width-toggle-btn"
               onClick={toggleSplitWidth}
               className={`px-2 py-0.5 rounded-full transition-colors ${
-                splitRatio <= 52 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold shadow-xs' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                splitRatio <= 52 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
               }`}
               title={splitRatio <= 52 ? 'Switch to Default (70/30)' : 'Switch to Balanced (50/50)'}
             >
@@ -114,7 +114,7 @@ export const RightSidePanel: React.FC = () => {
             className={`hidden xl:block p-1.5 rounded-full border transition-colors ${
               splitLayout === 'bottom'
                 ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30'
-                : 'bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white border-black/[0.04] dark:border-white/[0.07]'
+                : 'bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white border-black/[0.04] dark:border-white/[0.07]'
             }`}
             title={splitLayout === 'side' ? 'Dock Underneath Video' : 'Dock Side-by-Side'}
           >
@@ -123,7 +123,7 @@ export const RightSidePanel: React.FC = () => {
 
           <button
             onClick={toggleSidebar}
-            className="hidden xl:block p-1.5 rounded-full text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 border border-black/[0.04] dark:border-white/[0.07] transition-colors"
+            className="hidden xl:block p-1.5 rounded-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 border border-black/[0.04] dark:border-white/[0.07] transition-colors"
             title="Collapse Side Panel"
           >
             <PanelRightClose className="w-3.5 h-3.5" strokeWidth={1.5} />

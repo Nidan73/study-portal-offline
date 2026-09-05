@@ -56,7 +56,7 @@ export const Toaster: React.FC = () => {
               <button
                 onClick={() => dismissToast(t.id)}
                 aria-label="Dismiss notification"
-                className="w-7 h-7 -mr-1 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                className="w-7 h-7 -mr-1 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
               >
                 <X className="w-3.5 h-3.5" strokeWidth={1.75} />
               </button>

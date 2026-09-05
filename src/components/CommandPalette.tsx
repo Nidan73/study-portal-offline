@@ -165,7 +165,7 @@ export const CommandPalette: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-28 px-4 select-none">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-28 px-4 select-none" role="dialog" aria-modal="true" aria-label="Command palette">
       <div 
         className="fixed inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
         onClick={() => setCommandPalette(false)}
@@ -174,7 +174,7 @@ export const CommandPalette: React.FC = () => {
       <div className="relative w-full max-w-xl p-1.5 rounded-[2rem] bg-black/[0.05] dark:bg-white/[0.05] border border-black/[0.08] dark:border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.3)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.8)] z-10 animate-in fade-in zoom-in-95 duration-200">
         <div className="rounded-[calc(2rem-0.375rem)] bg-white/95 dark:bg-[#111218]/95 backdrop-blur-2xl border border-black/[0.05] dark:border-white/[0.08] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3.5 border-b border-black/[0.06] dark:border-white/[0.08] bg-black/[0.01] dark:bg-white/[0.02]">
-            <Search className="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" strokeWidth={1.5} />
+            <Search className="w-4 h-4 text-zinc-600 dark:text-zinc-400 flex-shrink-0" strokeWidth={1.5} />
             <input
               ref={inputRef}
               role="combobox"
@@ -191,14 +191,14 @@ export const CommandPalette: React.FC = () => {
               placeholder="Search lectures, slides, or switch courses..."
               className="w-full bg-transparent text-[13px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 rounded-md font-sans"
             />
-            <kbd className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/10 text-zinc-500 dark:text-zinc-400 border border-black/[0.04] dark:border-white/10">
+            <kbd className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-black/[0.04] dark:border-white/10">
               ESC
             </kbd>
           </div>
 
           <div className="max-h-80 overflow-y-auto p-2 space-y-1 scrollbar-thin">
             {items.length === 0 ? (
-              <div className="py-12 text-center text-zinc-500 dark:text-zinc-400 text-[12px] font-mono">
+              <div className="py-12 text-center text-zinc-600 dark:text-zinc-400 text-[12px] font-mono">
                 No results found for "{query}"
               </div>
             ) : (
@@ -216,14 +216,14 @@ export const CommandPalette: React.FC = () => {
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 pr-2">
-                      {item.type === 'lesson' && <Video className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-zinc-500'}`} strokeWidth={1.5} />}
-                      {item.type === 'pdf' && <FileText className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-zinc-500'}`} strokeWidth={1.5} />}
-                      {item.type === 'course' && <BookOpen className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-zinc-500'}`} strokeWidth={1.5} />}
+                      {item.type === 'lesson' && <Video className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-zinc-600 dark:text-zinc-400'}`} strokeWidth={1.5} />}
+                      {item.type === 'pdf' && <FileText className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-zinc-600 dark:text-zinc-400'}`} strokeWidth={1.5} />}
+                      {item.type === 'course' && <BookOpen className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-zinc-600 dark:text-zinc-400'}`} strokeWidth={1.5} />}
                       {item.type === 'note' && <StickyNote className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-amber-500'}`} strokeWidth={1.5} />}
 
                       <div className="truncate">
                         <div className="truncate font-medium">{item.title}</div>
-                        <div className={`text-[10px] font-mono truncate ${isSelected ? 'text-white/70 dark:text-zinc-950/70' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                        <div className={`text-[10px] font-mono truncate ${isSelected ? 'text-white/70 dark:text-zinc-950/70' : 'text-zinc-600 dark:text-zinc-400'}`}>
                           {item.subtitle}
                         </div>
                       </div>
@@ -236,7 +236,7 @@ export const CommandPalette: React.FC = () => {
             )}
           </div>
 
-          <div className="px-4 py-2 bg-black/[0.02] dark:bg-white/[0.02] border-t border-black/[0.05] dark:border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+          <div className="px-4 py-2 bg-black/[0.02] dark:bg-white/[0.02] border-t border-black/[0.05] dark:border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-zinc-600 dark:text-zinc-400">
             <span>{items.length} items indexed</span>
             <span>↑↓ navigate • ↵ select</span>
           </div>

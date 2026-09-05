@@ -155,11 +155,11 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
             </div>
 
             {activeLesson && (
-              <span className="hidden xl:inline text-[11px] font-mono text-zinc-500 dark:text-zinc-400 truncate max-w-[200px]">
+              <span className="hidden xl:inline text-[11px] font-mono text-zinc-600 dark:text-zinc-400 truncate max-w-[200px]">
                 {activeLesson.title}
               </span>
             )}
@@ -171,20 +171,20 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
               <div className="flex items-center rounded-full p-0.5 bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.05] dark:border-white/[0.08] mr-1 text-[11px] font-medium">
                 <button
                   onClick={() => setHtmlViewMode('editor')}
-                  className={`px-2.5 py-1 rounded-full transition-colors ${htmlViewMode === 'editor' ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
+                  className={`px-2.5 py-1 rounded-full transition-colors ${htmlViewMode === 'editor' ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
                 >
                   Editor
                 </button>
                 <button
                   onClick={() => setHtmlViewMode('preview')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors ${htmlViewMode === 'preview' ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors ${htmlViewMode === 'preview' ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
                 >
                   <Globe className="w-3 h-3 text-indigo-500 dark:text-indigo-400" strokeWidth={1.5} />
                   <span>Web Preview</span>
                 </button>
                 <button
                   onClick={() => setHtmlViewMode('split')}
-                  className={`hidden sm:inline px-2.5 py-1 rounded-full transition-colors ${htmlViewMode === 'split' ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
+                  className={`hidden sm:inline px-2.5 py-1 rounded-full transition-colors ${htmlViewMode === 'split' ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
                 >
                   Split
                 </button>
@@ -193,7 +193,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
 
             <button
               onClick={handleCopyCode}
-              className="p-1.5 rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors"
               title="Copy Code"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={1.5} /> : <Copy className="w-3.5 h-3.5" strokeWidth={1.5} />}
@@ -201,7 +201,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
 
             <button
               onClick={resetCodeTemplate}
-              className="p-1.5 rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors"
               title="Reset to Starter Template"
             >
               <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -212,7 +212,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
               <button
                 id="ide-expand-fullscreen-btn"
                 onClick={() => setActiveTab('ide')}
-                className="p-1.5 rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors"
                 title="Expand to Dedicated Full Page IDE (/ide)"
               >
                 <Maximize2 className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -273,7 +273,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
               <button
                 id="ide-close-split-btn"
                 onClick={onCloseSplit}
-                className="p-1.5 ml-1 rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors"
+                className="p-1.5 ml-1 rounded-full text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors"
                 title="Close Split View"
               >
                 <X className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -299,9 +299,9 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
                 </div>
               )}
               <div className={`${htmlViewMode === 'preview' ? 'col-span-full' : ''} h-full bg-white dark:bg-[#0c0d12] flex flex-col min-h-0`}>
-                <div className="px-3 py-1.5 border-b border-black/[0.06] dark:border-white/[0.08] text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
+                <div className="px-3 py-1.5 border-b border-black/[0.06] dark:border-white/[0.08] text-[10px] font-mono uppercase tracking-wider text-zinc-400 flex items-center justify-between">
                   <span>Live Sandbox Preview</span>
-                  <Eye className="w-3 h-3 text-zinc-500" strokeWidth={1.5} />
+                  <Eye className="w-3 h-3 text-zinc-400" strokeWidth={1.5} />
                 </div>
                 <iframe
                   title="HTML Sandbox"
@@ -330,7 +330,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
               {/* Output Header */}
               <div className="px-4 py-2 flex items-center justify-between border-b border-black/[0.04] dark:border-white/[0.06] select-none text-[11px] font-mono">
                 <div className="flex items-center gap-2">
-                  <Terminal className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />
+                  <Terminal className="w-3.5 h-3.5 text-zinc-400" strokeWidth={1.5} />
                   <span className="font-semibold text-zinc-700 dark:text-zinc-300">Terminal Output</span>
 
                   {codeOutput && (
@@ -350,7 +350,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
                   )}
 
                   {codeOutput?.executionTimeMs !== undefined && (
-                    <span className="text-zinc-500 dark:text-zinc-400 text-[10px] flex items-center gap-1">
+                    <span className="text-zinc-400 text-[10px] flex items-center gap-1">
                       <Clock className="w-3 h-3" strokeWidth={1.5} />
                       {codeOutput.executionTimeMs}ms
                     </span>
@@ -360,7 +360,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setIsOutputCollapsed(!isOutputCollapsed)}
-                    className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 text-[11px] transition-colors"
+                    className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 text-[11px] transition-colors"
                   >
                     {isOutputCollapsed ? 'Expand' : 'Collapse'}
                   </button>
@@ -383,11 +383,11 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
                         </pre>
                       )}
                       {!codeOutput.stdout && !codeOutput.stderr && (
-                        <span className="text-zinc-500 dark:text-zinc-400 italic">Program finished with no output.</span>
+                        <span className="text-zinc-400 italic">Program finished with no output.</span>
                       )}
                     </>
                   ) : (
-                    <div className="text-zinc-500 dark:text-zinc-400 italic flex items-center gap-2 py-4">
+                    <div className="text-zinc-600 dark:text-zinc-400 italic flex items-center gap-2 py-4">
                       <span>Press ⌘ + Enter or click "Run Code" to compile and execute.</span>
                     </div>
                   )}
@@ -420,7 +420,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
                   setActiveTab('player');
                   setSidePanelTab('code');
                 }}
-                className="px-2 py-1 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-[10px] flex items-center gap-1 font-medium"
+                className="px-2 py-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-[10px] flex items-center gap-1 font-medium"
                 title="Switch to Split View"
               >
                 <Minimize2 className="w-3 h-3" strokeWidth={1.5} />
@@ -429,7 +429,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
               <button
                 id="ide-pip-close-btn"
                 onClick={() => setShowFloatingPip(false)}
-                className="p-1 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
                 title="Close Mini Video"
               >
                 <X className="w-3.5 h-3.5" strokeWidth={1.5} />
