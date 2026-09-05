@@ -172,8 +172,12 @@ const DATA_DIR = path.join(__dirname, 'data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const PROGRESS_FILE = path.join(DATA_DIR, 'study-hub-data.json');
 const VIDEO_CACHE_DIR = path.join(DATA_DIR, 'video-cache');
-// The directory containing this project — courses are discovered as siblings.
-const COURSES_ROOT = path.resolve(__dirname, '..');
+// Where to look for course folders. Defaults to the directory containing this
+// project, so courses sit as siblings of it. Override with STUDYHUB_COURSES_ROOT
+// when the clone lives somewhere unrelated to your library.
+const COURSES_ROOT = process.env.STUDYHUB_COURSES_ROOT
+  ? path.resolve(process.env.STUDYHUB_COURSES_ROOT)
+  : path.resolve(__dirname, '..');
 
 /**
  * True when `target` really sits inside `root`.
@@ -2516,6 +2520,14 @@ try {
 function startServer(port: number) {
   const server = app.listen(port, () => {
     console.log(`[Study Hub Backend] TypeScript server listening on http://localhost:${port}`);
+    const found = discoverCourses().length;
+    console.log(`[Study Hub Backend] Scanning for courses in: ${COURSES_ROOT}`);
+    if (found === 0) {
+      console.log('[Study Hub Backend] No courses found yet — use "Scan Directory" in the app,');
+      console.log('[Study Hub Backend] or set STUDYHUB_COURSES_ROOT to where your course folders live.');
+    } else {
+      console.log(`[Study Hub Backend] ${found} course(s) available.`);
+    }
   });
 
   server.on('error', (err: any) => {

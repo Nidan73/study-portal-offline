@@ -7,22 +7,37 @@
 
 ## ⚡ Quick Start
 
+Requires **Node.js 18 or newer**. Nothing else — no database, no API keys, no accounts.
+
 ### Linux / macOS
 ```bash
-cd study-hub
-chmod +x launch.sh
+git clone https://github.com/Nidan73/study-portal-offline.git
+cd study-portal-offline
 ./launch.sh
 ```
+`launch.sh` installs dependencies, builds the interface, seeds a fresh data file and opens your browser on the port it actually bound.
 
-### Windows (CMD or PowerShell) / Cross-Platform
+### Windows (CMD or PowerShell)
 ```bash
-cd study-hub
+git clone https://github.com/Nidan73/study-portal-offline.git
+cd study-portal-offline
 npm install
 npm run build
 npx tsx server.ts --port 3000
 ```
 
 Open your browser to: **`http://localhost:3000`**
+
+### Pointing it at your courses
+By default it looks for course folders **beside** the project directory. If your
+library lives elsewhere:
+
+```bash
+STUDYHUB_COURSES_ROOT="/path/to/your/courses" ./launch.sh
+```
+
+Or just press **Scan Directory** in the app and pick a drive or folder — it will
+list everything that looks like course material and let you choose.
 
 ---
 
