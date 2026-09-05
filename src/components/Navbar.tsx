@@ -196,7 +196,7 @@ export const Navbar: React.FC = () => {
             <div 
               id="navbar-youtube-active-pill"
               onClick={() => setActiveTab('player')}
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 text-red-700 dark:text-red-400 text-[11px] font-medium cursor-pointer max-w-[180px] lg:max-w-[240px] truncate transition-colors animate-in fade-in"
+              className="hidden min-[1700px]:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 text-red-700 dark:text-red-400 text-[11px] font-medium cursor-pointer min-w-0 max-w-[150px] truncate transition-colors animate-in fade-in"
               title={`Now Playing on YouTube: ${activeLesson.title}`}
             >
               <Youtube className="w-3.5 h-3.5 text-red-500 shrink-0" />
@@ -206,7 +206,7 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Center: Navigation Tabs Pill */}
-        <div className="nav-tab-scroller flex items-center p-1 rounded-full bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.06] overflow-x-auto no-scrollbar min-w-0 flex-shrink">
+        <div className="nav-tab-scroller flex items-center p-1 rounded-full bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.06] overflow-x-auto no-scrollbar min-w-0 flex-shrink lg:flex-shrink-0">
           {NAV_TABS.map(({ id, label, icon: Icon, target, isActive, activeClass }) => {
             const active = isActive(activeTab);
             return (

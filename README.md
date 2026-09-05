@@ -33,6 +33,7 @@ Open your browser to: **`http://localhost:3000`**
 - **Double-Bezel Luxury UI:** Concentric border architecture (`rounded-[2rem]`), subtle micro-interactions, responsive 16:9 thumbnails, and clickable video cards with hover play badge.
 - **Dedicated YouTube Masterclass Companion:** When studying YouTube lectures, the sidebar dynamically transforms into a focused companion with quick-action tiles (*Timestamped Notes*, *In-App Code Along*, *Slide Deck Viewer*, *YouTube Explorer*) and 1-click resumption of your background offline course.
 - **Context-Aware Island Navbar:** Top bar displays the active YouTube lecture title and pulsing *YouTube Live* status badge, preventing confusion with offline course completion percentages.
+- **Watch History & Continue Watching:** Every video you open is recorded with its title, thumbnail, duration and exact position, shown as a resumable grid in the YouTube tab. Videos you have taken notes or dropped pins on are flagged, so lecture notes stay attached to something you can find again rather than to a bare video id. Capped at the 100 most recent; clearing history never touches your notes.
 - **Obsidian / Markdown Deep Linking:** Notes exported from YouTube lectures generate clickable deep links (e.g. `[[14:20]](https://youtu.be/ID?t=860s)`) that jump right to that exact second in external note-taking tools.
 
 ---

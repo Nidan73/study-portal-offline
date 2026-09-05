@@ -92,6 +92,17 @@ export interface ScratchNote {
   updatedAt: string;
 }
 
+export interface YouTubeHistoryEntry {
+  /** Lesson id, i.e. `yt_<videoId>` — the key notes and positions are stored under. */
+  id: string;
+  videoId: string;
+  title: string;
+  thumbnailUrl?: string;
+  durationSeconds?: number;
+  lastWatchedAt: string;
+  positionSeconds: number;
+}
+
 export interface HubProgressData {
   schemaVersion: number;
   activeCourseId: string;
@@ -108,6 +119,8 @@ export interface HubProgressData {
     durationSeconds?: number;
     thumbnailUrl?: string;
   } | null;
+  /** Most-recent-first watch history, capped so the file cannot grow forever. */
+  youtubeHistory?: YouTubeHistoryEntry[];
   globalStats: {
     totalHoursWatchedSeconds: number;
     streakDays: number;
@@ -1723,6 +1736,115 @@ except Exception as e:
       res.status(500).json({ error: 'Invalid PPTX data' });
     }
   });
+});
+
+const YT_HISTORY_LIMIT = 100;
+
+/** Record (or refresh) a video in the watch history, newest first. */
+function recordYouTubeWatch(entry: Partial<YouTubeHistoryEntry> & { id: string }): void {
+  if (!inMemoryData.youtubeHistory) inMemoryData.youtubeHistory = [];
+  const list = inMemoryData.youtubeHistory;
+  const existing = list.findIndex(e => e.id === entry.id);
+  const prev = existing >= 0 ? list[existing] : null;
+  if (existing >= 0) list.splice(existing, 1);
+
+  list.unshift({
+    id: entry.id,
+    videoId: entry.videoId || prev?.videoId || entry.id.replace(/^yt_/, ''),
+    title: entry.title || prev?.title || 'YouTube video',
+    thumbnailUrl: entry.thumbnailUrl ?? prev?.thumbnailUrl,
+    durationSeconds: entry.durationSeconds ?? prev?.durationSeconds,
+    lastWatchedAt: new Date().toISOString(),
+    positionSeconds: entry.positionSeconds ?? prev?.positionSeconds ?? 0
+  });
+
+  if (list.length > YT_HISTORY_LIMIT) list.length = YT_HISTORY_LIMIT;
+}
+
+// API: YouTube watch history
+app.get('/api/youtube/history', (req: Request, res: Response) => {
+  const history = inMemoryData.youtubeHistory || [];
+  // Attach note/bookmark counts so the client can flag what you invested in.
+  const enrich = (id: string) => {
+    let notes = 0, bookmarks = 0, livePosition: number | null = null;
+    for (const c of Object.values(inMemoryData.courses)) {
+      notes += (c.notes?.[id] || []).length;
+      bookmarks += (c.bookmarks?.[id] || []).length;
+      // resumePositions is written on every sync, so it is fresher than the
+      // copy stored when the video was first opened.
+      const p = c.resumePositions?.[id];
+      if (typeof p === 'number') livePosition = Math.max(livePosition ?? 0, p);
+    }
+    return { notes, bookmarks, livePosition };
+  };
+  res.json({
+    history: history.map(h => {
+      const { notes, bookmarks, livePosition } = enrich(h.id);
+      return { ...h, notes, bookmarks, positionSeconds: livePosition ?? h.positionSeconds };
+    })
+  });
+});
+
+app.post('/api/youtube/history', (req: Request, res: Response) => {
+  const { id, videoId, title, thumbnailUrl, durationSeconds, positionSeconds, removeId, clearAll } = req.body || {};
+
+  if (clearAll) {
+    inMemoryData.youtubeHistory = [];
+  } else if (removeId) {
+    inMemoryData.youtubeHistory = (inMemoryData.youtubeHistory || []).filter(e => e.id !== removeId);
+  } else if (id) {
+    recordYouTubeWatch({ id, videoId, title, thumbnailUrl, durationSeconds, positionSeconds });
+  } else {
+    return res.status(400).json({ error: 'id, removeId or clearAll required' });
+  }
+
+  scheduleProgressWrite();
+  res.json({ success: true, history: inMemoryData.youtubeHistory || [] });
+});
+
+/**
+ * Backfill history for videos that already carry notes, bookmarks or a saved
+ * position but were watched before history existed — their titles were never
+ * stored, so the notes were effectively orphaned. Titles come from oEmbed.
+ */
+app.post('/api/youtube/history/backfill', async (req: Request, res: Response) => {
+  const known = new Set((inMemoryData.youtubeHistory || []).map(e => e.id));
+  const orphans = new Set<string>();
+  for (const c of Object.values(inMemoryData.courses)) {
+    for (const src of [c.notes, c.bookmarks, c.resumePositions]) {
+      for (const key of Object.keys(src || {})) {
+        if (key.startsWith('yt_') && !known.has(key)) orphans.add(key);
+      }
+    }
+  }
+
+  const resolved: string[] = [];
+  const failed: string[] = [];
+  for (const lessonId of orphans) {
+    const videoId = lessonId.replace(/^yt_/, '');
+    try {
+      const r = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+      if (!r.ok) { failed.push(lessonId); continue; }
+      const info: any = await r.json();
+      let position = 0;
+      for (const c of Object.values(inMemoryData.courses)) {
+        position = c.resumePositions?.[lessonId] ?? position;
+      }
+      recordYouTubeWatch({
+        id: lessonId,
+        videoId,
+        title: info.title || videoId,
+        thumbnailUrl: info.thumbnail_url,
+        positionSeconds: position
+      });
+      resolved.push(info.title || videoId);
+    } catch (e) {
+      failed.push(lessonId);
+    }
+  }
+
+  if (resolved.length) flushProgressNow();
+  res.json({ resolved: resolved.length, failed: failed.length, titles: resolved });
 });
 
 // API: General notepad — notes not tied to any lesson or course.

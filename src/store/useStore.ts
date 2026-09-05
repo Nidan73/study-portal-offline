@@ -4,6 +4,18 @@ import { CourseSummary, CourseCatalog, LessonItem, SupplementaryFile, StudyHubDa
 export type NavTab = 'player' | 'split-slides' | 'split-code' | 'notes' | 'ide' | 'library' | 'youtube';
 export type SidePanelTab = 'curriculum' | 'code' | 'notes' | 'slides';
 
+export interface YouTubeHistoryEntry {
+  id: string;
+  videoId: string;
+  title: string;
+  thumbnailUrl?: string;
+  durationSeconds?: number;
+  lastWatchedAt: string;
+  positionSeconds: number;
+  notes: number;
+  bookmarks: number;
+}
+
 export interface ScratchNote {
   id: string;
   content: string;
@@ -77,6 +89,7 @@ export interface StoreState {
   toasts: Toast[];
   /** General notepad — notes with no lesson or course attached. */
   scratchNotes: ScratchNote[];
+  youtubeHistory: YouTubeHistoryEntry[];
   isScratchpadOpen: boolean;
 
   // User Data State
@@ -88,6 +101,9 @@ export interface StoreState {
   dismissToast: (id: string) => void;
   setScratchpadOpen: (open: boolean) => void;
   fetchScratchNotes: () => Promise<void>;
+  fetchYouTubeHistory: () => Promise<void>;
+  removeYouTubeHistoryEntry: (id: string) => Promise<void>;
+  clearYouTubeHistory: () => Promise<void>;
   saveScratchNote: (content: string, id?: string) => Promise<void>;
   removeScratchNote: (id: string) => Promise<void>;
   fetchInitialData: () => Promise<void>;
@@ -373,6 +389,7 @@ export const useStore = create<StoreState>((set, get) => ({
   
   toasts: [],
   scratchNotes: [],
+  youtubeHistory: [],
   isScratchpadOpen: false,
 
   userData: null,
@@ -391,6 +408,74 @@ export const useStore = create<StoreState>((set, get) => ({
   setScratchpadOpen: (open) => {
     set({ isScratchpadOpen: open });
     if (open) get().fetchScratchNotes();
+  },
+
+  fetchYouTubeHistory: async () => {
+    try {
+      const res = await fetch('/api/youtube/history');
+      if (!res.ok) return;
+      const data = await res.json();
+      set({ youtubeHistory: data.history || [] });
+    } catch (e) {
+      console.error('Failed to load watch history:', e);
+    }
+  },
+
+  removeYouTubeHistoryEntry: async (id) => {
+    const removed = get().youtubeHistory.find(h => h.id === id);
+    try {
+      const res = await fetch('/api/youtube/history', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removeId: id })
+      });
+      if (!res.ok) throw new Error('failed');
+      await get().fetchYouTubeHistory();
+      if (removed) {
+        get().pushToast('Removed from history.', 'info', {
+          label: 'Undo',
+          run: async () => {
+            await fetch('/api/youtube/history', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: removed.id, videoId: removed.videoId, title: removed.title,
+                thumbnailUrl: removed.thumbnailUrl, durationSeconds: removed.durationSeconds,
+                positionSeconds: removed.positionSeconds
+              })
+            });
+            await get().fetchYouTubeHistory();
+          }
+        });
+      }
+    } catch (e) {
+      get().pushToast('Could not remove that from history.', 'error');
+    }
+  },
+
+  clearYouTubeHistory: async () => {
+    const previous = get().youtubeHistory;
+    try {
+      await fetch('/api/youtube/history', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearAll: true })
+      });
+      set({ youtubeHistory: [] });
+      get().pushToast(`Cleared ${previous.length} from history. Your notes are kept.`, 'info', {
+        label: 'Undo',
+        run: async () => {
+          for (const h of [...previous].reverse()) {
+            await fetch('/api/youtube/history', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: h.id, videoId: h.videoId, title: h.title,
+                thumbnailUrl: h.thumbnailUrl, durationSeconds: h.durationSeconds,
+                positionSeconds: h.positionSeconds })
+            });
+          }
+          await get().fetchYouTubeHistory();
+        }
+      });
+    } catch (e) {
+      get().pushToast('Could not clear history.', 'error');
+    }
   },
 
   fetchScratchNotes: async () => {
@@ -1150,6 +1235,17 @@ export const useStore = create<StoreState>((set, get) => ({
     // Resume this specific video where it was left, rather than always at 0.
     const { activeCourseId, userData } = get();
     const resumeAt = userData?.courses?.[activeCourseId]?.resumePositions?.[ytLesson.id] || 0;
+
+    // Record it in the watch history so it can be found and resumed later.
+    fetch('/api/youtube/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: ytLesson.id, videoId: video.id, title: video.title,
+        thumbnailUrl: video.thumbnailUrl, durationSeconds: video.durationSeconds,
+        positionSeconds: resumeAt
+      })
+    }).then(() => get().fetchYouTubeHistory()).catch(() => {});
 
     // A video played straight from the explorer belongs to no catalog, so the
     // boot-time resume lookup cannot find it. Persist the lesson itself.

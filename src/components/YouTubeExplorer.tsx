@@ -16,7 +16,10 @@ import {
   Loader2,
   Film,
   DownloadCloud,
-  ExternalLink
+  ExternalLink,
+  History,
+  Trash2,
+  StickyNote
 } from 'lucide-react';
 
 const CURATED_TOPICS = [
@@ -36,6 +39,29 @@ export const YouTubeExplorer: React.FC = () => {
     saveYouTubeCourse,
     pushToast
   } = useStore();
+
+  const youtubeHistory = useStore(s => s.youtubeHistory);
+  const fetchYouTubeHistory = useStore(s => s.fetchYouTubeHistory);
+  const removeHistoryEntry = useStore(s => s.removeYouTubeHistoryEntry);
+  const clearHistory = useStore(s => s.clearYouTubeHistory);
+  const [confirmClearHistory, setConfirmClearHistory] = useState(false);
+
+  useEffect(() => { fetchYouTubeHistory(); }, [fetchYouTubeHistory]);
+
+  const fmtDur = (secs?: number) => {
+    if (!secs) return '';
+    const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), x = Math.floor(secs % 60);
+    return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}` : `${m}:${String(x).padStart(2,'0')}`;
+  };
+  const sinceWhen = (iso: string) => {
+    const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return days < 30 ? `${days}d ago` : new Date(iso).toLocaleDateString();
+  };
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<YouTubeSearchResult[]>([]);
@@ -383,6 +409,110 @@ export const YouTubeExplorer: React.FC = () => {
       )}
 
       {/* Search Results Grid */}
+      {/* Continue watching — the videos you have already opened. Without this
+          a video (and any notes taken on it) was unreachable once you moved on. */}
+      {results.length === 0 && youtubeHistory.length > 0 && (
+        <div className="space-y-3 mb-8">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+              <History className="w-4 h-4" strokeWidth={1.5} />
+              Continue watching
+              <span className="text-[10px] font-mono normal-case tracking-normal px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06]">
+                {youtubeHistory.length}
+              </span>
+            </h2>
+            <button
+              id="clear-yt-history-btn"
+              onClick={() => {
+                if (!confirmClearHistory) {
+                  setConfirmClearHistory(true);
+                  setTimeout(() => setConfirmClearHistory(false), 3500);
+                  return;
+                }
+                setConfirmClearHistory(false);
+                clearHistory();
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-medium transition-all ${
+                confirmClearHistory
+                  ? 'bg-rose-500/20 text-rose-500 border-rose-500/40'
+                  : 'bg-black/[0.03] dark:bg-white/[0.05] border-black/[0.05] dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400 hover:text-rose-500 hover:border-rose-500/30'
+              }`}
+              title="Clear watch history. Your notes and bookmarks are kept."
+            >
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+              <span className="font-mono text-[10px]">{confirmClearHistory ? 'Confirm?' : 'Clear'}</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {youtubeHistory.slice(0, 9).map(h => {
+              const pct = h.durationSeconds ? Math.min(100, (h.positionSeconds / h.durationSeconds) * 100) : 0;
+              return (
+                <div
+                  key={h.id}
+                  className="group p-1.5 rounded-[1.5rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08] hover:border-red-500/30 transition-colors"
+                >
+                  <button
+                    onClick={() => playYouTubeVideoImmediately({
+                      id: h.videoId, title: h.title,
+                      durationSeconds: h.durationSeconds, thumbnailUrl: h.thumbnailUrl
+                    })}
+                    className="w-full text-left rounded-[calc(1.5rem-0.375rem)] overflow-hidden bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06]"
+                    title={`Resume "${h.title}"${h.positionSeconds ? ' at ' + fmtDur(h.positionSeconds) : ''}`}
+                  >
+                    <div className="relative aspect-video bg-black/[0.06] dark:bg-white/[0.04] overflow-hidden">
+                      {h.thumbnailUrl && (
+                        <img src={h.thumbnailUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+                      )}
+                      <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="w-11 h-11 rounded-full bg-white/95 flex items-center justify-center">
+                          <Play className="w-4 h-4 ml-0.5 fill-zinc-900 text-zinc-900" />
+                        </span>
+                      </span>
+                      {h.durationSeconds ? (
+                        <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono">
+                          {fmtDur(h.durationSeconds)}
+                        </span>
+                      ) : null}
+                      {pct > 0 && (
+                        <span className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
+                          <span className="block h-full bg-red-600" style={{ width: `${pct}%` }} />
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="text-[12.5px] font-semibold text-zinc-900 dark:text-white line-clamp-2 leading-snug">
+                        {h.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400">
+                          {h.positionSeconds > 0 ? `${fmtDur(h.positionSeconds)} in` : 'not started'} · {sinceWhen(h.lastWatchedAt)}
+                        </span>
+                        {(h.notes > 0 || h.bookmarks > 0) && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
+                            <StickyNote className="w-2.5 h-2.5" strokeWidth={2} />
+                            {h.notes > 0 ? `${h.notes} note${h.notes === 1 ? '' : 's'}` : ''}
+                            {h.notes > 0 && h.bookmarks > 0 ? ' · ' : ''}
+                            {h.bookmarks > 0 ? `${h.bookmarks} pin${h.bookmarks === 1 ? '' : 's'}` : ''}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => removeHistoryEntry(h.id)}
+                    aria-label={`Remove ${h.title} from history`}
+                    className="w-full mt-1 px-3 py-1 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-500 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  >
+                    Remove from history
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {results.length > 0 ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
