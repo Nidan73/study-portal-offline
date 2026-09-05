@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, YOUTUBE_BUCKET } from '../store/useStore';
 import { 
   Search, 
   Video, 
@@ -102,7 +102,12 @@ export const CommandPalette: React.FC = () => {
   // Saved notes across every lecture in this course. Only surfaced once you
   // type, otherwise hundreds of notes would bury the lessons.
   if (q && catalog) {
-    const courseNotes = userData?.courses?.[activeCourseId]?.notes || {};
+    // Search both this course's notes and the shared YouTube bucket, so notes
+    // taken on a YouTube video stay findable whatever course is active.
+    const courseNotes = {
+      ...(userData?.courses?.[activeCourseId]?.notes || {}),
+      ...(userData?.courses?.[YOUTUBE_BUCKET]?.notes || {})
+    };
     const lessonById = new Map<string, { title: string; lesson: any }>();
     for (const mod of catalog.modules) {
       for (const lesson of mod.lessons) lessonById.set(lesson.id, { title: lesson.title, lesson });

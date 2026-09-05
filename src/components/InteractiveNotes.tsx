@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, dataBucketFor } from '../store/useStore';
 import { 
   Clock, 
   Plus, 
@@ -45,11 +45,11 @@ export const InteractiveNotes: React.FC = () => {
   const [lockedTimestamp, setLockedTimestamp] = useState<number | null>(null);
 
   const notes = activeLesson 
-    ? userData?.courses?.[activeCourseId]?.notes?.[activeLesson.id] || [] 
+    ? userData?.courses?.[dataBucketFor(activeLesson.id, activeCourseId)]?.notes?.[activeLesson.id] || [] 
     : [];
 
   const bookmarks = activeLesson 
-    ? userData?.courses?.[activeCourseId]?.bookmarks?.[activeLesson.id] || [] 
+    ? userData?.courses?.[dataBucketFor(activeLesson.id, activeCourseId)]?.bookmarks?.[activeLesson.id] || [] 
     : [];
 
   const sortedBookmarks = [...bookmarks].sort((a, b) => a.timestampSeconds - b.timestampSeconds);

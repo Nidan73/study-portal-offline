@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { CourseSummary, CourseCatalog, LessonItem, SupplementaryFile, StudyHubData, LessonBookmark } from '../types';
 
+/** YouTube videos belong to no course, so their notes, pins and positions live
+ *  in one shared bucket instead of under whichever course was active when you
+ *  made them — which is why opening the same video later showed nothing. */
+export const YOUTUBE_BUCKET = '__youtube__';
+export const dataBucketFor = (lessonId: string, activeCourseId: string) =>
+  lessonId.startsWith('yt_') ? YOUTUBE_BUCKET : activeCourseId;
+
 export type NavTab = 'player' | 'split-slides' | 'split-code' | 'notes' | 'ide' | 'library' | 'youtube';
 export type SidePanelTab = 'curriculum' | 'code' | 'notes' | 'slides';
 
@@ -150,6 +157,7 @@ export interface StoreState {
   saveYouTubeCourse: (title: string, playlistId: string, videos: any[]) => Promise<string | null>;
   removeCourse: (courseId: string) => Promise<boolean>;
   playYouTubeVideoImmediately: (video: { id: string; title: string; durationSeconds?: number; thumbnailUrl?: string }) => void;
+  playDirectUrl: (url: string, title?: string) => void;
   goToNextLesson: () => void;
   goToPrevLesson: () => void;
 
@@ -642,7 +650,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
   selectLesson: (lesson: LessonItem, startAt?: number) => {
     const { activeCourseId, userData } = get();
-    const course = userData?.courses?.[activeCourseId];
+    const bucketId = dataBucketFor(lesson.id, activeCourseId);
+    const course = userData?.courses?.[bucketId];
     // Per-lesson position first; fall back to lastWatched for data saved before
     // resumePositions existed, so existing progress is not lost on upgrade.
     const savedTime = startAt !== undefined
@@ -651,7 +660,7 @@ export const useStore = create<StoreState>((set, get) => ({
          ?? (course?.lastWatched?.lessonId === lesson.id ? course.lastWatched.timestampSeconds : 0)
          ?? 0);
 
-    const savedSnippet = userData?.courses?.[activeCourseId]?.codeSnippets?.[lesson.id];
+    const savedSnippet = userData?.courses?.[bucketId]?.codeSnippets?.[lesson.id];
     let nextLang = get().activeCodeLanguage;
     let nextCode = get().currentCode;
 
@@ -800,7 +809,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
   toggleLessonComplete: async (lessonId: string) => {
     const { activeCourseId, userData } = get();
-    const currentCompleted = userData?.courses?.[activeCourseId]?.completedLessonIds || [];
+    const bucketId = dataBucketFor(lessonId, activeCourseId);
+    const currentCompleted = userData?.courses?.[bucketId]?.completedLessonIds || [];
     const isNowCompleted = !currentCompleted.includes(lessonId);
 
     // Optimistic local update
@@ -812,8 +822,8 @@ export const useStore = create<StoreState>((set, get) => ({
       ...userData!,
       courses: {
         ...userData?.courses,
-        [activeCourseId]: {
-          ...(userData?.courses?.[activeCourseId] || { id: activeCourseId, notes: {} }),
+        [bucketId]: {
+          ...(userData?.courses?.[bucketId] || { id: bucketId, notes: {} }),
           completedLessonIds: updatedCompleted
         }
       }
@@ -826,7 +836,7 @@ export const useStore = create<StoreState>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          courseId: activeCourseId,
+          courseId: bucketId,
           lessonId,
           completed: isNowCompleted
         })
@@ -839,6 +849,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   addNote: async (lessonId: string, timestamp: number, content: string, slideNumber?: number) => {
     const { activeCourseId, userData } = get();
+    const bucketId = dataBucketFor(lessonId, activeCourseId);
     const newNote = {
       id: `note-${Date.now()}`,
       timestampSeconds: Math.floor(timestamp),
@@ -847,17 +858,17 @@ export const useStore = create<StoreState>((set, get) => ({
       ...(slideNumber ? { slideNumber } : {})
     };
 
-    const courseNotes = userData?.courses?.[activeCourseId]?.notes?.[lessonId] || [];
+    const courseNotes = userData?.courses?.[bucketId]?.notes?.[lessonId] || [];
     const updatedNotes = [...courseNotes, newNote];
 
     const updatedUserData: StudyHubData = {
       ...userData!,
       courses: {
         ...userData?.courses,
-        [activeCourseId]: {
-          ...(userData?.courses?.[activeCourseId] || { id: activeCourseId, completedLessonIds: [] }),
+        [bucketId]: {
+          ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [] }),
           notes: {
-            ...(userData?.courses?.[activeCourseId]?.notes || {}),
+            ...(userData?.courses?.[bucketId]?.notes || {}),
             [lessonId]: updatedNotes
           }
         }
@@ -871,7 +882,7 @@ export const useStore = create<StoreState>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          courseId: activeCourseId,
+          courseId: bucketId,
           lessonId,
           note: {
             timestamp,
@@ -888,7 +899,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
   removeNote: async (lessonId: string, noteId: string) => {
     const { activeCourseId, userData } = get();
-    const existing = userData?.courses?.[activeCourseId]?.notes?.[lessonId] || [];
+    const bucketId = dataBucketFor(lessonId, activeCourseId);
+    const existing = userData?.courses?.[bucketId]?.notes?.[lessonId] || [];
     const removed = existing.find(n => n.id === noteId);
     const updated = existing.filter(n => n.id !== noteId);
 
@@ -897,9 +909,9 @@ export const useStore = create<StoreState>((set, get) => ({
         ...userData!,
         courses: {
           ...userData?.courses,
-          [activeCourseId]: {
-            ...(userData?.courses?.[activeCourseId] || { id: activeCourseId, completedLessonIds: [] }),
-            notes: { ...(userData?.courses?.[activeCourseId]?.notes || {}), [lessonId]: updated }
+          [bucketId]: {
+            ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [] }),
+            notes: { ...(userData?.courses?.[bucketId]?.notes || {}), [lessonId]: updated }
           }
         }
       } as StudyHubData
@@ -927,16 +939,17 @@ export const useStore = create<StoreState>((set, get) => ({
 
   clearAllNotes: async (lessonId: string) => {
     const { activeCourseId, userData } = get();
-    const removedAll = userData?.courses?.[activeCourseId]?.notes?.[lessonId] || [];
+    const bucketId = dataBucketFor(lessonId, activeCourseId);
+    const removedAll = userData?.courses?.[bucketId]?.notes?.[lessonId] || [];
 
     set({
       userData: {
         ...userData!,
         courses: {
           ...userData?.courses,
-          [activeCourseId]: {
-            ...(userData?.courses?.[activeCourseId] || { id: activeCourseId, completedLessonIds: [] }),
-            notes: { ...(userData?.courses?.[activeCourseId]?.notes || {}), [lessonId]: [] }
+          [bucketId]: {
+            ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [] }),
+            notes: { ...(userData?.courses?.[bucketId]?.notes || {}), [lessonId]: [] }
           }
         }
       } as StudyHubData
@@ -964,6 +977,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   addBookmark: async (lessonId: string, timestampSeconds: number, label?: string) => {
     const { activeCourseId, userData } = get();
+    const bucketId = dataBucketFor(lessonId, activeCourseId);
     const formattedTime = `${Math.floor(timestampSeconds / 60)}:${String(Math.floor(timestampSeconds % 60)).padStart(2, '0')}`;
     const newBookmark: LessonBookmark = {
       id: `bm-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -972,17 +986,17 @@ export const useStore = create<StoreState>((set, get) => ({
       createdAt: new Date().toISOString()
     };
 
-    const courseBookmarks = userData?.courses?.[activeCourseId]?.bookmarks?.[lessonId] || [];
+    const courseBookmarks = userData?.courses?.[bucketId]?.bookmarks?.[lessonId] || [];
     const updatedBookmarks = [...courseBookmarks, newBookmark];
 
     const updatedUserData: StudyHubData = {
       ...userData!,
       courses: {
         ...userData?.courses,
-        [activeCourseId]: {
-          ...(userData?.courses?.[activeCourseId] || { id: activeCourseId, completedLessonIds: [], notes: {} }),
+        [bucketId]: {
+          ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [], notes: {} }),
           bookmarks: {
-            ...(userData?.courses?.[activeCourseId]?.bookmarks || {}),
+            ...(userData?.courses?.[bucketId]?.bookmarks || {}),
             [lessonId]: updatedBookmarks
           }
         }
@@ -996,7 +1010,7 @@ export const useStore = create<StoreState>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          courseId: activeCourseId,
+          courseId: bucketId,
           lessonId,
           bookmark: newBookmark
         })
@@ -1009,17 +1023,18 @@ export const useStore = create<StoreState>((set, get) => ({
 
   removeBookmark: async (lessonId: string, bookmarkId: string) => {
     const { activeCourseId, userData } = get();
-    const courseBookmarks = userData?.courses?.[activeCourseId]?.bookmarks?.[lessonId] || [];
+    const bucketId = dataBucketFor(lessonId, activeCourseId);
+    const courseBookmarks = userData?.courses?.[bucketId]?.bookmarks?.[lessonId] || [];
     const updatedBookmarks = courseBookmarks.filter(b => b.id !== bookmarkId);
 
     const updatedUserData: StudyHubData = {
       ...userData!,
       courses: {
         ...userData?.courses,
-        [activeCourseId]: {
-          ...(userData?.courses?.[activeCourseId] || { id: activeCourseId, completedLessonIds: [], notes: {} }),
+        [bucketId]: {
+          ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [], notes: {} }),
           bookmarks: {
-            ...(userData?.courses?.[activeCourseId]?.bookmarks || {}),
+            ...(userData?.courses?.[bucketId]?.bookmarks || {}),
             [lessonId]: updatedBookmarks
           }
         }
@@ -1033,7 +1048,7 @@ export const useStore = create<StoreState>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          courseId: activeCourseId,
+          courseId: bucketId,
           lessonId,
           removeBookmarkId: bookmarkId
         })
@@ -1053,14 +1068,15 @@ export const useStore = create<StoreState>((set, get) => ({
 
   clearAllBookmarks: async (lessonId: string) => {
     const { activeCourseId, userData } = get();
+    const bucketId = dataBucketFor(lessonId, activeCourseId);
     const updatedUserData: StudyHubData = {
       ...userData!,
       courses: {
         ...userData?.courses,
-        [activeCourseId]: {
-          ...(userData?.courses?.[activeCourseId] || { id: activeCourseId, completedLessonIds: [], notes: {} }),
+        [bucketId]: {
+          ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [], notes: {} }),
           bookmarks: {
-            ...(userData?.courses?.[activeCourseId]?.bookmarks || {}),
+            ...(userData?.courses?.[bucketId]?.bookmarks || {}),
             [lessonId]: []
           }
         }
@@ -1074,7 +1090,7 @@ export const useStore = create<StoreState>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          courseId: activeCourseId,
+          courseId: bucketId,
           lessonId,
           clearAllBookmarks: true
         })
@@ -1087,6 +1103,7 @@ export const useStore = create<StoreState>((set, get) => ({
   syncProgressToDisk: async (force = false) => {
     const { activeCourseId, activeLesson, currentTime, lastSyncedTimestamp } = get();
     if (!activeLesson) return;
+    const bucketId = dataBucketFor(activeLesson.id, activeCourseId);
 
     // Credit only real forward playback. The old code posted a flat 15s on every
     // sync — including every seek, pause and lesson switch — so scrubbing around
@@ -1106,7 +1123,7 @@ export const useStore = create<StoreState>((set, get) => ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            courseId: activeCourseId,
+            courseId: bucketId,
             lessonId: activeLesson.id,
             timestamp: currentTime,
             streakUpdate: { addedSeconds: watchedSeconds }
@@ -1234,7 +1251,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // Resume this specific video where it was left, rather than always at 0.
     const { activeCourseId, userData } = get();
-    const resumeAt = userData?.courses?.[activeCourseId]?.resumePositions?.[ytLesson.id] || 0;
+    const bucketId = dataBucketFor(ytLesson.id, activeCourseId);
+    const resumeAt = userData?.courses?.[bucketId]?.resumePositions?.[ytLesson.id] || 0;
 
     // Record it in the watch history so it can be found and resumed later.
     fetch('/api/youtube/history', {
@@ -1273,6 +1291,43 @@ export const useStore = create<StoreState>((set, get) => ({
     });
 
     // setActiveTab already syncs the URL; doing it by hand here drifted.
+    get().setActiveTab('player');
+  },
+
+  playDirectUrl: (url: string, title?: string) => {
+    // Any direct media link (mp4/webm/mov/ogv/m3u8, or a self-hosted stream)
+    // plays through the same element as local files, so scrubbing, speed,
+    // bookmarks and timestamped notes all behave identically.
+    let label = title;
+    if (!label) {
+      try {
+        const parsed = new URL(url);
+        label = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || parsed.hostname);
+      } catch (e) {
+        label = 'Linked video';
+      }
+    }
+
+    const lesson: LessonItem = {
+      id: `url_${btoa(url).replace(/[^a-zA-Z0-9]/g, '').slice(0, 40)}`,
+      title: label!,
+      filename: label!,
+      relativePath: url,
+      fileSizeBytes: 0,
+      durationSeconds: 0,
+      extension: (url.split('?')[0].match(/\.(\w{2,5})$/)?.[0] || '.mp4'),
+      source: 'direct',
+      directUrl: url
+    };
+
+    set({
+      activeLesson: lesson,
+      activePdf: null,
+      currentTime: get().userData?.courses?.[dataBucketFor(lesson.id, get().activeCourseId)]?.resumePositions?.[lesson.id] || 0,
+      duration: 0,
+      isPlaying: true,
+      sidePanelTab: 'curriculum'
+    });
     get().setActiveTab('player');
   },
 
@@ -1338,9 +1393,10 @@ export const useStore = create<StoreState>((set, get) => ({
 
   saveLessonCode: async (lessonId: string, language: string, code: string) => {
     const { activeCourseId, userData } = get();
+    const bucketId = dataBucketFor(lessonId, activeCourseId);
     if (!activeCourseId || !lessonId) return;
 
-    if (userData?.courses?.[activeCourseId]) {
+    if (userData?.courses?.[bucketId]) {
       if (!userData.courses[activeCourseId].codeSnippets) {
         userData.courses[activeCourseId].codeSnippets = {};
       }
@@ -1357,7 +1413,7 @@ export const useStore = create<StoreState>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          courseId: activeCourseId,
+          courseId: bucketId,
           lessonId,
           codeSnippet: { language, code }
         })

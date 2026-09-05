@@ -325,7 +325,56 @@ function loadProgressData(): HubProgressData {
   return init;
 }
 
+/** Notes and pins for YouTube videos live here rather than under whichever
+ *  course happened to be active. A YouTube video belongs to no course, so
+ *  course-scoping them meant opening the same video later — from history, or
+ *  after switching course — showed nothing. */
+export const YOUTUBE_BUCKET = '__youtube__';
+
 let inMemoryData: HubProgressData = loadProgressData();
+
+/** One-time move of already-scattered YouTube data into the shared bucket. */
+function migrateYouTubeDataToBucket(): void {
+  let moved = 0;
+  if (!inMemoryData.courses[YOUTUBE_BUCKET]) {
+    inMemoryData.courses[YOUTUBE_BUCKET] = {
+      id: YOUTUBE_BUCKET, completedLessonIds: [], notes: {}, bookmarks: {},
+      codeSnippets: {}, resumePositions: {}, lastWatched: null
+    };
+  }
+  const bucket = inMemoryData.courses[YOUTUBE_BUCKET];
+  bucket.notes ||= {}; bucket.bookmarks ||= {};
+  bucket.resumePositions ||= {}; bucket.codeSnippets ||= {};
+
+  for (const [courseId, course] of Object.entries(inMemoryData.courses)) {
+    if (courseId === YOUTUBE_BUCKET) continue;
+    for (const key of Object.keys(course.notes || {})) {
+      if (!key.startsWith('yt_')) continue;
+      bucket.notes[key] = [...(bucket.notes[key] || []), ...course.notes[key]];
+      delete course.notes[key]; moved++;
+    }
+    for (const key of Object.keys(course.bookmarks || {})) {
+      if (!key.startsWith('yt_')) continue;
+      bucket.bookmarks![key] = [...(bucket.bookmarks![key] || []), ...course.bookmarks![key]];
+      delete course.bookmarks![key]; moved++;
+    }
+    for (const key of Object.keys(course.resumePositions || {})) {
+      if (!key.startsWith('yt_')) continue;
+      bucket.resumePositions![key] = Math.max(bucket.resumePositions![key] || 0, course.resumePositions![key]);
+      delete course.resumePositions![key]; moved++;
+    }
+    for (const key of Object.keys(course.codeSnippets || {})) {
+      if (!key.startsWith('yt_')) continue;
+      bucket.codeSnippets![key] = course.codeSnippets![key];
+      delete course.codeSnippets![key]; moved++;
+    }
+  }
+  if (moved > 0) {
+    console.log(`[Migration] Moved ${moved} YouTube entries into the shared bucket.`);
+    atomicWriteJson(PROGRESS_FILE, inMemoryData);
+  }
+}
+migrateYouTubeDataToBucket();
 
 // Natural numeric sorting comparator (e.g. "Week 1", "Week 2", "Week 10")
 function naturalSort(a: string, b: string): number {
@@ -780,30 +829,79 @@ app.post('/api/courses/add', (req: Request, res: Response) => {
 
 // API: Add Virtual YouTube Course / Playlist
 app.post('/api/courses/add-virtual', (req: Request, res: Response) => {
-  const { id, name, description, badge, modules } = req.body;
-  if (!id || !name) {
-    return res.status(400).json({ error: 'Course ID and name required' });
+  // The client sends { name, playlistId, videos[] }. This used to demand
+  // { id, name, modules[] } and rejected every import with "Course ID and name
+  // required" — and even with an id, a flat `videos` array was silently
+  // dropped because only `modules` was read. Accept both shapes.
+  const { id, playlistId, name, description, badge, gradient, modules, videos } = req.body || {};
+
+  const sourceId = id || playlistId;
+  if (!sourceId || !name) {
+    return res.status(400).json({ error: 'A playlist id and a course name are required' });
   }
 
-  const courseId = id.startsWith('yt-') ? id : `yt-${id}`;
+  const courseId = String(sourceId).startsWith('yt-') ? String(sourceId) : `yt-${sourceId}`;
+
+  let courseModules: CourseModule[] = Array.isArray(modules) ? modules : [];
+
+  if (courseModules.length === 0 && Array.isArray(videos) && videos.length > 0) {
+    const lessons: CourseFile[] = videos.map((v: any, i: number) => {
+      const videoId = v.youtubeVideoId || v.videoId || v.id?.replace(/^yt_/, '') || '';
+      return {
+        // Keyed the same way an ad-hoc play is, so notes, bookmarks and resume
+        // positions taken before the import carry straight over.
+        id: `yt_${videoId}`,
+        title: v.title || `Lecture ${i + 1}`,
+        filename: `${videoId}.mp4`,
+        relativePath: videoId,
+        fileSizeBytes: 0,
+        extension: '.mp4',
+        duration: v.durationText || v.duration || '',
+        durationSeconds: Number(v.durationSeconds) || 0,
+        source: 'youtube',
+        youtubeVideoId: videoId,
+        thumbnailUrl: v.thumbnail || v.thumbnailUrl
+      } as CourseFile;
+    }).filter((l: CourseFile) => l.youtubeVideoId);
+
+    if (lessons.length === 0) {
+      return res.status(400).json({ error: 'None of the supplied videos had a usable YouTube id' });
+    }
+
+    courseModules = [{
+      id: Buffer.from(courseId).toString('base64url'),
+      title: name,
+      relativeDir: '',
+      order: 1,
+      lessons,
+      supplementaryFiles: []
+    }];
+  }
+
+  if (courseModules.length === 0) {
+    return res.status(400).json({ error: 'No videos supplied for this playlist' });
+  }
+
   const newCourse: CourseSummary = {
     id: courseId,
     name,
     rootPath: '',
     badge: badge || 'YouTube Series',
-    gradient: 'from-rose-500 to-red-600',
+    gradient: gradient || 'from-rose-500 to-red-600',
     description: description || 'Imported YouTube series for distraction-free study.',
     isVirtual: true,
-    modules: modules || []
+    modules: courseModules
   };
 
   if (!inMemoryData.customCourses) inMemoryData.customCourses = [];
   inMemoryData.customCourses = inMemoryData.customCourses.filter(c => c.id !== courseId);
   inMemoryData.customCourses.push(newCourse);
   catalogCache.delete(courseId);
-  atomicWriteJson(PROGRESS_FILE, inMemoryData);
+  flushProgressNow();
 
-  res.json({ success: true, course: newCourse });
+  const lessonCount = courseModules.reduce((n, m) => n + (m.lessons?.length || 0), 0);
+  console.log(`[Playlist Import] "${name}" -> ${courseId} (${lessonCount} lessons)`);
+  res.json({ success: true, course: newCourse, lessonCount });
 });
 
 // API: Delete Custom / Virtual Course
@@ -903,6 +1001,158 @@ app.post('/api/youtube/search', async (req: Request, res: Response) => {
 });
 
 // API: YouTube Playlist Extraction (Supports modern 2025/2026 lockupViewModel + legacy fallback)
+/**
+ * Pull every video out of a playlist page's ytInitialData.
+ *
+ * YouTube ships several node shapes (legacy playlistVideoRenderer, the newer
+ * lockupViewModel, and richItemRenderer wrappers) and moves them between tabs
+ * and sections. Walking a fixed path — contents[0].itemSectionRenderer... —
+ * silently returned zero videos whenever the shape differed, which is why some
+ * playlists imported as empty. Recurse instead and collect whatever we find.
+ */
+function collectPlaylistVideos(node: any, out: any[], seen: Set<string>): void {
+  if (!node || typeof node !== 'object') return;
+
+  if (Array.isArray(node)) {
+    for (const item of node) collectPlaylistVideos(item, out, seen);
+    return;
+  }
+
+  // Legacy shape
+  const pv = node.playlistVideoRenderer;
+  if (pv?.videoId && !seen.has(pv.videoId)) {
+    seen.add(pv.videoId);
+    out.push({
+      id: `yt_${pv.videoId}`,
+      youtubeVideoId: pv.videoId,
+      videoId: pv.videoId,
+      title: pv.title?.runs?.[0]?.text || pv.title?.simpleText || 'Video Lecture',
+      durationText: pv.lengthText?.simpleText || '',
+      durationSeconds: Number(pv.lengthSeconds) || 0,
+      thumbnail: pv.thumbnail?.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${pv.videoId}/hqdefault.jpg`
+    });
+  }
+
+  // Current shape
+  const lk = node.lockupViewModel;
+  if (lk) {
+    const videoId = lk.contentId
+      || lk.rendererContext?.commandContext?.onTap?.innertubeCommand?.watchEndpoint?.videoId;
+    const title = lk.metadata?.lockupMetadataViewModel?.title?.content;
+    if (videoId && title && !seen.has(videoId)) {
+      seen.add(videoId);
+      let durationText = '';
+      for (const ov of lk.contentImage?.thumbnailViewModel?.overlays || []) {
+        durationText = ov.thumbnailBottomOverlayViewModel?.badges?.[0]?.thumbnailBadgeViewModel?.text
+          || ov.thumbnailOverlayTimeStatusRenderer?.text?.runs?.[0]?.text || durationText;
+        if (durationText) break;
+      }
+      out.push({
+        id: `yt_${videoId}`,
+        youtubeVideoId: videoId,
+        videoId,
+        title,
+        durationText,
+        durationSeconds: parseDurationText(durationText),
+        thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+      });
+    }
+  }
+
+  for (const key of Object.keys(node)) {
+    if (key === 'playlistVideoRenderer' || key === 'lockupViewModel') continue;
+    collectPlaylistVideos(node[key], out, seen);
+  }
+}
+
+/** "1:02:03" / "9:41" -> seconds. */
+function parseDurationText(text?: string): number {
+  if (!text) return 0;
+  const parts = text.trim().split(':').map(Number);
+  if (parts.some(isNaN)) return 0;
+  return parts.reduce((acc, n) => acc * 60 + n, 0);
+}
+
+/** Find the continuation token for the next page, wherever it sits. */
+function findContinuationToken(node: any): string | null {
+  if (!node || typeof node !== 'object') return null;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const t = findContinuationToken(item);
+      if (t) return t;
+    }
+    return null;
+  }
+  const token = node.continuationCommand?.token
+    || node.continuationEndpoint?.continuationCommand?.token;
+  if (typeof token === 'string' && token.length > 10) return token;
+  for (const key of Object.keys(node)) {
+    const t = findContinuationToken(node[key]);
+    if (t) return t;
+  }
+  return null;
+}
+
+/**
+ * Pull an embedded JSON object out of a YouTube page.
+ *
+ * Regex cannot do this reliably: a non-greedy /{.+?}/ stops at the first brace
+ * that happens to be followed by the terminator, which on some playlist pages
+ * yields a truncated slice that JSON.parse rejects — the page then looked
+ * unreadable even though the data was right there. Scan forward tracking brace
+ * depth, skipping over string literals and their escapes.
+ */
+function extractEmbeddedJson(html: string, marker: string): any | null {
+  let searchFrom = 0;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const markerAt = html.indexOf(marker, searchFrom);
+    if (markerAt === -1) return null;
+
+    const objStart = html.indexOf('{', markerAt + marker.length);
+    if (objStart === -1) return null;
+    searchFrom = markerAt + marker.length;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = objStart; i < html.length; i++) {
+      const ch = html[i];
+
+      if (escaped) { escaped = false; continue; }
+      if (ch === '\\') { escaped = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          try {
+            return JSON.parse(html.substring(objStart, i + 1));
+          } catch (e) {
+            break;   // malformed here; try the next occurrence of the marker
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function extractYtInitialData(html: string): any | null {
+  for (const marker of ['ytInitialData = ', 'ytInitialData"] = ', 'var ytInitialData = ', 'ytInitialData=']) {
+    const data = extractEmbeddedJson(html, marker);
+    if (data) return data;
+  }
+  return null;
+}
+
+const YT_BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept-Language': 'en-US,en;q=0.9'
+};
+
 app.get('/api/youtube/playlist', async (req: Request, res: Response) => {
   const playlistId = req.query.id as string;
   if (!playlistId) {
@@ -911,98 +1161,65 @@ app.get('/api/youtube/playlist', async (req: Request, res: Response) => {
 
   try {
     const url = `https://www.youtube.com/playlist?list=${encodeURIComponent(playlistId)}`;
-    const ytRes = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9'
-      }
-    });
+    const ytRes = await fetch(url, { headers: YT_BROWSER_HEADERS });
+    if (!ytRes.ok) throw new Error(`Playlist page returned ${ytRes.status}`);
 
-    if (!ytRes.ok) throw new Error(`Playlist fetch failed: ${ytRes.status}`);
     const html = await ytRes.text();
-    let d: any = null;
-    const idx = html.indexOf('ytInitialData = ');
-    if (idx !== -1) {
-      const start = idx + 'ytInitialData = '.length;
-      const scriptEnd = html.indexOf('</script>', start);
-      if (scriptEnd !== -1) {
-        try {
-          const jsonStr = html.substring(start, scriptEnd).replace(/;[\s\n]*$/, '').trim();
-          d = JSON.parse(jsonStr);
-        } catch (e) {
-          // fallback
-        }
-      }
-    }
-    if (!d) {
-      const match = html.match(/ytInitialData\s*=\s*({.+?});<\/script>/);
-      if (match) d = JSON.parse(match[1]);
-    }
-    if (!d) throw new Error('Could not parse playlist metadata');
+    const d = extractYtInitialData(html);
+    if (!d) throw new Error('Could not read playlist data from the page');
 
-    const playlistTitle = d.header?.playlistHeaderRenderer?.title?.simpleText || 
-                          d.metadata?.playlistMetadataRenderer?.title || 'YouTube Course Series';
-    const author = d.header?.playlistHeaderRenderer?.ownerText?.runs?.[0]?.text || 'YouTube Creator';
-
-    const sec = d.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content
-                  ?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
+    const playlistTitle =
+      d.header?.playlistHeaderRenderer?.title?.simpleText ||
+      d.metadata?.playlistMetadataRenderer?.title ||
+      d.header?.pageHeaderRenderer?.pageTitle ||
+      'YouTube Playlist';
+    const author =
+      d.header?.playlistHeaderRenderer?.ownerText?.runs?.[0]?.text ||
+      d.metadata?.playlistMetadataRenderer?.ownerText?.runs?.[0]?.text ||
+      'YouTube';
 
     const videos: any[] = [];
-    // 1. Try modern lockupViewModel (2025/2026 YouTube)
-    for (const s of sec) {
-      const lk = s.lockupViewModel;
-      if (lk) {
-        const title = lk.metadata?.lockupMetadataViewModel?.title?.content;
-        const videoId = lk.rendererContext?.commandContext?.onTap?.innertubeCommand?.watchEndpoint?.videoId;
-        let duration = '';
-        const overlays = lk.contentImage?.thumbnailViewModel?.overlays || [];
-        for (const ov of overlays) {
-          const badgeText = ov.thumbnailBottomOverlayViewModel?.badges?.[0]?.thumbnailBadgeViewModel?.text;
-          if (badgeText) { duration = badgeText; break; }
-          const timeRendererText = ov.thumbnailOverlayTimeStatusRenderer?.text?.runs?.[0]?.text;
-          if (timeRendererText) { duration = timeRendererText; break; }
-        }
-        if (!duration) duration = lk.rendererContext?.accessibilityContext?.label || '';
-        if (videoId && title) {
-          videos.push({
-            id: `yt_${videoId}`,
-            youtubeVideoId: videoId,
-            title,
-            duration,
-            thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-          });
-        }
+    const seen = new Set<string>();
+    collectPlaylistVideos(d.contents, videos, seen);
+    if (videos.length === 0) collectPlaylistVideos(d, videos, seen);
+
+    // Page through the rest. YouTube only ships ~100 items in the first
+    // response, so long courses were silently truncated.
+    let token = findContinuationToken(d);
+    const apiKey = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1];
+    let guard = 0;
+    while (token && apiKey && videos.length < 1000 && guard < 20) {
+      guard++;
+      try {
+        const contRes = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${apiKey}`, {
+          method: 'POST',
+          headers: { ...YT_BROWSER_HEADERS, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            context: { client: { clientName: 'WEB', clientVersion: '2.20240101.00.00' } },
+            continuation: token
+          })
+        });
+        if (!contRes.ok) break;
+        const contData: any = await contRes.json();
+        const before = videos.length;
+        collectPlaylistVideos(contData, videos, seen);
+        if (videos.length === before) break;    // no progress, stop
+        token = findContinuationToken(contData);
+      } catch (e) {
+        break;
       }
     }
 
-    // 2. Fallback to legacy playlistVideoRenderer if lockupViewModel was empty
     if (videos.length === 0) {
-      const rawVideos = d.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content
-                          ?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]
-                          ?.playlistVideoListRenderer?.contents || [];
-      for (const item of rawVideos) {
-        if (item.playlistVideoRenderer) {
-          const v = item.playlistVideoRenderer;
-          videos.push({
-            id: `yt_${v.videoId}`,
-            youtubeVideoId: v.videoId,
-            title: v.title?.runs?.[0]?.text || 'Video Lecture',
-            duration: v.lengthText?.simpleText || '',
-            thumbnail: v.thumbnail?.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
-          });
-        }
-      }
+      return res.status(404).json({
+        error: 'No videos found in this playlist. It may be private, empty, or region-restricted.'
+      });
     }
 
-    res.json({
-      id: playlistId,
-      title: playlistTitle,
-      author,
-      videos
-    });
+    res.json({ id: playlistId, title: playlistTitle, author, videos, totalVideos: videos.length });
   } catch (err: any) {
     console.error('Playlist extraction error:', err.message);
-    res.status(500).json({ error: 'Failed to extract playlist. Check that playlist is public.' });
+    res.status(502).json({ error: `Could not read that playlist: ${err.message}` });
   }
 });
 
@@ -1785,7 +2002,7 @@ app.get('/api/youtube/history', (req: Request, res: Response) => {
   });
 });
 
-app.post('/api/youtube/history', (req: Request, res: Response) => {
+app.post('/api/youtube/history', async (req: Request, res: Response) => {
   const { id, videoId, title, thumbnailUrl, durationSeconds, positionSeconds, removeId, clearAll } = req.body || {};
 
   if (clearAll) {
@@ -1793,7 +2010,23 @@ app.post('/api/youtube/history', (req: Request, res: Response) => {
   } else if (removeId) {
     inMemoryData.youtubeHistory = (inMemoryData.youtubeHistory || []).filter(e => e.id !== removeId);
   } else if (id) {
-    recordYouTubeWatch({ id, videoId, title, thumbnailUrl, durationSeconds, positionSeconds });
+    let finalTitle = title;
+    let finalThumb = thumbnailUrl;
+    // A client that could not resolve the title sends the placeholder, which
+    // would otherwise sit in history forever as "YouTube Video" with no
+    // thumbnail. Resolve it here instead.
+    if (!finalTitle || finalTitle === 'YouTube Video' || !finalThumb) {
+      const vid = videoId || String(id).replace(/^yt_/, '');
+      try {
+        const r = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`);
+        if (r.ok) {
+          const info: any = await r.json();
+          finalTitle = (!finalTitle || finalTitle === 'YouTube Video') ? (info.title || finalTitle) : finalTitle;
+          finalThumb = finalThumb || info.thumbnail_url;
+        }
+      } catch (e) {}
+    }
+    recordYouTubeWatch({ id, videoId, title: finalTitle, thumbnailUrl: finalThumb, durationSeconds, positionSeconds });
   } else {
     return res.status(400).json({ error: 'id, removeId or clearAll required' });
   }
@@ -1905,16 +2138,19 @@ app.post('/api/progress', (req: Request, res: Response) => {
   }
 
   if (courseId) {
-    if (!inMemoryData.courses[courseId]) {
-      inMemoryData.courses[courseId] = {
-        id: courseId,
+    // A yt_ lesson is course-independent; keep its data in one place.
+    const targetCourseId = (typeof lessonId === 'string' && lessonId.startsWith('yt_'))
+      ? YOUTUBE_BUCKET : courseId;
+    if (!inMemoryData.courses[targetCourseId]) {
+      inMemoryData.courses[targetCourseId] = {
+        id: targetCourseId,
         completedLessonIds: [],
         notes: {},
         lastWatched: null
       };
     }
 
-    const courseData = inMemoryData.courses[courseId];
+    const courseData = inMemoryData.courses[targetCourseId];
 
     if (lessonId && typeof timestamp === 'number') {
       courseData.lastWatched = {

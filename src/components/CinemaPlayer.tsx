@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, dataBucketFor } from '../store/useStore';
 import { 
   Play, 
   Pause, 
@@ -59,6 +59,11 @@ export const CinemaPlayer: React.FC = () => {
   } = useStore();
 
   const isYouTube = Boolean(activeLesson?.source === 'youtube' || activeLesson?.youtubeVideoId);
+  // A pasted link is cross-origin. crossOrigin="anonymous" makes the browser
+  // refuse to load it unless the remote host sends CORS headers, so the video
+  // silently never started. Only request CORS for our own /api/stream, which is
+  // also the only source the Web Audio booster can legally read samples from.
+  const isDirectUrl = activeLesson?.source === 'direct';
   const ytVideoId = activeLesson?.youtubeVideoId || (isYouTube ? activeLesson?.relativePath : '');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -84,11 +89,13 @@ export const CinemaPlayer: React.FC = () => {
   const [isBookmarksMenuOpen, setIsBookmarksMenuOpen] = useState(false);
   const [isBoostMenuOpen, setIsBoostMenuOpen] = useState(false);
 
-  const bookmarks = activeLesson ? (userData?.courses?.[activeCourseId]?.bookmarks?.[activeLesson.id] || []) : [];
-  const isCompleted = activeLesson ? (userData?.courses?.[activeCourseId]?.completedLessonIds || []).includes(activeLesson.id) : false;
+  const bookmarks = activeLesson ? (userData?.courses?.[dataBucketFor(activeLesson.id, activeCourseId)]?.bookmarks?.[activeLesson.id] || []) : [];
+  const isCompleted = activeLesson ? (userData?.courses?.[dataBucketFor(activeLesson.id, activeCourseId)]?.completedLessonIds || []).includes(activeLesson.id) : false;
 
   const initAudioBooster = useCallback(() => {
-    if (isYouTube) return; // Audio booster is only applicable to local media elements
+    // Only local media: creating a MediaElementSource from a cross-origin video
+    // without CORS taints the graph and silences playback entirely.
+    if (isYouTube || isDirectUrl) return;
     const video = videoRef.current;
     if (!video || audioCtxRef.current) {
       if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
@@ -128,7 +135,7 @@ export const CinemaPlayer: React.FC = () => {
     } catch (e) {
       console.warn('Web Audio API notice:', e);
     }
-  }, [audioBoost, isYouTube]);
+  }, [audioBoost, isYouTube, isDirectUrl]);
 
   // Clean AudioContext and controlsTimeout on component unmount
   useEffect(() => {
@@ -156,7 +163,7 @@ export const CinemaPlayer: React.FC = () => {
   }, [audioBoost, isYouTube]);
 
   const handleBoostChange = (newBoost: number) => {
-    if (isYouTube) return;
+    if (isYouTube || isDirectUrl) return;
     initAudioBooster();
     if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume().catch(() => {});
@@ -175,9 +182,14 @@ export const CinemaPlayer: React.FC = () => {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const videoSrc = activeLesson && !isYouTube
-    ? `/api/stream/${activeCourseId}/${activeLesson.id}` 
-    : '';
+  // A lesson is either a local file streamed by the server, a YouTube embed, or
+  // a direct media URL pasted by the user — the last plays through the same
+  // <video> element, so every HUD control and note timestamp keeps working.
+  const videoSrc = !activeLesson || isYouTube
+    ? ''
+    : activeLesson.source === 'direct' && activeLesson.directUrl
+      ? activeLesson.directUrl
+      : `/api/stream/${activeCourseId}/${activeLesson.id}`;
 
   const handleEnded = useCallback(() => {
     setIsPlaying(false);
@@ -758,7 +770,7 @@ export const CinemaPlayer: React.FC = () => {
             <video
               ref={videoRef}
               src={videoSrc}
-              crossOrigin="anonymous"
+              crossOrigin={isDirectUrl ? undefined : 'anonymous'}
               className="w-full h-full object-contain cursor-pointer"
               onClick={togglePlay}
               onTimeUpdate={handleTimeUpdate}

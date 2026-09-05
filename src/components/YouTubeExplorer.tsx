@@ -40,6 +40,7 @@ export const YouTubeExplorer: React.FC = () => {
     pushToast
   } = useStore();
 
+  const playDirectUrl = useStore(s => s.playDirectUrl);
   const youtubeHistory = useStore(s => s.youtubeHistory);
   const fetchYouTubeHistory = useStore(s => s.fetchYouTubeHistory);
   const removeHistoryEntry = useStore(s => s.removeYouTubeHistoryEntry);
@@ -70,7 +71,7 @@ export const YouTubeExplorer: React.FC = () => {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
-  const [detectedType, setDetectedType] = useState<'video' | 'playlist' | null>(null);
+  const [detectedType, setDetectedType] = useState<'video' | 'playlist' | 'direct' | 'unsupported' | null>(null);
   const [detectedId, setDetectedId] = useState<string | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +99,21 @@ export const YouTubeExplorer: React.FC = () => {
     if (videoMatch && videoMatch[1]) {
       setDetectedType('video');
       setDetectedId(videoMatch[1]);
+      return;
+    }
+
+    // Anything that is a URL but not YouTube: play it directly if it looks like
+    // a media file or stream, otherwise say plainly that it cannot be embedded
+    // rather than silently searching for the URL as if it were a phrase.
+    if (/^https?:\/\//i.test(trimmed)) {
+      const path = trimmed.split('?')[0].split('#')[0];
+      if (/\.(mp4|webm|m4v|mov|ogv|ogg|mkv|avi|m3u8|mpd)$/i.test(path)) {
+        setDetectedType('direct');
+        setDetectedId(trimmed);
+        return;
+      }
+      setDetectedType('unsupported');
+      setDetectedId(trimmed);
       return;
     }
 
@@ -170,6 +186,22 @@ export const YouTubeExplorer: React.FC = () => {
           setIsLoading(false);
           return;
         }
+      }
+
+      // A direct media link plays immediately; there is nothing to search for.
+      if (/^https?:\/\//i.test(targetQuery)) {
+        const path = targetQuery.split('?')[0].split('#')[0];
+        if (/\.(mp4|webm|m4v|mov|ogv|ogg|mkv|avi|m3u8|mpd)$/i.test(path)) {
+          playDirectUrl(targetQuery);
+          setIsLoading(false);
+          return;
+        }
+        setError(
+          'That link is not a YouTube video or playlist and is not a direct media file. ' +
+          'Paste a YouTube URL, or a direct link ending in .mp4, .webm, .mov, .m3u8 and similar.'
+        );
+        setIsLoading(false);
+        return;
       }
 
       // Standard search via InnerTube backend
@@ -252,6 +284,119 @@ export const YouTubeExplorer: React.FC = () => {
     }
   };
 
+  // One renderer, two placements: the main grid when nothing is searched, and
+  // a sidebar while results show — the history used to vanish the moment you
+  // typed, which is exactly when you might want to return to it.
+  const renderHistory = (asSidebar: boolean) => (
+    <>
+      {/* Continue watching — the videos you have already opened. Without this
+          a video (and any notes taken on it) was unreachable once you moved on. */}
+      {youtubeHistory.length > 0 && (
+        <div className={asSidebar ? "space-y-3" : "space-y-3 mb-8"}>
+          <div className="flex items-center justify-between px-1">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+              <History className="w-4 h-4" strokeWidth={1.5} />
+              Continue watching
+              <span className="text-[10px] font-mono normal-case tracking-normal px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06]">
+                {youtubeHistory.length}
+              </span>
+            </h2>
+            <button
+              id="clear-yt-history-btn"
+              onClick={() => {
+                if (!confirmClearHistory) {
+                  setConfirmClearHistory(true);
+                  setTimeout(() => setConfirmClearHistory(false), 3500);
+                  return;
+                }
+                setConfirmClearHistory(false);
+                clearHistory();
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-medium transition-all ${
+                confirmClearHistory
+                  ? 'bg-rose-500/20 text-rose-500 border-rose-500/40'
+                  : 'bg-black/[0.03] dark:bg-white/[0.05] border-black/[0.05] dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400 hover:text-rose-500 hover:border-rose-500/30'
+              }`}
+              title="Clear watch history. Your notes and bookmarks are kept."
+            >
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+              <span className="font-mono text-[10px]">{confirmClearHistory ? 'Confirm?' : 'Clear'}</span>
+            </button>
+          </div>
+
+          <div className={asSidebar
+              ? "flex flex-col gap-3 max-h-[calc(100vh-230px)] overflow-y-auto pr-1"
+              : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"}>
+            {youtubeHistory.slice(0, asSidebar ? 20 : 9).map(h => {
+              const pct = h.durationSeconds ? Math.min(100, (h.positionSeconds / h.durationSeconds) * 100) : 0;
+              return (
+                <div
+                  key={h.id}
+                  className="group p-1.5 rounded-[1.5rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08] hover:border-red-500/30 transition-colors"
+                >
+                  <button
+                    onClick={() => playYouTubeVideoImmediately({
+                      id: h.videoId, title: h.title,
+                      durationSeconds: h.durationSeconds, thumbnailUrl: h.thumbnailUrl
+                    })}
+                    className={`w-full text-left rounded-[calc(1.5rem-0.375rem)] overflow-hidden bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] ${asSidebar ? "flex gap-2.5 p-2 items-start" : ""}`}
+                    title={`Resume "${h.title}"${h.positionSeconds ? ' at ' + fmtDur(h.positionSeconds) : ''}`}
+                  >
+                    <div className={`relative bg-black/[0.06] dark:bg-white/[0.04] overflow-hidden flex-shrink-0 ${asSidebar ? "w-28 aspect-video rounded-lg" : "aspect-video"}`}>
+                      {h.thumbnailUrl && (
+                        <img src={h.thumbnailUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+                      )}
+                      <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="w-11 h-11 rounded-full bg-white/95 flex items-center justify-center">
+                          <Play className="w-4 h-4 ml-0.5 fill-zinc-900 text-zinc-900" />
+                        </span>
+                      </span>
+                      {h.durationSeconds ? (
+                        <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono">
+                          {fmtDur(h.durationSeconds)}
+                        </span>
+                      ) : null}
+                      {pct > 0 && (
+                        <span className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
+                          <span className="block h-full bg-red-600" style={{ width: `${pct}%` }} />
+                        </span>
+                      )}
+                    </div>
+                    <div className={asSidebar ? "min-w-0 flex-1" : "p-3"}>
+                      <p className={`font-semibold text-zinc-900 dark:text-white line-clamp-2 leading-snug ${asSidebar ? "text-[11.5px]" : "text-[12.5px]"}`}>
+                        {h.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400">
+                          {h.positionSeconds > 0 ? `${fmtDur(h.positionSeconds)} in` : 'not started'} · {sinceWhen(h.lastWatchedAt)}
+                        </span>
+                        {(h.notes > 0 || h.bookmarks > 0) && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
+                            <StickyNote className="w-2.5 h-2.5" strokeWidth={2} />
+                            {h.notes > 0 ? `${h.notes} note${h.notes === 1 ? '' : 's'}` : ''}
+                            {h.notes > 0 && h.bookmarks > 0 ? ' · ' : ''}
+                            {h.bookmarks > 0 ? `${h.bookmarks} pin${h.bookmarks === 1 ? '' : 's'}` : ''}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => removeHistoryEntry(h.id)}
+                    aria-label={`Remove ${h.title} from history`}
+                    className="w-full mt-1 px-3 py-1 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-500 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  >
+                    Remove from history
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto py-4 sm:py-6 pb-24 select-none transition-colors">
       
@@ -283,7 +428,7 @@ export const YouTubeExplorer: React.FC = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Search topics (e.g., 'Rust Systems') or paste YouTube URL / Playlist..."
+              placeholder="Search topics, or paste a YouTube URL, playlist, or a direct .mp4 / .m3u8 link..."
               className="w-full bg-transparent px-3 py-2 text-sm sm:text-[15px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 rounded-md font-medium"
             />
 
@@ -332,14 +477,21 @@ export const YouTubeExplorer: React.FC = () => {
             <div className="px-4 py-3 rounded-[calc(1rem-0.25rem)] bg-white/80 dark:bg-[#151720]/90 backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-red-500/15 flex items-center justify-center text-red-500 shrink-0">
-                  {detectedType === 'playlist' ? <Layers className="w-4 h-4" /> : <Film className="w-4 h-4" />}
+                  {detectedType === 'playlist' ? <Layers className="w-4 h-4" />
+                    : detectedType === 'unsupported' ? <AlertCircle className="w-4 h-4" />
+                    : <Film className="w-4 h-4" />}
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-zinc-900 dark:text-white">
-                    {detectedType === 'playlist' ? 'YouTube Playlist Detected' : 'Direct Video Link Detected'}
+                    {detectedType === 'playlist' ? 'YouTube playlist detected'
+                      : detectedType === 'video' ? 'YouTube video detected'
+                      : detectedType === 'direct' ? 'Direct video link detected'
+                      : 'This link cannot be played here'}
                   </p>
                   <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 truncate max-w-md">
-                    ID: {detectedId}
+                    {detectedType === 'unsupported'
+                      ? 'Paste a YouTube URL, or a direct link ending in .mp4, .webm, .mov, .m3u8'
+                      : detectedId}
                   </p>
                 </div>
               </div>
@@ -354,10 +506,14 @@ export const YouTubeExplorer: React.FC = () => {
                     {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />}
                     <span>Import Course</span>
                   </button>
-                ) : (
+                ) : detectedType === 'unsupported' ? null : (
                   <button
-                    onClick={() => detectedId && playYouTubeVideoImmediately({ id: detectedId, title: 'YouTube Video' })}
-                    className="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-[0.98]"
+                    onClick={() => {
+                      if (!detectedId) return;
+                      if (detectedType === 'direct') playDirectUrl(detectedId);
+                      else playYouTubeVideoImmediately({ id: detectedId, title: 'YouTube Video' });
+                    }}
+                    className="px-4 py-2 rounded-full bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-[0.98]"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
                     <span>Study Now</span>
@@ -408,112 +564,14 @@ export const YouTubeExplorer: React.FC = () => {
         </div>
       )}
 
-      {/* Search Results Grid */}
-      {/* Continue watching — the videos you have already opened. Without this
-          a video (and any notes taken on it) was unreachable once you moved on. */}
-      {results.length === 0 && youtubeHistory.length > 0 && (
-        <div className="space-y-3 mb-8">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
-              <History className="w-4 h-4" strokeWidth={1.5} />
-              Continue watching
-              <span className="text-[10px] font-mono normal-case tracking-normal px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06]">
-                {youtubeHistory.length}
-              </span>
-            </h2>
-            <button
-              id="clear-yt-history-btn"
-              onClick={() => {
-                if (!confirmClearHistory) {
-                  setConfirmClearHistory(true);
-                  setTimeout(() => setConfirmClearHistory(false), 3500);
-                  return;
-                }
-                setConfirmClearHistory(false);
-                clearHistory();
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-medium transition-all ${
-                confirmClearHistory
-                  ? 'bg-rose-500/20 text-rose-500 border-rose-500/40'
-                  : 'bg-black/[0.03] dark:bg-white/[0.05] border-black/[0.05] dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400 hover:text-rose-500 hover:border-rose-500/30'
-              }`}
-              title="Clear watch history. Your notes and bookmarks are kept."
-            >
-              <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-              <span className="font-mono text-[10px]">{confirmClearHistory ? 'Confirm?' : 'Clear'}</span>
-            </button>
-          </div>
+      {/* Continue watching as the main grid when nothing has been searched. */}
+      {results.length === 0 && renderHistory(false)}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {youtubeHistory.slice(0, 9).map(h => {
-              const pct = h.durationSeconds ? Math.min(100, (h.positionSeconds / h.durationSeconds) * 100) : 0;
-              return (
-                <div
-                  key={h.id}
-                  className="group p-1.5 rounded-[1.5rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08] hover:border-red-500/30 transition-colors"
-                >
-                  <button
-                    onClick={() => playYouTubeVideoImmediately({
-                      id: h.videoId, title: h.title,
-                      durationSeconds: h.durationSeconds, thumbnailUrl: h.thumbnailUrl
-                    })}
-                    className="w-full text-left rounded-[calc(1.5rem-0.375rem)] overflow-hidden bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06]"
-                    title={`Resume "${h.title}"${h.positionSeconds ? ' at ' + fmtDur(h.positionSeconds) : ''}`}
-                  >
-                    <div className="relative aspect-video bg-black/[0.06] dark:bg-white/[0.04] overflow-hidden">
-                      {h.thumbnailUrl && (
-                        <img src={h.thumbnailUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
-                      )}
-                      <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="w-11 h-11 rounded-full bg-white/95 flex items-center justify-center">
-                          <Play className="w-4 h-4 ml-0.5 fill-zinc-900 text-zinc-900" />
-                        </span>
-                      </span>
-                      {h.durationSeconds ? (
-                        <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono">
-                          {fmtDur(h.durationSeconds)}
-                        </span>
-                      ) : null}
-                      {pct > 0 && (
-                        <span className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
-                          <span className="block h-full bg-red-600" style={{ width: `${pct}%` }} />
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <p className="text-[12.5px] font-semibold text-zinc-900 dark:text-white line-clamp-2 leading-snug">
-                        {h.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400">
-                          {h.positionSeconds > 0 ? `${fmtDur(h.positionSeconds)} in` : 'not started'} · {sinceWhen(h.lastWatchedAt)}
-                        </span>
-                        {(h.notes > 0 || h.bookmarks > 0) && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
-                            <StickyNote className="w-2.5 h-2.5" strokeWidth={2} />
-                            {h.notes > 0 ? `${h.notes} note${h.notes === 1 ? '' : 's'}` : ''}
-                            {h.notes > 0 && h.bookmarks > 0 ? ' · ' : ''}
-                            {h.bookmarks > 0 ? `${h.bookmarks} pin${h.bookmarks === 1 ? '' : 's'}` : ''}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => removeHistoryEntry(h.id)}
-                    aria-label={`Remove ${h.title} from history`}
-                    className="w-full mt-1 px-3 py-1 rounded-full text-[10px] font-mono text-zinc-500 dark:text-zinc-500 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
-                  >
-                    Remove from history
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Search Results Grid */}
 
       {results.length > 0 ? (
+        <div className="flex flex-col xl:flex-row gap-6 items-start">
+          <div className="flex-1 min-w-0">
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
@@ -657,6 +715,12 @@ export const YouTubeExplorer: React.FC = () => {
               );
             })}
           </div>
+        </div>
+          </div>
+          {/* Reachable while searching, rather than disappearing as you type. */}
+          <aside className="w-full xl:w-[330px] flex-shrink-0 xl:sticky xl:top-24">
+            {renderHistory(true)}
+          </aside>
         </div>
       ) : (
         /* Empty / Initial State */

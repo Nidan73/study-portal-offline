@@ -18,8 +18,10 @@ export interface LessonItem {
   durationSeconds?: number;
   extension: string;
   companionPdf?: SupplementaryFile;
-  source?: 'local' | 'youtube';
+  source?: 'local' | 'youtube' | 'direct';
   youtubeVideoId?: string;
+  /** Absolute URL for a video played straight from a link (mp4/webm/…). */
+  directUrl?: string;
   thumbnailUrl?: string;
 }
 
