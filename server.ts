@@ -173,7 +173,11 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use(express.json({ limit: '10mb' }));
 
 // Paths
-const DATA_DIR = path.join(__dirname, 'data');
+// Overridable so the test suite can run against a scratch directory instead of
+// your real notes. Defaults to ./data.
+const DATA_DIR = process.env.STUDYHUB_DATA_DIR
+  ? path.resolve(process.env.STUDYHUB_DATA_DIR)
+  : path.join(__dirname, 'data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const PROGRESS_FILE = path.join(DATA_DIR, 'study-hub-data.json');
 const VIDEO_CACHE_DIR = path.join(DATA_DIR, 'video-cache');

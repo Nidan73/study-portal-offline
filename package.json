@@ -8,7 +8,10 @@
     "dev:server": "tsx server.ts --port 47287",
     "dev": "concurrently -n \"SERVER,CLIENT\" -c \"magenta,cyan\" \"npm run dev:server\" \"npm run dev:client\"",
     "build": "tsc && vite build",
-    "start": "tsx server.ts"
+    "start": "tsx server.ts",
+    "test": "node tests/api.test.mjs && node tests/ui.test.mjs",
+    "test:api": "node tests/api.test.mjs",
+    "test:ui": "node tests/ui.test.mjs"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",

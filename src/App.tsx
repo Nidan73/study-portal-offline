@@ -345,6 +345,12 @@ export const App: React.FC = () => {
         )}
       </main>
 
+      <footer className="relative z-10 py-6 text-center select-none">
+        <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
+          Built with care &amp; love
+        </p>
+      </footer>
+
       {/* Global Overlays */}
       {isDragging && <div className="fixed inset-0 z-50 cursor-col-resize select-none pointer-events-auto" />}
       {isResizingDock && <div className="fixed inset-0 z-50 cursor-row-resize select-none pointer-events-auto" />}
