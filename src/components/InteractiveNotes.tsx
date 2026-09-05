@@ -9,7 +9,10 @@ import {
   Bookmark as BookmarkIcon, 
   Trash2,
   Zap,
-  ZapOff
+  ZapOff,
+  Download,
+  Search,
+  X
 } from 'lucide-react';
 
 export const InteractiveNotes: React.FC = () => {
@@ -24,6 +27,8 @@ export const InteractiveNotes: React.FC = () => {
     toggleAutoPauseOnNote,
     userData, 
     addNote,
+    removeNote,
+    clearAllNotes,
     addBookmark,
     removeBookmark,
     clearAllBookmarks
@@ -34,6 +39,8 @@ export const InteractiveNotes: React.FC = () => {
   const [bookmarkLabel, setBookmarkLabel] = useState('');
   const [copied, setCopied] = useState(false);
   const [confirmClearBookmarks, setConfirmClearBookmarks] = useState(false);
+  const [confirmClearNotes, setConfirmClearNotes] = useState(false);
+  const [noteQuery, setNoteQuery] = useState('');
   const [lockedTimestamp, setLockedTimestamp] = useState<number | null>(null);
 
   const notes = activeLesson 
@@ -45,6 +52,11 @@ export const InteractiveNotes: React.FC = () => {
     : [];
 
   const sortedBookmarks = [...bookmarks].sort((a, b) => a.timestampSeconds - b.timestampSeconds);
+
+  const noteFilter = noteQuery.trim().toLowerCase();
+  const visibleNotes = noteFilter
+    ? notes.filter(n => n.content.toLowerCase().includes(noteFilter))
+    : notes;
 
   const formatTimestamp = (secs: number) => {
     const h = Math.floor(secs / 3600);
@@ -93,13 +105,12 @@ export const InteractiveNotes: React.FC = () => {
     }
   };
 
-  const copyNotesToClipboard = async () => {
-    if (!activeLesson || notes.length === 0) return;
-
+  const buildMarkdown = () => {
+    if (!activeLesson) return '';
     const isYT = Boolean(activeLesson.source === 'youtube' || activeLesson.youtubeVideoId);
     const ytId = activeLesson.youtubeVideoId || (isYT ? activeLesson.relativePath : '');
 
-    const markdown = `# Notes: ${activeLesson.title}\n\n` + 
+    return `# Notes: ${activeLesson.title}\n\n` +
       notes.map(n => {
         const timeStr = formatTimestamp(n.timestampSeconds);
         const timeLink = isYT && ytId
@@ -108,6 +119,37 @@ export const InteractiveNotes: React.FC = () => {
         const slideInfo = n.slideNumber ? ` (Slide ${n.slideNumber})` : '';
         return `- ${timeLink}${slideInfo} ${n.content}`;
       }).join('\n\n');
+  };
+
+  // Save the notes as a .md file on this machine.
+  const downloadNotes = () => {
+    if (!activeLesson || notes.length === 0) return;
+    const safeName = activeLesson.title.replace(/[^\w\d\-. ]+/g, '_').slice(0, 80).trim() || 'notes';
+    const blob = new Blob([buildMarkdown()], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleClearAllNotes = () => {
+    if (!activeLesson) return;
+    if (!confirmClearNotes) {
+      setConfirmClearNotes(true);
+      setTimeout(() => setConfirmClearNotes(false), 3000);
+      return;
+    }
+    clearAllNotes(activeLesson.id);
+    setConfirmClearNotes(false);
+  };
+
+  const copyNotesToClipboard = async () => {
+    if (!activeLesson || notes.length === 0) return;
+    const markdown = buildMarkdown();
 
     let success = false;
     if (navigator.clipboard && window.isSecureContext) {
@@ -192,14 +234,40 @@ export const InteractiveNotes: React.FC = () => {
           </div>
 
           {activeTab === 'notes' && notes.length > 0 && (
-            <button
-              onClick={copyNotesToClipboard}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-200 text-[11px] font-medium transition-colors"
-              title="Copy as Markdown"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={1.5} /> : <Copy className="w-3.5 h-3.5 text-zinc-400" strokeWidth={1.5} />}
-              <span className="font-mono">{copied ? 'Copied' : 'Export MD'}</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={copyNotesToClipboard}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-200 text-[11px] font-medium transition-colors"
+                title="Copy all notes to clipboard as Markdown"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={1.5} /> : <Copy className="w-3.5 h-3.5 text-zinc-400" strokeWidth={1.5} />}
+                <span className="font-mono hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
+              </button>
+
+              <button
+                id="download-notes-btn"
+                onClick={downloadNotes}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-200 text-[11px] font-medium transition-colors"
+                title="Save notes as a .md file on this machine"
+              >
+                <Download className="w-3.5 h-3.5 text-zinc-400" strokeWidth={1.5} />
+                <span className="font-mono hidden sm:inline">Save</span>
+              </button>
+
+              <button
+                id="clear-notes-btn"
+                onClick={handleClearAllNotes}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-medium transition-all ${
+                  confirmClearNotes
+                    ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                    : 'bg-black/[0.03] hover:bg-rose-500/10 dark:bg-white/[0.05] dark:hover:bg-rose-500/15 border-black/[0.05] dark:border-white/[0.08] hover:border-rose-500/30 text-zinc-500 hover:text-rose-400'
+                }`}
+                title="Delete every note on this lecture"
+              >
+                <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                <span className="font-mono text-[10px] hidden sm:inline">{confirmClearNotes ? 'Confirm?' : 'Clear'}</span>
+              </button>
+            </div>
           )}
 
           {activeTab === 'bookmarks' && bookmarks.length > 0 && (
@@ -221,6 +289,32 @@ export const InteractiveNotes: React.FC = () => {
         {/* Tab Body: Notes */}
         {activeTab === 'notes' && (
           <>
+            {notes.length > 0 && (
+              <div className="px-3.5 pt-3 pb-1">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
+                  <input
+                    id="notes-search-input"
+                    type="text"
+                    value={noteQuery}
+                    onChange={(e) => setNoteQuery(e.target.value)}
+                    placeholder={`Search ${notes.length} note${notes.length === 1 ? '' : 's'} on this lecture...`}
+                    className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/10 rounded-full pl-9 pr-8 py-2 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                  {noteQuery && (
+                    <button
+                      onClick={() => setNoteQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition-colors"
+                      title="Clear search"
+                      aria-label="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
               {notes.length === 0 ? (
                 <div className="text-center py-12 text-zinc-400 dark:text-zinc-500 text-[13px]">
@@ -229,8 +323,15 @@ export const InteractiveNotes: React.FC = () => {
                     Press Ctrl+Enter to save a note with current timestamp.
                   </p>
                 </div>
+              ) : visibleNotes.length === 0 ? (
+                <div className="text-center py-12 text-zinc-400 dark:text-zinc-500 text-[13px]">
+                  <p>No notes match &ldquo;{noteQuery}&rdquo;.</p>
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-1 font-mono">
+                    Press Ctrl+K to search notes across every lecture.
+                  </p>
+                </div>
               ) : (
-                notes.map((note) => (
+                visibleNotes.map((note) => (
                   <div 
                     key={note.id}
                     className="p-3 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.04] dark:border-white/[0.06] space-y-2"
@@ -245,9 +346,19 @@ export const InteractiveNotes: React.FC = () => {
                         <span>{formatTimestamp(note.timestampSeconds)}</span>
                       </button>
                       
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
-                        {new Date(note.createdAt).toLocaleDateString()}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
+                          {new Date(note.createdAt).toLocaleDateString()}
+                        </span>
+                        <button
+                          onClick={() => removeNote(activeLesson.id, note.id)}
+                          className="p-1 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          title="Delete this note"
+                          aria-label="Delete this note"
+                        >
+                          <Trash2 className="w-3 h-3" strokeWidth={1.5} />
+                        </button>
+                      </div>
                     </div>
                     <p className="text-[12px] leading-relaxed text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap select-text">
                       {note.content}

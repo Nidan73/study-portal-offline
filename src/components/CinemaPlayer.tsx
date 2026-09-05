@@ -239,6 +239,11 @@ export const CinemaPlayer: React.FC = () => {
               ytPlayerRef.current = event.target;
               const d = event.target.getDuration();
               if (d > 0) setDuration(d);
+              // Explicit seek: the `start` playerVar is applied at construction
+              // and silently ignored in some load orders, which is why saved
+              // YouTube positions appeared to be lost.
+              const resumeAt = useStore.getState().currentTime;
+              if (resumeAt > 1) event.target.seekTo(resumeAt, true);
               if (playbackRate !== 1) event.target.setPlaybackRate(playbackRate);
               if (isMuted) event.target.mute();
               else event.target.setVolume(volume * 100);
@@ -384,6 +389,39 @@ export const CinemaPlayer: React.FC = () => {
       videoRef.current.volume = isMuted ? 0 : volume;
     }
   }, [volume, isMuted, isYouTube]);
+
+  // Drive the media element from the store's isPlaying flag.
+  //
+  // Without this, setIsPlaying(false) from elsewhere (the note composer's
+  // auto-pause, most visibly) only flipped a boolean: the video kept playing
+  // while the big centre Play overlay — which renders on !isPlaying — appeared
+  // on top of it. Each branch checks the player's real state first, so this
+  // cannot ping-pong with the element's own onPlay/onPause handlers.
+  useEffect(() => {
+    if (isYouTube) {
+      const player = ytPlayerRef.current;
+      if (!player || typeof player.getPlayerState !== 'function') return;
+      const YT_PLAYING = 1;
+      let state: number;
+      try {
+        state = player.getPlayerState();
+      } catch (e) {
+        return;
+      }
+      if (isPlaying && state !== YT_PLAYING) player.playVideo?.();
+      else if (!isPlaying && state === YT_PLAYING) player.pauseVideo?.();
+      return;
+    }
+
+    const video = videoRef.current;
+    if (!video) return;
+    if (isPlaying && video.paused) {
+      initAudioBooster();
+      video.play().catch(() => {});
+    } else if (!isPlaying && !video.paused) {
+      video.pause();
+    }
+  }, [isPlaying, isYouTube, initAudioBooster]);
 
   // Sync external seek (e.g. clicking notes timestamps or bookmarks)
   useEffect(() => {
@@ -1049,7 +1087,7 @@ export const CinemaPlayer: React.FC = () => {
             </div>
 
             {/* Time */}
-            <div className="text-[11px] font-mono text-white/70 ml-1.5">
+            <div className="text-[11px] font-mono text-white/70 ml-1.5 whitespace-nowrap flex-shrink-0 tabular-nums">
               <span className="text-white font-medium">{formatTime(currentTime)}</span>
               <span className="text-white/40 mx-1">/</span>
               <span>{formatTime(duration)}</span>
@@ -1057,9 +1095,9 @@ export const CinemaPlayer: React.FC = () => {
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Bookmarks Manager Control */}
-            <div className="relative">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-shrink">
+            {/* Bookmarks Manager Control — secondary, hides first when narrow */}
+            <div className="relative hidden md:block flex-shrink-0">
               <button
                 id="bookmarks-menu-btn"
                 onClick={() => setIsBookmarksMenuOpen(!isBookmarksMenuOpen)}
@@ -1163,12 +1201,12 @@ export const CinemaPlayer: React.FC = () => {
               )}
             </div>
 
-            {/* A-B Looper Control */}
-            <div className="relative">
+            {/* A-B Looper Control — secondary, hides first when narrow */}
+            <div className="relative hidden lg:block flex-shrink-0">
               <button
                 id="ab-loop-btn"
                 onClick={() => setIsLoopMenuOpen(!isLoopMenuOpen)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium transition-all ${
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all ${
                   abLoop.active
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : abLoop.a !== null || abLoop.b !== null
@@ -1247,7 +1285,7 @@ export const CinemaPlayer: React.FC = () => {
             {activeLesson.companionPdf && (
               <button
                 onClick={() => selectPdf(activeLesson.companionPdf || null)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[11px] font-medium transition-colors"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[11px] font-medium flex-shrink-0 transition-colors"
                 title="Open Slides"
               >
                 <FileText className="w-3 h-3" strokeWidth={1.5} />
@@ -1257,7 +1295,7 @@ export const CinemaPlayer: React.FC = () => {
 
             <button
               onClick={() => toggleLessonComplete(activeLesson.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-200 ease-fluid ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap flex-shrink-0 transition-all duration-200 ease-fluid ${
                 isCompleted 
                   ? 'bg-emerald-600 text-white shadow-sm' 
                   : 'bg-white/10 text-white hover:bg-white/15'

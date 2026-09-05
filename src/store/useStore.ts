@@ -96,6 +96,8 @@ export interface StoreState {
   clearAllBookmarks: (lessonId: string) => Promise<void>;
   toggleLessonComplete: (lessonId: string) => Promise<void>;
   addNote: (lessonId: string, timestamp: number, content: string, slideNumber?: number) => Promise<void>;
+  removeNote: (lessonId: string, noteId: string) => Promise<void>;
+  clearAllNotes: (lessonId: string) => Promise<void>;
   syncProgressToDisk: (force?: boolean) => Promise<void>;
   addCustomCourse: (folderPath: string, name?: string) => Promise<boolean>;
   saveYouTubeCourse: (title: string, playlistId: string, videos: any[]) => Promise<string | null>;
@@ -417,9 +419,14 @@ export const useStore = create<StoreState>((set, get) => ({
 
   selectLesson: (lesson: LessonItem, startAt?: number) => {
     const { activeCourseId, userData } = get();
-    const savedTime = startAt !== undefined ? startAt : (userData?.courses?.[activeCourseId]?.lastWatched?.lessonId === lesson.id 
-      ? userData.courses[activeCourseId].lastWatched?.timestampSeconds || 0 
-      : 0);
+    const course = userData?.courses?.[activeCourseId];
+    // Per-lesson position first; fall back to lastWatched for data saved before
+    // resumePositions existed, so existing progress is not lost on upgrade.
+    const savedTime = startAt !== undefined
+      ? startAt
+      : (course?.resumePositions?.[lesson.id]
+         ?? (course?.lastWatched?.lessonId === lesson.id ? course.lastWatched.timestampSeconds : 0)
+         ?? 0);
 
     const savedSnippet = userData?.courses?.[activeCourseId]?.codeSnippets?.[lesson.id];
     let nextLang = get().activeCodeLanguage;
@@ -650,6 +657,62 @@ export const useStore = create<StoreState>((set, get) => ({
       });
     } catch (e) {
       console.error('Failed to save note:', e);
+    }
+  },
+
+  removeNote: async (lessonId: string, noteId: string) => {
+    const { activeCourseId, userData } = get();
+    const existing = userData?.courses?.[activeCourseId]?.notes?.[lessonId] || [];
+    const updated = existing.filter(n => n.id !== noteId);
+
+    set({
+      userData: {
+        ...userData!,
+        courses: {
+          ...userData?.courses,
+          [activeCourseId]: {
+            ...(userData?.courses?.[activeCourseId] || { id: activeCourseId, completedLessonIds: [] }),
+            notes: { ...(userData?.courses?.[activeCourseId]?.notes || {}), [lessonId]: updated }
+          }
+        }
+      } as StudyHubData
+    });
+
+    try {
+      await fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId: activeCourseId, lessonId, removeNoteId: noteId })
+      });
+    } catch (e) {
+      console.error('Failed to remove note:', e);
+    }
+  },
+
+  clearAllNotes: async (lessonId: string) => {
+    const { activeCourseId, userData } = get();
+
+    set({
+      userData: {
+        ...userData!,
+        courses: {
+          ...userData?.courses,
+          [activeCourseId]: {
+            ...(userData?.courses?.[activeCourseId] || { id: activeCourseId, completedLessonIds: [] }),
+            notes: { ...(userData?.courses?.[activeCourseId]?.notes || {}), [lessonId]: [] }
+          }
+        }
+      } as StudyHubData
+    });
+
+    try {
+      await fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId: activeCourseId, lessonId, clearAllNotes: true })
+      });
+    } catch (e) {
+      console.error('Failed to clear notes:', e);
     }
   },
 
@@ -905,10 +968,14 @@ export const useStore = create<StoreState>((set, get) => ({
       thumbnailUrl: video.thumbnailUrl
     };
 
+    // Resume this specific video where it was left, rather than always at 0.
+    const { activeCourseId, userData } = get();
+    const resumeAt = userData?.courses?.[activeCourseId]?.resumePositions?.[ytLesson.id] || 0;
+
     set({
       activeLesson: ytLesson,
       activePdf: null,
-      currentTime: 0,
+      currentTime: resumeAt,
       duration: video.durationSeconds || 0,
       isPlaying: true,
       activeTab: 'player',

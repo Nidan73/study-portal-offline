@@ -50,7 +50,7 @@ export const RightSidePanel: React.FC = () => {
     <div className="flex flex-col h-full space-y-2 select-none">
       {/* Side Panel Tool Switcher Floating Bar */}
       <div className="flex items-center justify-between gap-1.5 px-0.5">
-        <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] backdrop-blur-xl overflow-hidden no-scrollbar flex-shrink-0">
+        <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] backdrop-blur-xl overflow-x-auto no-scrollbar min-w-0">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = sidePanelTab === tab.id;
@@ -75,8 +75,8 @@ export const RightSidePanel: React.FC = () => {
 
         {/* Panel Options: Split Presets, Layout Mode & Collapse */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Split Ratio Presets */}
-          <div className="flex items-center p-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.04] dark:border-white/[0.07] text-[10px] font-mono">
+          {/* Split Ratio Presets — only meaningful once the layout splits */}
+          <div className="hidden xl:flex items-center p-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.04] dark:border-white/[0.07] text-[10px] font-mono">
             <button
               onClick={() => setSplitRatio(70)}
               className={`px-2 py-0.5 rounded-full transition-colors ${
@@ -88,7 +88,7 @@ export const RightSidePanel: React.FC = () => {
             </button>
             <button
               onClick={() => setSplitRatio(60)}
-              className={`hidden 2xl:block px-2 py-0.5 rounded-full transition-colors ${
+              className={`hidden min-[1800px]:block px-2 py-0.5 rounded-full transition-colors ${
                 splitRatio >= 55 && splitRatio < 68 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold shadow-xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
               }`}
               title="60% Video / 40% Side Panel"
@@ -111,7 +111,7 @@ export const RightSidePanel: React.FC = () => {
           <button
             id="toggle-split-layout-btn"
             onClick={() => setSplitLayout(splitLayout === 'side' ? 'bottom' : 'side')}
-            className={`p-1.5 rounded-full border transition-colors ${
+            className={`hidden xl:block p-1.5 rounded-full border transition-colors ${
               splitLayout === 'bottom'
                 ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
                 : 'bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white border-black/[0.04] dark:border-white/[0.07]'
@@ -123,7 +123,7 @@ export const RightSidePanel: React.FC = () => {
 
           <button
             onClick={toggleSidebar}
-            className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 border border-black/[0.04] dark:border-white/[0.07] transition-colors"
+            className="hidden xl:block p-1.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 border border-black/[0.04] dark:border-white/[0.07] transition-colors"
             title="Collapse Side Panel"
           >
             <PanelRightClose className="w-3.5 h-3.5" strokeWidth={1.5} />

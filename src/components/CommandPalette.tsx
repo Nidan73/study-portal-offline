@@ -5,6 +5,7 @@ import {
   Video, 
   FileText, 
   BookOpen, 
+  StickyNote,
   ArrowRight
 } from 'lucide-react';
 
@@ -14,6 +15,9 @@ export const CommandPalette: React.FC = () => {
     setCommandPalette, 
     catalog, 
     courses, 
+    userData,
+    activeCourseId,
+    setCurrentTime,
     selectCourse, 
     selectLesson, 
     selectPdf, 
@@ -51,7 +55,7 @@ export const CommandPalette: React.FC = () => {
 
   const items: Array<{
     id: string;
-    type: 'lesson' | 'pdf' | 'course';
+    type: 'lesson' | 'pdf' | 'course' | 'note';
     title: string;
     subtitle: string;
     action: () => void;
@@ -91,6 +95,41 @@ export const CommandPalette: React.FC = () => {
             }
           });
         }
+      }
+    }
+  }
+
+  // Saved notes across every lecture in this course. Only surfaced once you
+  // type, otherwise hundreds of notes would bury the lessons.
+  if (q && catalog) {
+    const courseNotes = userData?.courses?.[activeCourseId]?.notes || {};
+    const lessonById = new Map<string, { title: string; lesson: any }>();
+    for (const mod of catalog.modules) {
+      for (const lesson of mod.lessons) lessonById.set(lesson.id, { title: lesson.title, lesson });
+    }
+
+    for (const [lessonId, lessonNotes] of Object.entries(courseNotes)) {
+      for (const note of lessonNotes || []) {
+        if (!note.content.toLowerCase().includes(q)) continue;
+        const known = lessonById.get(lessonId);
+        const mins = Math.floor(note.timestampSeconds / 60);
+        const secs = Math.floor(note.timestampSeconds % 60);
+        const stamp = `${mins}:${String(secs).padStart(2, '0')}`;
+        items.push({
+          id: `note-${note.id}`,
+          type: 'note',
+          title: note.content.length > 90 ? note.content.slice(0, 90) + '…' : note.content,
+          subtitle: `Note @ ${stamp} • ${known ? known.title : 'Saved lecture'}`,
+          action: () => {
+            if (known) {
+              selectLesson(known.lesson, note.timestampSeconds);
+            } else {
+              setCurrentTime(note.timestampSeconds);
+            }
+            setActiveTab('notes');
+            setCommandPalette(false);
+          }
+        });
       }
     }
   }
@@ -176,6 +215,7 @@ export const CommandPalette: React.FC = () => {
                       {item.type === 'lesson' && <Video className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-zinc-400'}`} strokeWidth={1.5} />}
                       {item.type === 'pdf' && <FileText className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-zinc-400'}`} strokeWidth={1.5} />}
                       {item.type === 'course' && <BookOpen className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-zinc-400'}`} strokeWidth={1.5} />}
+                      {item.type === 'note' && <StickyNote className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-amber-500'}`} strokeWidth={1.5} />}
 
                       <div className="truncate">
                         <div className="truncate font-medium">{item.title}</div>

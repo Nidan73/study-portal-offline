@@ -92,6 +92,11 @@ export interface CourseUserData {
   completedLessonIds: string[];
   notes: Record<string, LessonNote[]>;
   bookmarks?: Record<string, LessonBookmark[]>;
+  /** Per-lesson resume position in seconds, keyed by lesson id.
+   *  lastWatched only holds ONE lesson per course, so it cannot remember where
+   *  you were in every lesson — switching lessons (or YouTube videos) used to
+   *  discard the previous position entirely. */
+  resumePositions?: Record<string, number>;
   codeSnippets?: Record<string, {
     language: string;
     code: string;

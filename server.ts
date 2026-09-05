@@ -76,6 +76,8 @@ export interface CourseProgressRecord {
   notes: Record<string, LessonNote[]>;
   codeSnippets?: Record<string, CodeSnippet>;
   bookmarks?: Record<string, LessonBookmark[]>;
+  /** Per-lesson resume position in seconds, keyed by lesson id. */
+  resumePositions?: Record<string, number>;
   lastWatched: {
     lessonId: string;
     timestampSeconds: number;
@@ -1401,6 +1403,10 @@ app.post('/api/progress', (req: Request, res: Response) => {
         timestampSeconds: Math.floor(timestamp),
         updatedAt: new Date().toISOString()
       };
+      // Also remember this lesson's own position, so switching away and back
+      // resumes here rather than falling back to 0.
+      if (!courseData.resumePositions) courseData.resumePositions = {};
+      courseData.resumePositions[lessonId] = Math.floor(timestamp);
     }
 
     if (lessonId && typeof completed === 'boolean') {
@@ -1422,6 +1428,18 @@ app.post('/api/progress', (req: Request, res: Response) => {
         createdAt: new Date().toISOString(),
         ...(note.slideNumber ? { slideNumber: Number(note.slideNumber) } : {})
       });
+    }
+
+    if (lessonId && req.body.removeNoteId) {
+      if (courseData.notes[lessonId]) {
+        courseData.notes[lessonId] = courseData.notes[lessonId].filter(n => n.id !== req.body.removeNoteId);
+      }
+    }
+
+    if (lessonId && req.body.clearAllNotes) {
+      if (courseData.notes[lessonId]) {
+        courseData.notes[lessonId] = [];
+      }
     }
 
     if (lessonId && req.body.codeSnippet) {
@@ -1654,11 +1672,14 @@ app.post('/api/progress/beacon', express.text({ type: '*/*' }), (req: Request, r
           lastWatched: null
         };
       }
-      inMemoryData.courses[payload.courseId].lastWatched = {
+      const rec = inMemoryData.courses[payload.courseId];
+      rec.lastWatched = {
         lessonId: payload.lessonId,
         timestampSeconds: Math.floor(payload.timestamp),
         updatedAt: new Date().toISOString()
       };
+      if (!rec.resumePositions) rec.resumePositions = {};
+      rec.resumePositions[payload.lessonId] = Math.floor(payload.timestamp);
       atomicWriteJson(PROGRESS_FILE, inMemoryData);
     }
   } catch (e) {}

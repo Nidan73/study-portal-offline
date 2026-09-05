@@ -13,7 +13,6 @@ import { AddCourseModal } from './components/AddCourseModal';
 import { ShortcutModal } from './components/ShortcutModal';
 import { YouTubeExplorer } from './components/YouTubeExplorer';
 import { 
-  PanelRightClose, 
   PanelRightOpen, 
   Maximize2,
   Layers
@@ -30,8 +29,6 @@ export const App: React.FC = () => {
     activeLesson,
     sidePanelTab,
     setSidePanelTab,
-    splitWidth,
-    setSplitWidth,
     splitRatio,
     setSplitRatio,
     splitLayout,
@@ -40,6 +37,24 @@ export const App: React.FC = () => {
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
+
+  // The split panes size themselves with an inline style, which outranks every
+  // Tailwind class — so `w-full` could never reclaim the layout on a phone and
+  // the side panel stayed pinned to 30% of a 390px screen. Only apply those
+  // inline widths once the viewport is actually wide enough to split.
+  const SPLIT_QUERY = '(min-width: 1280px)';
+  const [isWideEnoughToSplit, setIsWideEnoughToSplit] = React.useState(
+    () => typeof window !== 'undefined' && window.matchMedia(SPLIT_QUERY).matches
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia(SPLIT_QUERY);
+    const onChange = (e: MediaQueryListEvent) => setIsWideEnoughToSplit(e.matches);
+    mq.addEventListener('change', onChange);
+    setIsWideEnoughToSplit(mq.matches);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const startDragging = (e: React.MouseEvent) => {
     if (e.detail === 2) {
@@ -164,12 +179,12 @@ export const App: React.FC = () => {
           ) : (
             <div 
               ref={containerRef}
-              className="flex-1 flex flex-col lg:flex-row items-start gap-4 lg:gap-0 relative w-full"
+              className="flex-1 flex flex-col xl:flex-row items-start gap-4 xl:gap-0 relative w-full"
             >
               {/* Left Column: Video + Context Strip */}
               <div 
-                style={{ width: isSidebarOpen ? `calc(${splitRatio}% - 6px)` : '100%' }}
-                className={`w-full ${isSidebarOpen ? 'lg:pr-3' : 'max-w-[1680px] mx-auto'} space-y-4 transition-[width,max-width] duration-150 ease-out`}
+                style={isWideEnoughToSplit ? { width: isSidebarOpen ? `calc(${splitRatio}% - 6px)` : '100%' } : undefined}
+                className={`w-full ${isSidebarOpen ? 'xl:pr-3' : 'max-w-[1680px] mx-auto'} space-y-4 transition-[width,max-width] duration-150 ease-out`}
               >
                 <CinemaPlayer />
 
@@ -221,7 +236,7 @@ export const App: React.FC = () => {
                 <div
                   id="split-drag-divider"
                   onMouseDown={startDragging}
-                  className="hidden lg:flex flex-col items-center justify-center w-3 self-stretch cursor-col-resize hover:bg-indigo-500/20 active:bg-indigo-500/40 rounded-full select-none group transition-colors flex-shrink-0 z-20"
+                  className="hidden xl:flex flex-col items-center justify-center w-3 self-stretch cursor-col-resize hover:bg-indigo-500/20 active:bg-indigo-500/40 rounded-full select-none group transition-colors flex-shrink-0 z-20"
                   title="Drag to resize video and code along width (Double click to reset 70/30)"
                   onDoubleClick={() => setSplitRatio(70)}
                 >
@@ -232,8 +247,8 @@ export const App: React.FC = () => {
               {/* Right Column: Side Panel */}
               {isSidebarOpen && (
                 <div 
-                  style={{ width: `calc(${100 - splitRatio}% - 6px)` }}
-                  className="w-full lg:pl-3 h-[calc(100vh-100px)] sticky top-20 min-w-0 transition-[width] duration-150 ease-out"
+                  style={isWideEnoughToSplit ? { width: `calc(${100 - splitRatio}% - 6px)` } : undefined}
+                  className="w-full xl:pl-3 h-[560px] xl:h-[calc(100vh-100px)] xl:sticky xl:top-20 min-w-0 transition-[width] duration-150 ease-out"
                 >
                   <RightSidePanel />
                 </div>
@@ -244,8 +259,8 @@ export const App: React.FC = () => {
 
         {/* Side-by-Side Split View: Video (Left) + Slides (Right) */}
         {activeTab === 'split-slides' && (
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            <div className="lg:col-span-6 space-y-4">
+          <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+            <div className="xl:col-span-6 space-y-4">
               <CinemaPlayer />
               {activeLesson && (
                 <div className="p-1 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
@@ -263,7 +278,7 @@ export const App: React.FC = () => {
               )}
             </div>
 
-            <div className="lg:col-span-6 h-[calc(100vh-100px)] sticky top-20">
+            <div className="xl:col-span-6 h-[560px] xl:h-[calc(100vh-100px)] w-full xl:sticky xl:top-20">
               <SplitPdfViewer />
             </div>
           </div>
@@ -271,8 +286,8 @@ export const App: React.FC = () => {
 
         {/* Side-by-Side Split View: Video (Left) + Notes (Right) */}
         {activeTab === 'notes' && (
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            <div className="lg:col-span-7 space-y-4">
+          <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+            <div className="xl:col-span-7 space-y-4">
               <CinemaPlayer />
               {activeLesson && (
                 <div className="p-1 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
@@ -289,7 +304,7 @@ export const App: React.FC = () => {
               )}
             </div>
 
-            <div className="lg:col-span-5 h-[calc(100vh-100px)] sticky top-20">
+            <div className="xl:col-span-5 h-[560px] xl:h-[calc(100vh-100px)] w-full xl:sticky xl:top-20">
               <InteractiveNotes />
             </div>
           </div>
@@ -297,8 +312,8 @@ export const App: React.FC = () => {
 
         {/* Side-by-Side Split View: Video (Left) + Code Along IDE (Right) */}
         {activeTab === 'split-code' && (
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            <div className="lg:col-span-6 space-y-4">
+          <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+            <div className="xl:col-span-6 space-y-4">
               <CinemaPlayer />
               {activeLesson && (
                 <div className="p-1 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
@@ -316,7 +331,7 @@ export const App: React.FC = () => {
               )}
             </div>
 
-            <div className="lg:col-span-6 h-[calc(100vh-100px)] sticky top-20">
+            <div className="xl:col-span-6 h-[560px] xl:h-[calc(100vh-100px)] w-full xl:sticky xl:top-20">
               <IntegratedIDE isSplit onCloseSplit={() => setActiveTab('player')} />
             </div>
           </div>

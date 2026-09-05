@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, NavTab } from '../store/useStore';
 import { 
   ChevronDown, 
   Layers, 
@@ -16,8 +16,30 @@ import {
   Globe,
   Code2,
   HelpCircle,
-  Youtube
+  Youtube,
+  LucideIcon
 } from 'lucide-react';
+
+type NavTabSpec = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  /** Where clicking goes, given the current tab (Slides toggles back to player). */
+  target: (current: NavTab) => NavTab;
+  isActive: (current: NavTab) => boolean;
+  activeClass?: string;
+};
+
+const NAV_TABS: NavTabSpec[] = [
+  { id: 'player',  label: 'Player',  icon: Video,      target: () => 'player',  isActive: t => t === 'player' },
+  { id: 'youtube', label: 'YouTube', icon: Youtube,    target: () => 'youtube', isActive: t => t === 'youtube',
+    activeClass: 'bg-red-600 text-white shadow-sm' },
+  { id: 'slides',  label: 'Slides',  icon: FileText,   target: t => (t === 'split-slides' ? 'player' : 'split-slides'),
+    isActive: t => t === 'split-slides' },
+  { id: 'notes',   label: 'Notes',   icon: Layers,     target: () => 'notes',   isActive: t => t === 'notes' },
+  { id: 'ide',     label: 'IDE',     icon: Code2,      target: () => 'ide',     isActive: t => t === 'ide' || t === 'split-code' },
+  { id: 'library', label: 'Library', icon: LayoutGrid, target: () => 'library', isActive: t => t === 'library' }
+];
 
 export const Navbar: React.FC = () => {
   const { 
@@ -58,9 +80,9 @@ export const Navbar: React.FC = () => {
 
   return (
     <div className="sticky top-0 z-40 w-full pt-3 sm:pt-4 pb-2 px-3 sm:px-6 pointer-events-none select-none">
-      <header className="pointer-events-auto max-w-7xl mx-auto rounded-full backdrop-blur-2xl bg-white/85 dark:bg-[#111218]/90 border border-black/[0.06] dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] px-3 sm:px-5 h-[54px] flex items-center justify-between transition-all duration-300 ease-fluid">
+      <header className="pointer-events-auto max-w-7xl mx-auto rounded-full backdrop-blur-2xl bg-white/85 dark:bg-[#111218]/90 border border-black/[0.06] dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] px-3 sm:px-5 h-[54px] flex items-center justify-between gap-2 transition-all duration-300 ease-fluid">
         {/* Brand & Course Selector */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-shrink">
           <div 
             onClick={() => setActiveTab('library')}
             className="flex items-center gap-2.5 cursor-pointer group"
@@ -81,7 +103,7 @@ export const Navbar: React.FC = () => {
           <div className="h-4 w-[1px] bg-black/[0.06] dark:bg-white/10 mx-0.5 hidden md:block" />
 
           {/* Course Dropdown */}
-          <div className="relative">
+          <div className="relative hidden md:block">
             <button
               onClick={() => setIsCourseDropdownOpen(!isCourseDropdownOpen)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] border border-black/[0.05] dark:border-white/[0.07] text-[12px] font-medium text-zinc-800 dark:text-zinc-200 transition-all duration-200 ease-fluid max-w-[160px] sm:max-w-[240px] truncate"
@@ -163,88 +185,30 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Center: Navigation Tabs Pill */}
-        <div className="flex items-center p-1 rounded-full bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.06]">
-          <button
-            id="nav-tab-player"
-            onClick={() => setActiveTab('player')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium transition-all duration-200 ease-fluid ${
-              activeTab === 'player'
-                ? 'bg-white dark:bg-zinc-100 text-zinc-900 dark:text-zinc-900 shadow-sm'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <Video className="w-3.5 h-3.5" strokeWidth={1.5} />
-            <span className="hidden sm:inline">Player</span>
-          </button>
-
-          <button
-            id="nav-tab-youtube"
-            onClick={() => setActiveTab('youtube')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium transition-all duration-200 ease-fluid ${
-              activeTab === 'youtube'
-                ? 'bg-red-600 text-white shadow-sm'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400'
-            }`}
-          >
-            <Youtube className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">YouTube</span>
-          </button>
-
-          <button
-            id="nav-tab-slides"
-            onClick={() => setActiveTab(activeTab === 'split-slides' ? 'player' : 'split-slides')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium transition-all duration-200 ease-fluid ${
-              activeTab === 'split-slides'
-                ? 'bg-white dark:bg-zinc-100 text-zinc-900 dark:text-zinc-900 shadow-sm'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" strokeWidth={1.5} />
-            <span className="hidden sm:inline">Slides</span>
-          </button>
-
-          <button
-            id="nav-tab-notes"
-            onClick={() => setActiveTab('notes')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium transition-all duration-200 ease-fluid ${
-              activeTab === 'notes'
-                ? 'bg-white dark:bg-zinc-100 text-zinc-900 dark:text-zinc-900 shadow-sm'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" strokeWidth={1.5} />
-            <span className="hidden sm:inline">Notes</span>
-          </button>
-
-          <button
-            id="nav-tab-ide"
-            onClick={() => setActiveTab('ide')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium transition-all duration-200 ease-fluid ${
-              activeTab === 'ide' || activeTab === 'split-code'
-                ? 'bg-white dark:bg-zinc-100 text-zinc-900 dark:text-zinc-900 shadow-sm'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <Code2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-            <span className="hidden sm:inline">IDE</span>
-          </button>
-
-          <button
-            id="nav-tab-library"
-            onClick={() => setActiveTab('library')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium transition-all duration-200 ease-fluid ${
-              activeTab === 'library'
-                ? 'bg-white dark:bg-zinc-100 text-zinc-900 dark:text-zinc-900 shadow-sm'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" strokeWidth={1.5} />
-            <span className="hidden sm:inline">Library</span>
-          </button>
+        <div className="flex items-center p-1 rounded-full bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.06] overflow-x-auto no-scrollbar min-w-0 flex-shrink">
+          {NAV_TABS.map(({ id, label, icon: Icon, target, isActive, activeClass }) => {
+            const active = isActive(activeTab);
+            return (
+              <button
+                key={id}
+                id={`nav-tab-${id}`}
+                onClick={() => setActiveTab(target(activeTab))}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium whitespace-nowrap flex-shrink-0 transition-all duration-200 ease-fluid ${
+                  active
+                    ? (activeClass || 'bg-white dark:bg-zinc-100 text-zinc-900 dark:text-zinc-900 shadow-sm')
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                }`}
+                title={label}
+              >
+                <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
+                <span className="hidden lg:inline">{label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Right Controls: Progress, Streak, Theme Toggle, Search */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {/* Progress Display or YouTube Live Status */}
           {isYouTubeActive && !isVirtualCatalog ? (
             <div 
@@ -268,7 +232,7 @@ export const Navbar: React.FC = () => {
           )}
 
           {/* Streak Indicator */}
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-mono font-medium">
+          <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-mono font-medium">
             <Flame className="w-3.5 h-3.5 fill-amber-500/20" strokeWidth={1.5} />
             <span>{streak}d</span>
           </div>
@@ -303,7 +267,7 @@ export const Navbar: React.FC = () => {
           <button
             id="navbar-shortcuts-btn"
             onClick={() => setShortcutHelpOpen(true)}
-            className="w-8 h-8 rounded-full hidden sm:flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
+            className="w-8 h-8 rounded-full hidden xl:flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
             title="Keyboard Shortcuts (?)"
             aria-label="Keyboard Shortcuts"
           >
@@ -313,7 +277,7 @@ export const Navbar: React.FC = () => {
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
-            className="w-8 h-8 rounded-full hidden sm:flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
+            className="w-8 h-8 rounded-full hidden xl:flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
             title="Toggle Fullscreen"
           >
             <Maximize2 className="w-3.5 h-3.5" strokeWidth={1.5} />
