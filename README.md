@@ -27,11 +27,22 @@ Or double-click **`launch.bat`** in Explorer. It does the same as the shell
 script: checks Node, installs dependencies, builds, seeds the data file and
 opens your browser.
 
-**What works on Windows:** the player and streaming, slides, notes, bookmarks,
-YouTube, the scanner, and Python execution in the IDE.
-**What needs extra setup:** C and C++ execution requires `gcc`/`g++` on your
-PATH (install MinGW-w64 or MSYS2); `.mkv` and other non-native video formats
-need `ffmpeg` on your PATH.
+**Works out of the box:** the player and byte-range streaming, slides, notes,
+bookmarks, the YouTube explorer and history, the drive scanner, and JavaScript
+execution in the IDE.
+
+**Needs a tool on your PATH:**
+
+| Feature | Requires | Notes |
+| :--- | :--- | :--- |
+| Python in the IDE | Python 3 | The `py` launcher is used when present, as [python.org recommends](https://docs.python.org/3/using/windows.html); a bare `python` can otherwise open the Microsoft Store instead of running. |
+| C / C++ in the IDE | `gcc` / `g++` | Install [MinGW-w64](https://www.mingw-w64.org/) or [MSYS2](https://www.msys2.org/). Bare names resolve because CreateProcess appends `.exe` and searches PATH. |
+| `.mkv`, `.avi`, `.ts` playback | `ffmpeg` | Only needed for containers the browser cannot play natively; `.mp4` and `.webm` stream directly. |
+| PPTX slide outlines | Python 3 | Same as above. |
+
+Opening a deck in your desktop presentation app is routed through `cmd.exe /c
+start` on Windows, because `start` is a shell builtin rather than an
+executable and cannot be launched directly.
 
 Open your browser to: **`http://localhost:47285`**
 

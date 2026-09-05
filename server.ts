@@ -223,6 +223,16 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 if (!fs.existsSync(VIDEO_CACHE_DIR)) fs.mkdirSync(VIDEO_CACHE_DIR, { recursive: true });
 
+/** Resolved once at startup on Windows: 'py' if the launcher exists, else 'python'. */
+let windowsPythonCommand: string | null = null;
+
+if (process.platform === 'win32') {
+  execFile('py', ['-3', '--version'], { timeout: 5000 }, (err) => {
+    windowsPythonCommand = err ? 'python' : 'py';
+    console.log(`[Study Hub Backend] Python command: ${windowsPythonCommand}`);
+  });
+}
+
 /**
  * Find a toolchain binary without hardcoding a Unix path.
  *
@@ -232,7 +242,11 @@ if (!fs.existsSync(VIDEO_CACHE_DIR)) fs.mkdirSync(VIDEO_CACHE_DIR, { recursive: 
  */
 function resolveTool(name: 'python3' | 'gcc' | 'g++'): string {
   if (process.platform === 'win32') {
-    return name === 'python3' ? 'python' : name;   // gcc/g++ via MinGW or MSYS on PATH
+    // CreateProcess appends .exe and searches PATH for a bare name, so gcc/g++
+    // resolve from a MinGW-w64 or MSYS2 install. Python is special: python.org
+    // recommends the `py` launcher, and a bare `python` may hit the Microsoft
+    // Store app-execution alias and open the Store instead of running anything.
+    return name === 'python3' ? (windowsPythonCommand || 'py') : name;
   }
   const candidates: Record<string, string[]> = {
     python3: ['/usr/bin/python3', '/usr/local/bin/python3', '/opt/homebrew/bin/python3'],
@@ -1911,12 +1925,23 @@ app.post('/api/slides/open-system', (req: Request, res: Response) => {
     WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY || 'wayland-0'
   };
 
-  let cmd = process.platform === 'win32'
-    ? 'start'
-    : process.platform === 'darwin'
-      ? 'open'
-      : 'xdg-open';
-  let args = [resolved];
+  // On Windows `start` is a cmd.exe builtin — there is no start.exe — so
+  // execFile could never launch it. Microsoft's CreateProcess documentation is
+  // explicit that builtins and batch files must go through the interpreter:
+  // cmd.exe /c. The empty "" is the window-title placeholder `start` expects
+  // before a quoted path, otherwise it treats the path AS the title.
+  let cmd: string;
+  let args: string[];
+  if (process.platform === 'win32') {
+    cmd = process.env.COMSPEC || 'cmd.exe';
+    args = ['/c', 'start', '', resolved];
+  } else if (process.platform === 'darwin') {
+    cmd = 'open';
+    args = [resolved];
+  } else {
+    cmd = 'xdg-open';
+    args = [resolved];
+  }
 
   if (process.platform === 'linux' && fs.existsSync('/usr/bin/onlyoffice-desktopeditors') && (ext === '.pptx' || ext === '.ppt')) {
     cmd = '/usr/bin/onlyoffice-desktopeditors';
