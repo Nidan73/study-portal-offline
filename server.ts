@@ -1115,8 +1115,6 @@ app.get('/api/stream/:courseId/:lessonId', async (req: Request, res: Response) =
       'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
       'Content-Type': contentType,
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': '*',
       'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
       'Cache-Control': 'no-cache'
     });
@@ -1135,8 +1133,6 @@ app.get('/api/stream/:courseId/:lessonId', async (req: Request, res: Response) =
       'Content-Length': serveSize,
       'Content-Type': contentType,
       'Accept-Ranges': 'bytes',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': '*',
       'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges'
     });
 
