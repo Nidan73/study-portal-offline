@@ -41,7 +41,9 @@ Open your browser to: **`http://localhost:3000`**
 - **⚡ 1-Click Mode Toggle:** A dedicated toggle `[⚡ Auto-pause: ON / OFF]` located directly above the note composer lets you tailor playback behavior to your study style:
   - **Continuous Playback (Default):** Typing notes never interrupts lecture playback or audio flow, perfect for passive lectures and stream-of-consciousness jotting.
   - **Auto-Pause Mode:** Focusing or typing into the note composer automatically pauses the video and locks the exact timestamp. Saving with `Ctrl + Enter` instantly resumes playback right where you left off.
-- **Slide Attachment Sync:** When reading accompanying lecture slides (`.pdf`, `.pptx`, `.ppt`), your note automatically attaches the active slide page number.
+- **Slide Attachment Sync:** When reading accompanying lecture slides (`.pdf`, `.pptx`, `.ppt`), your note automatically attaches the active slide page number — from either the slide viewer's pin button or the main note composer.
+- **Full Note Management:** Delete any individual note, clear every note on a lecture, filter the current lecture's notes with the search box, or find notes across *all* lectures from the `Ctrl + K` palette (selecting one jumps to that lesson at that timestamp).
+- **Save to Disk:** `[Save]` writes your notes out as a `.md` file on this machine, with the same YouTube deep links and slide numbers as the clipboard export.
 
 ---
 
@@ -73,7 +75,8 @@ Open your browser to: **`http://localhost:3000`**
 ### 6. 🧭 Bento Syllabus, Spotlight (`Ctrl + K`) & Streaks
 - **Raycast-Style Spotlight Search (`Ctrl + K`):** Instantly search and jump across all weeks, lectures, and topics in your local disk library and imported YouTube courses.
 - **21st.dev Bento Grid:** Visualizes weekly lesson progress, completion badges, and total study duration.
-- **Gamified Daily Streaks:** Tracks daily consistency and cohort completion percentages stored in local-first storage.
+- **Gamified Daily Streaks:** Tracks daily consistency and cohort completion percentages stored in local-first storage. Watch time counts real elapsed playback only — seeking does not inflate it.
+- **Per-Lesson Resume:** Every lesson and every YouTube video remembers its own position independently, so switching between them never loses your place.
 
 ---
 
@@ -94,11 +97,12 @@ Open your browser to: **`http://localhost:3000`**
 
 ## 🏗️ Architecture & Security
 
-- **100% Type-Safe TypeScript Architecture:** Complete end-to-end type safety across client UI, state store, Express backend server ([server.ts](file:///run/media/nidan73/M44L/03_Courses_and_Learning/study-hub/server.ts)), and automated Playwright E2E testing suites.
+- **TypeScript End to End:** Client UI, state store, Express backend (`server.ts`) and the Playwright E2E suites in `tests/` all typecheck clean under `strict`. Request bodies on the write endpoints are still validated by hand rather than by a schema.
 - **Atomic Storage:** Stored in `study-hub-data.json` using atomic temporary file swaps with automated rolling timestamped backups (`.backup-*.json`).
 - **Zero Memory Leaks:** Web Audio `AudioContext` is explicitly destroyed (`audioCtx.close()`) on unmount to safeguard against Chromium hardware context exhaustion.
-- **Strict Content Security:** All local filesystem access is strictly bounded to authorized course roots with path traversal sanitization.
-- **Zero External CDNs:** All core assets, fonts, icons, and bundles are self-contained and run 100% offline.
+- **Strict Content Security:** Every endpoint that accepts a client-supplied path resolves it through a single `resolveServable()` helper and rejects anything outside the course library. Containment uses `path.relative`, not a string prefix, so a root of `/courses/react` does not accept `/courses/react-private`.
+- **No Cross-Origin Access:** The server refuses requests carrying a cross-origin `Origin` header. Without this, any website open in your browser could reach the local API — including the code execution endpoint, whose "localhost only" check passes for a browser tab because a tab on your machine *is* localhost.
+- **Zero External CDNs:** Fonts, icons, libraries and bundles are all served from disk — verified with every non-localhost request blocked, the app makes zero external requests. The YouTube features are the one exception and need a connection by nature.
 
 ---
 

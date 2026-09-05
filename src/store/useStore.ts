@@ -27,6 +27,8 @@ export interface StoreState {
   isShortcutHelpOpen: boolean;
   isDarkPdf: boolean;
   autoPauseOnNote: boolean;
+  /** Slide currently on screen in the deck viewer, so notes can attach it. */
+  activeSlideNumber: number | null;
   
   // Player State
   currentTime: number;
@@ -78,6 +80,7 @@ export interface StoreState {
   setAddCourseModal: (open: boolean) => void;
   setShortcutHelpOpen: (open: boolean) => void;
   toggleDarkPdf: () => void;
+  setActiveSlideNumber: (n: number | null) => void;
   toggleAutoPauseOnNote: () => void;
   setAutoPauseOnNote: (enabled: boolean) => void;
   setPlaybackRate: (rate: number) => void;
@@ -324,6 +327,7 @@ export const useStore = create<StoreState>((set, get) => ({
   isShortcutHelpOpen: false,
   isDarkPdf: true,
   autoPauseOnNote: getInitialAutoPauseOnNote(),
+  activeSlideNumber: null,
   
   currentTime: 0,
   duration: 0,
@@ -526,6 +530,7 @@ export const useStore = create<StoreState>((set, get) => ({
   setCommandPalette: (open) => set({ isCommandPaletteOpen: open }),
   setAddCourseModal: (open) => set({ isAddCourseModalOpen: open }),
   toggleDarkPdf: () => set((state) => ({ isDarkPdf: !state.isDarkPdf })),
+  setActiveSlideNumber: (n: number | null) => set({ activeSlideNumber: n }),
   toggleAutoPauseOnNote: () => {
     const next = !get().autoPauseOnNote;
     if (typeof window !== 'undefined') {

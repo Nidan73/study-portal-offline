@@ -18,6 +18,71 @@ import {
   Layers
 } from 'lucide-react';
 
+
+/** "Now Playing" strip under the video. Was pasted twice with small drifts
+ *  (one copy had an id on its button, the other did not). */
+const LessonStrip: React.FC<{
+  lesson: NonNullable<ReturnType<typeof useStore.getState>['activeLesson']>;
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
+}> = ({ lesson, isSidebarOpen, onToggleSidebar }) => (
+  <div className="p-1.5 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
+    <div className="p-4 rounded-[calc(1rem-0.25rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] px-2 py-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400">
+            Now Playing
+          </span>
+        </div>
+        <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate tracking-tight">
+          {lesson.title}
+        </h2>
+        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono mt-0.5 truncate">
+          {lesson.relativePath}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          id="toggle-sidebar-btn"
+          onClick={onToggleSidebar}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[11px] font-medium bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors select-none"
+          title={isSidebarOpen ? 'Expand Video Player' : 'Show Side Panel'}
+        >
+          {isSidebarOpen ? (
+            <>
+              <Maximize2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />
+              <span>Expand</span>
+            </>
+          ) : (
+            <>
+              <PanelRightOpen className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />
+              <span>Show Panel</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+/** Compact title + "Close Split" bar for the three side-by-side views. Was
+ *  pasted three times, differing only in the button id. */
+const SplitTitleBar: React.FC<{ title: string; closeId?: string; onClose: () => void }> = ({ title, closeId, onClose }) => (
+  <div className="p-1 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
+    <div className="px-4 py-3 rounded-[calc(1rem-0.25rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex items-center justify-between text-xs select-none">
+      <span className="text-zinc-800 dark:text-zinc-200 font-medium truncate">{title}</span>
+      <button
+        id={closeId}
+        onClick={onClose}
+        className="px-3 py-1 rounded-full bg-black/[0.04] hover:bg-black/[0.08] dark:bg-white/[0.06] dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 font-medium text-[11px] transition-colors flex-shrink-0 ml-3"
+      >
+        Close Split
+      </button>
+    </div>
+  </div>
+);
+
 export const App: React.FC = () => {
   const { 
     isLoading, 
@@ -128,44 +193,7 @@ export const App: React.FC = () => {
 
                 {/* Lecture Context Strip - Double-Bezel Hardware Enclosure */}
                 {activeLesson && (
-                  <div className="p-1.5 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
-                    <div className="p-4 rounded-[calc(1rem-0.25rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-mono uppercase tracking-[0.2em] px-2 py-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400">
-                            Now Playing
-                          </span>
-                        </div>
-                        <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate tracking-tight">
-                          {activeLesson.title}
-                        </h2>
-                        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono mt-0.5 truncate">
-                          {activeLesson.relativePath}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          id="toggle-sidebar-btn"
-                          onClick={toggleSidebar}
-                          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[11px] font-medium bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors select-none"
-                          title={isSidebarOpen ? 'Expand Video Player' : 'Show Side Panel'}
-                        >
-                          {isSidebarOpen ? (
-                            <>
-                              <Maximize2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />
-                              <span>Expand</span>
-                            </>
-                          ) : (
-                            <>
-                              <PanelRightOpen className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />
-                              <span>Show Panel</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <LessonStrip lesson={activeLesson} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />
                 )}
               </div>
 
@@ -190,44 +218,7 @@ export const App: React.FC = () => {
 
                 {/* Lecture Context Strip - Double-Bezel Hardware Enclosure */}
                 {activeLesson && (
-                  <div className="p-1.5 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
-                    <div className="p-4 rounded-[calc(1rem-0.25rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-mono uppercase tracking-[0.2em] px-2 py-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400">
-                            Now Playing
-                          </span>
-                        </div>
-                        <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate tracking-tight">
-                          {activeLesson.title}
-                        </h2>
-                        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono mt-0.5 truncate">
-                          {activeLesson.relativePath}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          id="toggle-sidebar-btn"
-                          onClick={toggleSidebar}
-                          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[11px] font-medium bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors select-none"
-                          title={isSidebarOpen ? 'Expand Video Player' : 'Show Side Panel'}
-                        >
-                          {isSidebarOpen ? (
-                            <>
-                              <Maximize2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />
-                              <span>Expand</span>
-                            </>
-                          ) : (
-                            <>
-                              <PanelRightOpen className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />
-                              <span>Show Panel</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <LessonStrip lesson={activeLesson} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />
                 )}
               </div>
 
@@ -262,19 +253,8 @@ export const App: React.FC = () => {
           <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
             <div className="xl:col-span-6 space-y-4">
               <CinemaPlayer />
-              {activeLesson && (
-                <div className="p-1 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
-                  <div className="px-4 py-3 rounded-[calc(1rem-0.25rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex items-center justify-between text-xs select-none">
-                    <span className="text-zinc-800 dark:text-zinc-200 font-medium truncate">{activeLesson.title}</span>
-                    <button
-                      id="close-split-slides-btn"
-                      onClick={() => setActiveTab('player')}
-                      className="px-3 py-1 rounded-full bg-black/[0.04] hover:bg-black/[0.08] dark:bg-white/[0.06] dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 font-medium text-[11px] transition-colors"
-                    >
-                      Close Split
-                    </button>
-                  </div>
-                </div>
+                            {activeLesson && (
+                <SplitTitleBar title={activeLesson.title} closeId="close-split-slides-btn" onClose={() => setActiveTab('player')} />
               )}
             </div>
 
@@ -289,18 +269,8 @@ export const App: React.FC = () => {
           <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
             <div className="xl:col-span-7 space-y-4">
               <CinemaPlayer />
-              {activeLesson && (
-                <div className="p-1 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
-                  <div className="px-4 py-3 rounded-[calc(1rem-0.25rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex items-center justify-between text-xs select-none">
-                    <span className="text-zinc-800 dark:text-zinc-200 font-medium truncate">{activeLesson.title}</span>
-                    <button
-                      onClick={() => setActiveTab('player')}
-                      className="px-3 py-1 rounded-full bg-black/[0.04] hover:bg-black/[0.08] dark:bg-white/[0.06] dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 font-medium text-[11px] transition-colors"
-                    >
-                      Close Split
-                    </button>
-                  </div>
-                </div>
+                            {activeLesson && (
+                <SplitTitleBar title={activeLesson.title} onClose={() => setActiveTab('player')} />
               )}
             </div>
 
@@ -315,19 +285,8 @@ export const App: React.FC = () => {
           <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
             <div className="xl:col-span-6 space-y-4">
               <CinemaPlayer />
-              {activeLesson && (
-                <div className="p-1 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
-                  <div className="px-4 py-3 rounded-[calc(1rem-0.25rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex items-center justify-between text-xs select-none">
-                    <span className="text-zinc-800 dark:text-zinc-200 font-medium truncate">{activeLesson.title}</span>
-                    <button
-                      id="close-split-code-btn"
-                      onClick={() => setActiveTab('player')}
-                      className="px-3 py-1 rounded-full bg-black/[0.04] hover:bg-black/[0.08] dark:bg-white/[0.06] dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 font-medium text-[11px] transition-colors"
-                    >
-                      Close Split
-                    </button>
-                  </div>
-                </div>
+                            {activeLesson && (
+                <SplitTitleBar title={activeLesson.title} closeId="close-split-code-btn" onClose={() => setActiveTab('player')} />
               )}
             </div>
 

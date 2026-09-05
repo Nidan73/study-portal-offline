@@ -964,7 +964,7 @@ export const CinemaPlayer: React.FC = () => {
             <button
               id="hud-rewind-btn"
               onClick={() => skipSeconds(-10)}
-              className="p-1.5 text-white/70 hover:text-white transition-colors"
+              className="hidden sm:block p-1.5 text-white/70 hover:text-white transition-colors"
               title="Rewind 10s"
             >
               <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -973,7 +973,7 @@ export const CinemaPlayer: React.FC = () => {
             <button
               id="hud-forward-btn"
               onClick={() => skipSeconds(10)}
-              className="p-1.5 text-white/70 hover:text-white transition-colors"
+              className="hidden sm:block p-1.5 text-white/70 hover:text-white transition-colors"
               title="Forward 10s"
             >
               <RotateCw className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -1012,7 +1012,7 @@ export const CinemaPlayer: React.FC = () => {
             </div>
 
             {/* Audio Vocal Booster (Up to 300% with Vocal Compressor) */}
-            <div className="relative">
+            <div className="relative hidden sm:block">
               <button
                 id="audio-boost-btn"
                 onClick={() => {

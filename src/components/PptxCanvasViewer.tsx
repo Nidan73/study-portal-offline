@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { SupplementaryFile } from '../types';
+import { useStore } from '../store/useStore';
 import {
   ChevronLeft,
   ChevronRight,
@@ -49,6 +50,11 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [slideCount, setSlideCount] = useState(0);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const setActiveSlideNumber = useStore(state => state.setActiveSlideNumber);
+
+  useEffect(() => {
+    return () => setActiveSlideNumber(null);
+  }, [setActiveSlideNumber]);
   const [zoomScale, setZoomScale] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showThumbnails, setShowThumbnails] = useState(false);
@@ -91,6 +97,8 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
     try {
       await viewerRef.current.render(canvasRef.current, { slideIndex: index });
       setCurrentSlideIndex(index);
+      // Publish it so a note taken from the Notes panel attaches this slide.
+      setActiveSlideNumber(index + 1);
     } catch (err: any) {
       console.error('Error rendering slide:', err);
     }

@@ -25,6 +25,7 @@ export const InteractiveNotes: React.FC = () => {
     setIsPlaying,
     autoPauseOnNote,
     toggleAutoPauseOnNote,
+    activeSlideNumber,
     userData, 
     addNote,
     removeNote,
@@ -80,7 +81,7 @@ export const InteractiveNotes: React.FC = () => {
     if (!noteContent.trim() || !activeLesson) return;
 
     const noteTime = lockedTimestamp !== null ? lockedTimestamp : currentTime;
-    addNote(activeLesson.id, noteTime, noteContent.trim());
+    addNote(activeLesson.id, noteTime, noteContent.trim(), activeSlideNumber ?? undefined);
     setNoteContent('');
     setLockedTimestamp(null);
 
@@ -363,6 +364,11 @@ export const InteractiveNotes: React.FC = () => {
                     <p className="text-[12px] leading-relaxed text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap select-text">
                       {note.content}
                     </p>
+                    {note.slideNumber ? (
+                      <span className="inline-block text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                        Slide {note.slideNumber}
+                      </span>
+                    ) : null}
                   </div>
                 ))
               )}
@@ -373,6 +379,7 @@ export const InteractiveNotes: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
                   {lockedTimestamp !== null ? `Locked @ ${formatTimestamp(lockedTimestamp)}` : `Capture @ ${formatTimestamp(currentTime)}`}
+                  {activeSlideNumber ? ` + Slide ${activeSlideNumber}` : ''}
                 </span>
 
                 {/* 1-Click Auto-Pause vs Continuous Mode Toggle */}

@@ -15,18 +15,18 @@ import {
 } from 'lucide-react';
 
 export const BentoDashboard: React.FC = () => {
-  const { 
-    courses, 
-    activeCourseId, 
-    selectCourse, 
-    removeCourse,
-    catalog, 
-    activeLesson, 
-    selectLesson, 
-    setActiveTab, 
-    userData, 
-    setAddCourseModal 
-  } = useStore();
+  // Per-field selectors, not a whole-store destructure: this component used to
+  // re-render on every currentTime tick (~4x/sec during playback).
+  const courses = useStore(state => state.courses);
+  const activeCourseId = useStore(state => state.activeCourseId);
+  const selectCourse = useStore(state => state.selectCourse);
+  const removeCourse = useStore(state => state.removeCourse);
+  const catalog = useStore(state => state.catalog);
+  const activeLesson = useStore(state => state.activeLesson);
+  const selectLesson = useStore(state => state.selectLesson);
+  const setActiveTab = useStore(state => state.setActiveTab);
+  const userData = useStore(state => state.userData);
+  const setAddCourseModal = useStore(state => state.setAddCourseModal);
 
   const activeCourse = courses.find(c => c.id === activeCourseId) || courses[0];
   const userCourseData = userData?.courses?.[activeCourseId];

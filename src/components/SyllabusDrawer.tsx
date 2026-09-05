@@ -17,17 +17,17 @@ import {
 } from 'lucide-react';
 
 export const SyllabusDrawer: React.FC = () => {
-  const { 
-    catalog, 
-    activeCourseId, 
-    activeLesson, 
-    selectLesson, 
-    selectPdf, 
-    userData, 
-    toggleLessonComplete,
-    setSidePanelTab,
-    setActiveTab 
-  } = useStore();
+  // Per-field selectors, not a whole-store destructure: this component used to
+  // re-render on every currentTime tick (~4x/sec during playback).
+  const catalog = useStore(state => state.catalog);
+  const activeCourseId = useStore(state => state.activeCourseId);
+  const activeLesson = useStore(state => state.activeLesson);
+  const selectLesson = useStore(state => state.selectLesson);
+  const selectPdf = useStore(state => state.selectPdf);
+  const userData = useStore(state => state.userData);
+  const toggleLessonComplete = useStore(state => state.toggleLessonComplete);
+  const setSidePanelTab = useStore(state => state.setSidePanelTab);
+  const setActiveTab = useStore(state => state.setActiveTab);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});

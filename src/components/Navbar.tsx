@@ -43,21 +43,21 @@ const NAV_TABS: NavTabSpec[] = [
 ];
 
 export const Navbar: React.FC = () => {
-  const { 
-    courses, 
-    activeCourseId, 
-    activeLesson,
-    selectCourse, 
-    catalog, 
-    userData, 
-    activeTab, 
-    setActiveTab, 
-    setCommandPalette, 
-    setAddCourseModal,
-    setShortcutHelpOpen,
-    theme,
-    toggleTheme
-  } = useStore();
+  // Per-field selectors, not a whole-store destructure: this component used to
+  // re-render on every currentTime tick (~4x/sec during playback).
+  const courses = useStore(state => state.courses);
+  const activeCourseId = useStore(state => state.activeCourseId);
+  const activeLesson = useStore(state => state.activeLesson);
+  const selectCourse = useStore(state => state.selectCourse);
+  const catalog = useStore(state => state.catalog);
+  const userData = useStore(state => state.userData);
+  const activeTab = useStore(state => state.activeTab);
+  const setActiveTab = useStore(state => state.setActiveTab);
+  const setCommandPalette = useStore(state => state.setCommandPalette);
+  const setAddCourseModal = useStore(state => state.setAddCourseModal);
+  const setShortcutHelpOpen = useStore(state => state.setShortcutHelpOpen);
+  const theme = useStore(state => state.theme);
+  const toggleTheme = useStore(state => state.toggleTheme);
 
   const [isCourseDropdownOpen, setIsCourseDropdownOpen] = useState(false);
 
