@@ -141,7 +141,8 @@ const DATA_DIR = path.join(__dirname, 'data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const PROGRESS_FILE = path.join(DATA_DIR, 'study-hub-data.json');
 const VIDEO_CACHE_DIR = path.join(DATA_DIR, 'video-cache');
-const COURSES_ROOT = path.resolve(__dirname, '..'); // /run/media/nidan73/M44L/03_Courses_and_Learning
+// The directory containing this project — courses are discovered as siblings.
+const COURSES_ROOT = path.resolve(__dirname, '..');
 
 /**
  * True when `target` really sits inside `root`.

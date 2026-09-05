@@ -89,7 +89,7 @@ export const AddCourseModal: React.FC = () => {
                 type="text"
                 value={folderPath}
                 onChange={(e) => setFolderPath(e.target.value)}
-                placeholder="/run/media/nidan73/.../Course_Directory"
+                placeholder="/absolute/path/to/Course_Directory"
                 required
                 className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/10 rounded-xl px-3.5 py-2.5 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-indigo-500 font-mono transition-colors"
               />
