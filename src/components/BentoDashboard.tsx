@@ -1,0 +1,355 @@
+import React from 'react';
+import { useStore } from '../store/useStore';
+import { 
+  Play, 
+  Flame, 
+  Check, 
+  ArrowRight, 
+  Plus, 
+  Clock,
+  FolderPlus,
+  Globe,
+  Layers,
+  Sparkles,
+  Trash2
+} from 'lucide-react';
+
+export const BentoDashboard: React.FC = () => {
+  const { 
+    courses, 
+    activeCourseId, 
+    selectCourse, 
+    removeCourse,
+    catalog, 
+    activeLesson, 
+    selectLesson, 
+    setActiveTab, 
+    userData, 
+    setAddCourseModal 
+  } = useStore();
+
+  const activeCourse = courses.find(c => c.id === activeCourseId) || courses[0];
+  const userCourseData = userData?.courses?.[activeCourseId];
+  const completedCount = userCourseData?.completedLessonIds?.length || 0;
+  const totalCount = catalog?.totalVideos || 0;
+  const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const streak = userData?.globalStats?.streakDays || 1;
+  const totalHours = ((userData?.globalStats?.totalHoursWatchedSeconds || 0) / 3600).toFixed(1);
+
+  const resumeLesson = activeLesson || catalog?.modules[0]?.lessons[0] || null;
+
+  return (
+    <div className="space-y-8 max-w-7xl mx-auto py-4 sm:py-6 pb-20 select-none transition-colors">
+      {/* Top Hero Banner - Double-Bezel Hardware Enclosure */}
+      <div className="p-1.5 sm:p-2 rounded-[2.5rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+        <div className="p-6 sm:p-10 rounded-[calc(2.5rem-0.375rem)] sm:rounded-[calc(2.5rem-0.5rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-3 max-w-3xl">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium font-mono bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/40">
+                Active Repository
+              </span>
+              <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                Offline Verified
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight leading-tight">
+              {activeCourse?.name || 'StudyHub Platform'}
+            </h1>
+            <p className="text-[13px] sm:text-[14px] text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-2xl">
+              {activeCourse?.description || 'Instant byte-range video streaming, companion slide synchronization, and local progress tracking.'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Button-in-Button CTA */}
+            <button
+              onClick={() => setAddCourseModal(true)}
+              className="px-5 py-3 rounded-full bg-black/[0.04] hover:bg-black/[0.07] dark:bg-white/[0.06] dark:hover:bg-white/[0.1] border border-black/[0.06] dark:border-white/[0.08] text-zinc-800 dark:text-zinc-200 text-[12px] font-medium transition-all duration-300 ease-fluid flex items-center gap-3 group active:scale-[0.98]"
+            >
+              <span>Scan Directory</span>
+              <span className="w-7 h-7 rounded-full bg-black/[0.05] dark:bg-white/10 flex items-center justify-center transition-transform duration-300 ease-fluid group-hover:scale-110">
+                <FolderPlus className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" strokeWidth={1.5} />
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Asymmetrical Bento Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+        {/* Card 1: Continue Watching (Asymmetrical 8-col) */}
+        <div className="md:col-span-8 p-1.5 rounded-[2rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_8px_25px_rgba(0,0,0,0.03)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.4)] flex flex-col">
+          <div className="p-6 sm:p-8 rounded-[calc(2rem-0.375rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex-1 flex flex-col justify-between space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <Clock className="w-3.5 h-3.5" strokeWidth={1.5} />
+                </div>
+                <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+                  Continue Watching
+                </span>
+              </div>
+              <span className="text-[11px] font-mono font-semibold text-indigo-600 dark:text-indigo-400 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50">
+                {percent}% Mastered
+              </span>
+            </div>
+
+            {resumeLesson ? (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white tracking-tight line-clamp-1">
+                    {resumeLesson.title}
+                  </h3>
+                  <p className="text-[12px] text-zinc-400 dark:text-zinc-500 font-mono mt-1 truncate">
+                    {resumeLesson.relativePath}
+                  </p>
+                </div>
+
+                <div className="w-full bg-black/[0.04] dark:bg-white/[0.06] h-1.5 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-indigo-500 h-full rounded-full transition-all duration-500 ease-fluid"
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  {/* Button-in-Button Trailing CTA */}
+                  <button
+                    onClick={() => {
+                      selectLesson(resumeLesson);
+                      setActiveTab('player');
+                    }}
+                    className="px-6 py-3 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[12px] font-semibold transition-all duration-300 ease-fluid shadow-sm flex items-center gap-3 group active:scale-[0.98]"
+                  >
+                    <span>Resume Playback</span>
+                    <span className="w-6 h-6 rounded-full bg-white/20 dark:bg-black/10 flex items-center justify-center transition-transform duration-300 ease-fluid group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+                      <Play className="w-3 h-3 fill-current ml-0.5" strokeWidth={1.5} />
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('player')}
+                    className="px-5 py-3 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] border border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-300 text-[12px] font-medium transition-all duration-200 ease-fluid"
+                  >
+                    View Curriculum
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="py-10 text-center text-zinc-400 dark:text-zinc-500 text-[13px] font-mono">
+                No lectures found in directory.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card 2: Learning Streak (Asymmetrical 4-col) */}
+        <div className="md:col-span-4 p-1.5 rounded-[2rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_8px_25px_rgba(0,0,0,0.03)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.4)] flex flex-col">
+          <div className="p-6 sm:p-7 rounded-[calc(2rem-0.375rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex-1 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+                    <Flame className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  </div>
+                  <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+                    Streak
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full bg-amber-500/10">
+                  {streak} Days
+                </span>
+              </div>
+
+              <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
+                {streak} <span className="text-[13px] font-mono font-normal text-zinc-400">consecutive</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-5 border-t border-black/[0.04] dark:border-white/[0.06] mt-6">
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
+                <div key={idx} className="flex flex-col items-center gap-2">
+                  <span className="text-[10px] font-mono text-zinc-400">{day}</span>
+                  <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                    idx <= 4 
+                      ? 'bg-zinc-900 dark:bg-white shadow-sm' 
+                      : 'bg-black/[0.06] dark:bg-white/10'
+                  }`} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Overall Progress (Asymmetrical 4-col) */}
+        <div className="md:col-span-4 p-1.5 rounded-[2rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_8px_25px_rgba(0,0,0,0.03)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.4)] flex flex-col">
+          <div className="p-6 sm:p-7 rounded-[calc(2rem-0.375rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex-1 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+                  Course Completion
+                </span>
+                <span className="text-[11px] font-mono font-bold text-zinc-900 dark:text-white">{percent}%</span>
+              </div>
+
+              <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
+                {completedCount} <span className="text-[13px] font-mono font-normal text-zinc-400">/ {totalCount}</span>
+              </div>
+              <p className="text-[12px] text-zinc-400 dark:text-zinc-500 mt-1 font-mono">
+                {catalog?.modules.length || 0} modules indexed
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-black/[0.04] dark:border-white/[0.06] mt-4 flex items-center justify-between text-[11px] font-mono text-zinc-500">
+              <span>Playback Time</span>
+              <span className="text-zinc-900 dark:text-white font-bold">{totalHours} hrs</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Offline Index Banner (Asymmetrical 8-col) */}
+        <div className="md:col-span-8 p-1.5 rounded-[2rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_8px_25px_rgba(0,0,0,0.03)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.4)] flex flex-col">
+          <div className="p-6 sm:p-7 rounded-[calc(2rem-0.375rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500" strokeWidth={1.5} />
+                <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-400">
+                  Local-First Engine
+                </span>
+              </div>
+              <h4 className="text-base font-bold text-zinc-900 dark:text-white tracking-tight">
+                Zero Cloud Dependencies
+              </h4>
+              <p className="text-[12px] text-zinc-500 dark:text-zinc-400 max-w-md">
+                Native RFC-7233 partial-content streaming allows instant scrubbing with zero RAM bloat.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('player')}
+                className="px-4 py-2 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] border border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-300 text-[11px] font-medium transition-colors"
+              >
+                Launch Cinema Mode
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Courses on Disk Section */}
+      <div className="pt-4">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center">
+              <Globe className="w-3.5 h-3.5" strokeWidth={1.5} />
+            </div>
+            <h2 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">Local Library</h2>
+          </div>
+          <span className="text-[11px] font-mono text-zinc-400">
+            {courses.length} courses loaded
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {courses.map((course) => {
+            const isCurrent = course.id === activeCourseId;
+            return (
+              <div
+                key={course.id}
+                className={`p-1.5 rounded-[2rem] transition-all duration-300 ease-fluid ${
+                  isCurrent
+                    ? 'bg-zinc-900/5 dark:bg-white/10 ring-1 ring-zinc-900/20 dark:ring-white/20'
+                    : 'bg-black/[0.03] dark:bg-white/[0.03]'
+                } border border-black/[0.06] dark:border-white/[0.08]`}
+              >
+                <div className="p-6 rounded-[calc(2rem-0.375rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] h-full flex flex-col justify-between space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[10px] font-mono font-medium px-2.5 py-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
+                        {course.badge || 'Local Course'}
+                      </span>
+                      {isCurrent && (
+                        <span className="flex items-center gap-1 text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                          <Check className="w-3 h-3" strokeWidth={1.5} />
+                          <span>Active</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="text-[15px] font-bold text-zinc-900 dark:text-white tracking-tight line-clamp-1">
+                      {course.name}
+                    </h3>
+                    <p className="text-[12px] leading-relaxed text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
+                      {course.description}
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-black/[0.04] dark:border-white/[0.06] flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-zinc-400 truncate max-w-[150px]" title={course.rootPath || ''}>
+                      {course.isVirtual ? 'YouTube Series' : (course.rootPath ? course.rootPath.split('/').filter(Boolean).slice(-2).join('/') : 'Local')}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      {!isCurrent && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Are you sure you want to remove "${course.name}" from your library?`)) {
+                              removeCourse(course.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-full hover:bg-red-500/10 text-zinc-400 hover:text-red-500 transition-colors"
+                          title="Remove Course"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                        </button>
+                      )}
+
+                      {isCurrent ? (
+                        <button
+                          onClick={() => setActiveTab('player')}
+                          className="px-4 py-2 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-semibold flex items-center gap-2 transition-all duration-200 ease-fluid group"
+                        >
+                          <span>Study</span>
+                          <span className="w-4 h-4 rounded-full bg-white/20 dark:bg-black/10 flex items-center justify-center transition-transform group-hover:translate-x-0.5">
+                            <ArrowRight className="w-2.5 h-2.5" strokeWidth={1.5} />
+                          </span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => selectCourse(course.id)}
+                          className="px-4 py-2 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-300 text-[11px] font-medium transition-colors"
+                        >
+                          Switch
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Add Course Card - Double-Bezel Dashed Core */}
+          <div 
+            onClick={() => setAddCourseModal(true)}
+            className="p-1.5 rounded-[2rem] bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.04] dark:border-white/[0.06] cursor-pointer group"
+          >
+            <div className="p-6 rounded-[calc(2rem-0.375rem)] border-2 border-dashed border-black/[0.08] dark:border-white/[0.1] group-hover:border-zinc-400 dark:group-hover:border-white/30 h-full flex flex-col items-center justify-center text-center min-h-[160px] transition-all duration-200">
+              <div className="w-10 h-10 rounded-full bg-black/[0.03] dark:bg-white/[0.06] flex items-center justify-center text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors mb-2">
+                <Plus className="w-4 h-4" strokeWidth={1.5} />
+              </div>
+              <h4 className="text-[13px] font-bold text-zinc-800 dark:text-zinc-200">
+                Scan Course Folder
+              </h4>
+              <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 font-mono">
+                Index directory of video lessons
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

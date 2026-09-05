@@ -1,0 +1,8 @@
+node_modules/
+dist/
+
+# Personal study data — notes, progress, bookmarks. Never commit.
+data/*
+!data/study-hub-data.example.json
+
+*.log
