@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev:client": "vite --port 3000 --host",
-    "dev:server": "tsx server.ts --port 3001",
+    "dev:client": "vite --port 47286 --host",
+    "dev:server": "tsx server.ts --port 47287",
     "dev": "concurrently -n \"SERVER,CLIENT\" -c \"magenta,cyan\" \"npm run dev:server\" \"npm run dev:client\"",
     "build": "tsc && vite build",
     "start": "tsx server.ts"

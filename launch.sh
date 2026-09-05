@@ -52,8 +52,8 @@ fi
 
 LOG="$(mktemp -t studyhub-XXXXXX.log)"
 
-# The server walks 3000 -> 3001 -> ... when a port is taken, so wait for it to
-# report the port it actually bound instead of assuming 3000.
+# The server starts at 47285 and walks upward if that is taken, so wait for it
+# to report the port it actually bound rather than assuming one.
 open_when_ready() {
   local url=""
   for _ in $(seq 1 60); do

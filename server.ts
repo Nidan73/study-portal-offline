@@ -140,7 +140,12 @@ export interface YouTubeSearchResult {
 const app = express();
 const portArgIndex = process.argv.indexOf('--port');
 const cliPort = portArgIndex !== -1 && process.argv[portArgIndex + 1] ? parseInt(process.argv[portArgIndex + 1], 10) : null;
-const DEFAULT_PORT = cliPort || parseInt(process.env.PORT || "3000", 10);
+// 47285: deliberately outside the ranges dev tooling squats on — 3000/3001
+// (CRA, Express, Next), 5173 (Vite), 8080 (Apache/Tomcat), 8000 (Django),
+// 5000 (Flask, macOS AirPlay), 4200 (Angular), 8888 (Jupyter), 9229 (Node
+// debug) — and below 49152 so it cannot clash with an OS-assigned ephemeral
+// port. Override with --port or the PORT environment variable.
+const DEFAULT_PORT = cliPort || parseInt(process.env.PORT || "47285", 10);
 
 // Middleware
 //
@@ -217,6 +222,28 @@ function resolveServable(candidate: string): string | null {
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 if (!fs.existsSync(VIDEO_CACHE_DIR)) fs.mkdirSync(VIDEO_CACHE_DIR, { recursive: true });
+
+/**
+ * Find a toolchain binary without hardcoding a Unix path.
+ *
+ * /usr/bin/gcc et al. do not exist on Windows, and are wrong on distros that
+ * install elsewhere (nix, homebrew, /opt). Prefer the common absolute paths
+ * when present, otherwise fall back to the bare name and let PATH resolve it.
+ */
+function resolveTool(name: 'python3' | 'gcc' | 'g++'): string {
+  if (process.platform === 'win32') {
+    return name === 'python3' ? 'python' : name;   // gcc/g++ via MinGW or MSYS on PATH
+  }
+  const candidates: Record<string, string[]> = {
+    python3: ['/usr/bin/python3', '/usr/local/bin/python3', '/opt/homebrew/bin/python3'],
+    gcc: ['/usr/bin/gcc', '/usr/local/bin/gcc', '/opt/homebrew/bin/gcc'],
+    'g++': ['/usr/bin/g++', '/usr/local/bin/g++', '/opt/homebrew/bin/g++']
+  };
+  for (const p of candidates[name] || []) {
+    try { if (fs.existsSync(p)) return p; } catch (e) {}
+  }
+  return name;   // let PATH decide
+}
 
 // Ignored folders for heuristic crawler
 const IGNORED_NAMES = new Set([
@@ -1958,7 +1985,7 @@ except Exception as e:
     print(json.dumps({'error': str(e)}))
 `;
 
-  const pyBin = process.platform === 'win32' ? 'python' : (fs.existsSync('/usr/bin/python3') ? '/usr/bin/python3' : 'python3');
+  const pyBin = resolveTool('python3');
 
   execFile(pyBin, ['-c', pyScript, resolved], { timeout: 15000 }, (err, stdout) => {
     if (err || !stdout) {
@@ -2320,7 +2347,7 @@ app.post('/api/execute', async (req: Request, res: Response) => {
       const srcFile = path.join(tmpDir, `${id}.py`);
       fs.writeFileSync(srcFile, code);
       filesToCleanup.push(srcFile);
-      binary = process.platform === 'win32' ? 'python' : (fs.existsSync('/usr/bin/python3') ? '/usr/bin/python3' : 'python3');
+      binary = resolveTool('python3');
       args = [srcFile];
     } else if (lang === 'cpp' || lang === 'c++') {
       const srcFile = path.join(tmpDir, `${id}.cpp`);
@@ -2330,7 +2357,7 @@ app.post('/api/execute', async (req: Request, res: Response) => {
 
       // Compile stage
       const compileRes: any = await new Promise((resolve) => {
-        execFile('/usr/bin/g++', ['-O2', srcFile, '-o', binFile], { timeout: 10000, maxBuffer: 512 * 1024 }, (err, stdout, stderr) => {
+        execFile(resolveTool('g++'), ['-O2', srcFile, '-o', binFile], { timeout: 10000, maxBuffer: 512 * 1024 }, (err, stdout, stderr) => {
           resolve({ err, stdout, stderr });
         });
       });
@@ -2356,7 +2383,7 @@ app.post('/api/execute', async (req: Request, res: Response) => {
 
       // Compile stage
       const compileRes: any = await new Promise((resolve) => {
-        execFile('/usr/bin/gcc', ['-O2', srcFile, '-o', binFile], { timeout: 10000, maxBuffer: 512 * 1024 }, (err, stdout, stderr) => {
+        execFile(resolveTool('gcc'), ['-O2', srcFile, '-o', binFile], { timeout: 10000, maxBuffer: 512 * 1024 }, (err, stdout, stderr) => {
           resolve({ err, stdout, stderr });
         });
       });

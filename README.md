@@ -17,16 +17,25 @@ cd study-portal-offline
 ```
 `launch.sh` installs dependencies, builds the interface, seeds a fresh data file and opens your browser on the port it actually bound.
 
-### Windows (CMD or PowerShell)
-```bash
+### Windows
+```bat
 git clone https://github.com/Nidan73/study-portal-offline.git
 cd study-portal-offline
-npm install
-npm run build
-npx tsx server.ts --port 3000
+launch.bat
 ```
+Or double-click **`launch.bat`** in Explorer. It does the same as the shell
+script: checks Node, installs dependencies, builds, seeds the data file and
+opens your browser.
 
-Open your browser to: **`http://localhost:3000`**
+**What works on Windows:** the player and streaming, slides, notes, bookmarks,
+YouTube, the scanner, and Python execution in the IDE.
+**What needs extra setup:** C and C++ execution requires `gcc`/`g++` on your
+PATH (install MinGW-w64 or MSYS2); `.mkv` and other non-native video formats
+need `ffmpeg` on your PATH.
+
+Open your browser to: **`http://localhost:47285`**
+
+The port is deliberately unusual so it will not collide with Vite, Apache, Django, Jupyter or anything else you may be running. Override it with `--port 1234` or `PORT=1234` if you need to.
 
 ### Pointing it at your courses
 By default it looks for course folders **beside** the project directory. If your
