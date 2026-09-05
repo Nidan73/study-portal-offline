@@ -456,6 +456,225 @@ function discoverCourses(): CourseSummary[] {
   return discovered;
 }
 
+// API: Candidate scan roots — mounted drives plus the home directory.
+app.get('/api/scan/roots', (req: Request, res: Response) => {
+  const roots: { path: string; label: string; kind: 'drive' | 'home' }[] = [];
+  const seen = new Set<string>();
+
+  const add = (p: string, label: string, kind: 'drive' | 'home') => {
+    const resolved = path.resolve(p);
+    if (seen.has(resolved)) return;
+    try {
+      if (!fs.statSync(resolved).isDirectory()) return;
+    } catch (e) {
+      return;
+    }
+    seen.add(resolved);
+    roots.push({ path: resolved, label, kind });
+  };
+
+  // Removable and secondary drives, as mounted by the desktop environment.
+  for (const base of ['/run/media', '/media', '/mnt']) {
+    try {
+      for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const outer = path.join(base, entry.name);
+        // /run/media/<user>/<drive> nests one level deeper than /mnt/<drive>.
+        let nested: fs.Dirent[] = [];
+        try {
+          nested = fs.readdirSync(outer, { withFileTypes: true }).filter(d => d.isDirectory());
+        } catch (e) {}
+        if (base === '/run/media' && nested.length) {
+          for (const drive of nested) add(path.join(outer, drive.name), drive.name, 'drive');
+        } else {
+          add(outer, entry.name, 'drive');
+        }
+      }
+    } catch (e) {}
+  }
+
+  const home = process.env.HOME || process.env.USERPROFILE;
+  if (home) add(home, 'Home folder', 'home');
+
+  res.json({ roots });
+});
+
+/**
+ * Guess whether a folder of videos is study material or downloaded media.
+ *
+ * Nothing is hidden on the strength of this — the user still picks from the
+ * full list. It only decides what surfaces first, so a season of a TV show does
+ * not sit above an actual course.
+ */
+function classifyFolder(dir: string, fileNames: string[], docCount: number): { likelyCourse: boolean; reason: string } {
+  const haystack = (path.basename(dir) + ' ' + fileNames.join(' ')).toLowerCase();
+
+  const courseWords = ['week', 'lecture', 'lesson', 'module', 'chapter', 'course', 'tutorial',
+                       'bootcamp', 'cohort', 'session', 'class', 'training', 'workshop', 'part -'];
+  const mediaMarkers = ['1080p', '720p', '2160p', 'web-dl', 'webrip', 'bluray', 'blu-ray', 'x265',
+                        'x264', 'hevc', 'ddp5', 'aac5', 'hdtv', 'remux', 'dvdrip', 'yify', 'anarchy'];
+
+  const hitsCourse = courseWords.filter(w => haystack.includes(w));
+  const hitsMedia = mediaMarkers.filter(w => haystack.includes(w));
+  const seasonPattern = /\bs\d{2}(e\d{2})?\b/i.test(haystack);
+
+  if (hitsMedia.length > 0 || seasonPattern) {
+    return { likelyCourse: false, reason: seasonPattern && !hitsMedia.length ? 'looks like a TV season' : 'looks like a media rip' };
+  }
+  if (docCount > 0 && hitsCourse.length > 0) {
+    return { likelyCourse: true, reason: `${hitsCourse[0]} naming + ${docCount} slide deck${docCount === 1 ? '' : 's'}` };
+  }
+  if (hitsCourse.length > 0) return { likelyCourse: true, reason: `"${hitsCourse[0]}" in the naming` };
+  if (docCount > 0) return { likelyCourse: true, reason: `${docCount} slide deck${docCount === 1 ? '' : 's'} alongside the videos` };
+  return { likelyCourse: false, reason: 'no course naming or slides found' };
+}
+
+/**
+ * Walk a tree looking for directories that hold course material.
+ *
+ * A directory qualifies when it directly contains at least MIN_VIDEOS video
+ * files over 1MB — the same threshold the course crawler already uses, so what
+ * the scan offers is what the crawler will actually index. Bounded by depth,
+ * a wall-clock deadline and a result cap so scanning a whole drive cannot hang
+ * the single-threaded server.
+ */
+function scanForCourses(root: string, deadlineMs: number) {
+  const MIN_VIDEOS = 3;
+  const MAX_DEPTH = 6;
+  const MAX_RESULTS = 200;
+  const found: {
+    path: string; name: string; videoCount: number; totalBytes: number;
+    depth: number; docCount: number; likelyCourse: boolean; reason: string;
+  }[] = [];
+  let truncated = false;
+  const visitedDirs = new Set<string>();
+
+  const walk = (dir: string, depth: number) => {
+    if (depth > MAX_DEPTH || found.length >= MAX_RESULTS) return;
+    if (Date.now() > deadlineMs) { truncated = true; return; }
+
+    let real: string;
+    try {
+      real = fs.realpathSync(dir);
+    } catch (e) {
+      return;
+    }
+    if (visitedDirs.has(real)) return;   // symlink loop guard
+    visitedDirs.add(real);
+
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (e) {
+      return;   // unreadable / permission denied — skip quietly
+    }
+
+    let videoCount = 0;
+    let totalBytes = 0;
+    let docCount = 0;
+    const subdirs: string[] = [];
+    const fileNames: string[] = [];
+
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || IGNORED_NAMES.has(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        subdirs.push(full);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (VIDEO_EXTENSIONS.has(ext)) {
+          try {
+            const st = fs.statSync(full);
+            if (st.size > 1024 * 1024) { videoCount++; totalBytes += st.size; fileNames.push(entry.name); }
+          } catch (e) {}
+        } else if (DOC_EXTENSIONS.has(ext)) {
+          docCount++;
+        }
+      }
+    }
+
+    if (videoCount >= MIN_VIDEOS) {
+      const { likelyCourse, reason } = classifyFolder(dir, fileNames, docCount);
+      found.push({ path: dir, name: path.basename(dir) || dir, videoCount, totalBytes, depth, docCount, likelyCourse, reason });
+      return;   // stop here: this is the course folder, not its subfolders
+    }
+
+    for (const sub of subdirs) walk(sub, depth + 1);
+  };
+
+  walk(root, 0);
+
+  // Roll siblings up to their parent: a course usually presents as several
+  // "Week N" folders that each qualify on their own. Offering the parent once
+  // matches how the crawler indexes it (weeks become modules) and stops the
+  // list filling with 20 rows for one course.
+  const byParent = new Map<string, typeof found>();
+  for (const c of found) {
+    const parent = path.dirname(c.path);
+    if (!byParent.has(parent)) byParent.set(parent, []);
+    byParent.get(parent)!.push(c);
+  }
+
+  const rolled: typeof found = [];
+  const absorbed = new Set<string>();
+  for (const [parent, children] of byParent) {
+    if (children.length < 2 || parent === path.dirname(root) || absorbed.has(parent)) continue;
+    for (const c of children) absorbed.add(c.path);
+    rolled.push({
+      path: parent,
+      name: path.basename(parent) || parent,
+      videoCount: children.reduce((n, c) => n + c.videoCount, 0),
+      totalBytes: children.reduce((n, c) => n + c.totalBytes, 0),
+      docCount: children.reduce((n, c) => n + c.docCount, 0),
+      depth: Math.max(0, Math.min(...children.map(c => c.depth)) - 1),
+      likelyCourse: children.some(c => c.likelyCourse),
+      reason: `${children.length} sub-folders of lessons`
+    });
+  }
+
+  const result = [...rolled, ...found.filter(c => !absorbed.has(c.path))];
+  if (found.length >= MAX_RESULTS) truncated = true;
+  return { found: result, truncated };
+}
+
+// API: Scan a drive or folder for course material.
+app.post('/api/scan', (req: Request, res: Response) => {
+  const { rootPath, timeoutMs } = req.body || {};
+  if (!rootPath || typeof rootPath !== 'string') {
+    return res.status(400).json({ error: 'A folder or drive path is required' });
+  }
+
+  const resolved = path.resolve(rootPath);
+  try {
+    if (!fs.statSync(resolved).isDirectory()) {
+      return res.status(400).json({ error: 'That path is not a folder' });
+    }
+  } catch (e) {
+    return res.status(404).json({ error: 'That folder does not exist or cannot be read' });
+  }
+
+  const budget = Math.min(Math.max(Number(timeoutMs) || 20000, 2000), 120000);
+  const started = Date.now();
+  const { found, truncated } = scanForCourses(resolved, started + budget);
+
+  // Mark anything already in the library so the UI can grey it out.
+  const existingRoots = discoverCourses()
+    .map(c => c.rootPath && path.resolve(c.rootPath))
+    .filter(Boolean) as string[];
+  // A folder counts as covered if it IS a course root or sits inside one —
+  // otherwise every week of an added course reappears as a new suggestion.
+  const isCovered = (p: string) => existingRoots.some(root => isInside(root, p));
+
+  res.json({
+    scannedPath: resolved,
+    elapsedMs: Date.now() - started,
+    truncated,
+    candidates: found
+      .sort((a, b) => (Number(b.likelyCourse) - Number(a.likelyCourse)) || (b.videoCount - a.videoCount))
+      .map(c => ({ ...c, alreadyAdded: isCovered(path.resolve(c.path)) }))
+  });
+});
+
 // API: List Courses
 app.get('/api/courses', (req: Request, res: Response) => {
   const courses = discoverCourses();

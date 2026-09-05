@@ -72,7 +72,17 @@ Open your browser to: **`http://localhost:3000`**
 
 ---
 
-### 6. 🧭 Bento Syllabus, Spotlight (`Ctrl + K`) & Streaks
+### 6. 🔎 Drive & Folder Scanner
+- **One-Click Drive Scan:** `[Scan Directory]` offers every mounted drive and your home folder as a one-click target, or takes any absolute path you type.
+- **Suggests, Never Auto-Adds:** The scan lists every folder holding 3 or more videos and waits for you to tick the ones you want. Nothing is added until you press Add.
+- **Course vs. Media Hint:** Folders are tagged `Course` or `Media?` from their naming and whether slide decks sit alongside the videos, so lecture folders sort above your TV rips. Nothing is hidden — the tag only decides the order.
+- **Rolled Up By Course:** A course that presents as twenty `Week N` folders is offered once, as the parent — matching how the crawler indexes it (weeks become modules).
+- **Already-Indexed Folders Are Marked:** Anything inside a course you have already added is greyed out and cannot be double-added.
+- **Bounded:** Depth-capped, deadline-capped and symlink-loop guarded, so scanning a whole drive cannot hang the server. A truncated scan says so.
+
+---
+
+### 7. 🧭 Bento Syllabus, Spotlight (`Ctrl + K`) & Streaks
 - **Raycast-Style Spotlight Search (`Ctrl + K`):** Instantly search and jump across all weeks, lectures, and topics in your local disk library and imported YouTube courses.
 - **21st.dev Bento Grid:** Visualizes weekly lesson progress, completion badges, and total study duration.
 - **Gamified Daily Streaks:** Tracks daily consistency and cohort completion percentages stored in local-first storage. Watch time counts real elapsed playback only — seeking does not inflate it.
