@@ -19,6 +19,7 @@ import {
   Youtube,
   Loader2,
   NotebookPen,
+  Info,
   LucideIcon
 } from 'lucide-react';
 
@@ -58,6 +59,7 @@ export const Navbar: React.FC = () => {
   const setAddCourseModal = useStore(state => state.setAddCourseModal);
   const setShortcutHelpOpen = useStore(state => state.setShortcutHelpOpen);
   const setScratchpadOpen = useStore(state => state.setScratchpadOpen);
+  const setAboutOpen = useStore(state => state.setAboutOpen);
   const theme = useStore(state => state.theme);
   const toggleTheme = useStore(state => state.toggleTheme);
 
@@ -294,6 +296,17 @@ export const Navbar: React.FC = () => {
             <kbd className="hidden md:inline-block font-mono text-[9px] px-1 py-0.5 rounded bg-black/[0.04] dark:bg-white/10 text-zinc-600 dark:text-zinc-400">
               ⌘K
             </kbd>
+          </button>
+
+          {/* What this app is for */}
+          <button
+            id="navbar-about-btn"
+            onClick={() => setAboutOpen(true)}
+            className="w-8 h-8 rounded-full hidden sm:flex items-center justify-center text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
+            title="About this app — what you can do here"
+            aria-label="About this app"
+          >
+            <Info className="w-3.5 h-3.5" strokeWidth={1.5} />
           </button>
 
           {/* General notepad — works with no lecture selected */}

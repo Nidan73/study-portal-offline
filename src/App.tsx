@@ -13,6 +13,7 @@ import { ShortcutModal } from './components/ShortcutModal';
 import { YouTubeExplorer } from './components/YouTubeExplorer';
 import { Toaster } from './components/Toaster';
 import { Scratchpad } from './components/Scratchpad';
+import { AboutModal } from './components/AboutModal';
 import { 
   PanelRightOpen, 
   Maximize2,
@@ -356,6 +357,7 @@ export const App: React.FC = () => {
       {isResizingDock && <div className="fixed inset-0 z-50 cursor-row-resize select-none pointer-events-auto" />}
       <Toaster />
       <Scratchpad />
+      <AboutModal />
       <CommandPalette />
       <AddCourseModal />
       <ShortcutModal />
