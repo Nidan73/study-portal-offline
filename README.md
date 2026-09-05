@@ -48,6 +48,24 @@ Open your browser to: **`http://localhost:47285`**
 
 The port is deliberately unusual so it will not collide with Vite, Apache, Django, Jupyter or anything else you may be running. Override it with `--port 1234` or `PORT=1234` if you need to.
 
+### How your library is organised
+
+Courses are discovered automatically — any folder beside the project holding a
+couple of videos or documents becomes one, named after the folder. Nothing has
+to be configured, and nothing is hardcoded to a particular layout.
+
+| Your folder | Becomes |
+| :--- | :--- |
+| `Rust Course/Week 1/*.mp4` | a course named **Rust Course**, weeks as modules |
+| `Maths Notes/*.pdf` | a course badged **Reading Material** |
+| `Some Course/Lectures/*.mp4` | a course named after **Some Course**, not the inner folder |
+| `Presentations/**` | a slide library, not a course |
+
+**Scan Directory** finds both kinds anywhere on a drive: folders of video become
+courses, folders of slides and PDFs become slide libraries, and each candidate
+is labelled so you can see which is which before adding it. Nested folders are
+collapsed to the outermost, since adding a parent indexes everything under it.
+
 ### Pointing it at your courses
 By default it looks for course folders **beside** the project directory. If your
 library lives elsewhere:

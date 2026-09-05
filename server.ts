@@ -583,55 +583,148 @@ function crawlCourseDirectory(courseRoot: string) {
 }
 
 // Auto-Discover Available Courses in COURSES_ROOT
+/**
+ * One-time compatibility shim.
+ *
+ * Course ids used to be hardcoded to three specific folders on the author's
+ * machine, which meant everybody else saw an empty library on first run.
+ * Discovery is generic now, but those three ids key existing notes and
+ * progress, so they are preserved when the matching folder is present. Anyone
+ * without those folders is unaffected.
+ */
+const LEGACY_COURSE_IDS: Record<string, string> = {
+  '100xDevs_Cohort/Lectures_and_Material': '100xdevs-cohort',
+  'AI and ML Bootcamp': 'ai-ml-bootcamp',
+  'Programming_Hero_PH': 'programming-hero'
+};
+
+/** A stable, readable id from a folder's path relative to the courses root. */
+function courseIdFor(relPath: string): string {
+  const legacy = LEGACY_COURSE_IDS[relPath.split(path.sep).join('/')];
+  if (legacy) return legacy;
+  return relPath
+    .split(path.sep).join('-')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'course';
+}
+
+/** "AI_and_ML Bootcamp" -> "AI and ML Bootcamp" */
+function prettyCourseName(folderName: string): string {
+  return folderName
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const COURSE_GRADIENTS = [
+  'from-blue-500 to-indigo-600',
+  'from-purple-500 to-pink-600',
+  'from-amber-500 to-orange-600',
+  'from-emerald-500 to-teal-600',
+  'from-rose-500 to-red-600',
+  'from-cyan-500 to-blue-600'
+];
+
+/** Does this folder hold enough media, at any depth, to be worth offering? */
+function looksLikeCourse(dir: string, depth = 0): { videos: number; docs: number } {
+  let videos = 0;
+  let docs = 0;
+  if (depth > 3) return { videos, docs };
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (e) {
+    return { videos, docs };
+  }
+  for (const entry of entries) {
+    if (entry.name.startsWith('.') || IGNORED_NAMES.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const inner = looksLikeCourse(full, depth + 1);
+      videos += inner.videos;
+      docs += inner.docs;
+    } else if (entry.isFile()) {
+      const ext = path.extname(entry.name).toLowerCase();
+      if (VIDEO_EXTENSIONS.has(ext)) videos++;
+      else if (DOC_EXTENSIONS.has(ext)) docs++;
+    }
+    if (videos > 40) break;   // enough to decide; stop counting
+  }
+  return { videos, docs };
+}
+
+/**
+ * Auto-discover courses as folders beside this project.
+ *
+ * Looks one level down, and one further when the top-level folder is only a
+ * container (a common shape: Courses/SomeCourse/Lectures/...).
+ */
 function discoverCourses(): CourseSummary[] {
   const discovered: CourseSummary[] = [];
+  const seenPaths = new Set<string>();
 
-  // 1. Check for 100xDevs Cohort
-  const h100Path = path.join(COURSES_ROOT, '100xDevs_Cohort', 'Lectures_and_Material');
-  if (fs.existsSync(h100Path)) {
+  const consider = (dir: string, relPath: string) => {
+    const resolved = path.resolve(dir);
+    if (seenPaths.has(resolved)) return false;
+    const { videos, docs } = looksLikeCourse(dir);
+    if (videos < 2 && docs < 2) return false;
+    seenPaths.add(resolved);
+    // For a nested root, the course is the parent — "Lectures and Material"
+    // is a container name, not a course name.
+    const segments = relPath.split(path.sep).filter(Boolean);
+    const name = prettyCourseName(segments.length > 1 ? segments[0] : path.basename(dir));
     discovered.push({
-      id: '100xdevs-cohort',
-      name: '100xDevs Full Stack & DevOps (Cohort 2.0)',
-      rootPath: h100Path,
-      badge: 'Full Stack & DevOps',
-      gradient: 'from-blue-500 to-indigo-600',
-      description: 'Zero to hero in Web Development, DevOps, Docker, Kubernetes, Next.js, and System Design.'
+      id: courseIdFor(relPath),
+      name,
+      rootPath: resolved,
+      badge: videos > 0 ? 'Local Course' : 'Reading Material',
+      gradient: COURSE_GRADIENTS[discovered.length % COURSE_GRADIENTS.length],
+      description: videos > 0
+        ? `${videos} video${videos === 1 ? '' : 's'}${docs ? ` and ${docs} document${docs === 1 ? '' : 's'}` : ''} found on disk.`
+        : `${docs} document${docs === 1 ? '' : 's'} found on disk.`
     });
+    return true;
+  };
+
+  let topLevel: fs.Dirent[] = [];
+  try {
+    topLevel = fs.readdirSync(COURSES_ROOT, { withFileTypes: true });
+  } catch (e) {
+    topLevel = [];
   }
 
-  // 2. Check for AI and ML Bootcamp
-  const aiPath = path.join(COURSES_ROOT, 'AI and ML Bootcamp');
-  if (fs.existsSync(aiPath)) {
-    discovered.push({
-      id: 'ai-ml-bootcamp',
-      name: 'AI & Machine Learning Bootcamp',
-      rootPath: aiPath,
-      badge: 'Artificial Intelligence',
-      gradient: 'from-purple-500 to-pink-600',
-      description: 'Core Machine Learning, Neural Networks, PyTorch, and Generative AI.'
-    });
+  for (const entry of topLevel) {
+    if (!entry.isDirectory() || entry.name.startsWith('.') || IGNORED_NAMES.has(entry.name)) continue;
+    // Presentations is the slide-library convention and is already indexed by
+    // /api/slides/all; listing it as a course too would duplicate every deck.
+    if (entry.name.toLowerCase() === 'presentations') continue;
+    const dir = path.join(COURSES_ROOT, entry.name);
+
+    // A folder like "SomeCourse/Lectures_and_Material" is the real course root,
+    // and its id must stay stable for anyone whose notes already use it.
+    let matchedNested = false;
+    try {
+      for (const child of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (!child.isDirectory()) continue;
+        const rel = `${entry.name}/${child.name}`;
+        if (LEGACY_COURSE_IDS[rel]) {
+          matchedNested = consider(path.join(dir, child.name), rel) || matchedNested;
+        }
+      }
+    } catch (e) {}
+
+    if (!matchedNested) consider(dir, entry.name);
   }
 
-  // 3. Check for Programming Hero PH
-  const phPath = path.join(COURSES_ROOT, 'Programming_Hero_PH');
-  if (fs.existsSync(phPath)) {
-    discovered.push({
-      id: 'programming-hero',
-      name: 'Programming Hero (Complete Web Track)',
-      rootPath: phPath,
-      badge: 'Web Fundamentals',
-      gradient: 'from-amber-500 to-orange-600',
-      description: 'Hands-on React, Node, Express, MongoDB, and Frontend project milestones.'
-    });
-  }
+  discovered.sort((a, b) => a.name.localeCompare(b.name));
 
-  // 4. Any custom courses added by user (including virtual YouTube courses)
+  // Anything the user added explicitly, including virtual YouTube courses.
   if (Array.isArray(inMemoryData.customCourses)) {
     inMemoryData.customCourses.forEach(c => {
       const isValid = c.isVirtual || (c.rootPath && fs.existsSync(c.rootPath));
-      if (isValid && !discovered.some(d => d.id === c.id)) {
-        discovered.push(c);
-      }
+      if (isValid && !discovered.some(d => d.id === c.id)) discovered.push(c);
     });
   }
 
@@ -722,11 +815,16 @@ function classifyFolder(dir: string, fileNames: string[], docCount: number): { l
  */
 function scanForCourses(root: string, deadlineMs: number) {
   const MIN_VIDEOS = 3;
+  // Study material is often slides and PDFs with no video at all, and those
+  // folders were invisible to the scanner — you could only add them by typing
+  // the path. Two documents is enough to be worth offering.
+  const MIN_DOCS = 2;
   const MAX_DEPTH = 6;
   const MAX_RESULTS = 200;
   const found: {
     path: string; name: string; videoCount: number; totalBytes: number;
     depth: number; docCount: number; likelyCourse: boolean; reason: string;
+    kind: 'videos' | 'documents' | 'mixed';
   }[] = [];
   let truncated = false;
   const visitedDirs = new Set<string>();
@@ -775,10 +873,26 @@ function scanForCourses(root: string, deadlineMs: number) {
       }
     }
 
-    if (videoCount >= MIN_VIDEOS) {
+    const hasVideos = videoCount >= MIN_VIDEOS;
+    const hasDocs = docCount >= MIN_DOCS;
+
+    if (hasVideos || hasDocs) {
       const { likelyCourse, reason } = classifyFolder(dir, fileNames, docCount);
-      found.push({ path: dir, name: path.basename(dir) || dir, videoCount, totalBytes, depth, docCount, likelyCourse, reason });
-      return;   // stop here: this is the course folder, not its subfolders
+      const kind: 'videos' | 'documents' | 'mixed' =
+        videoCount > 0 && docCount > 0 ? 'mixed'
+        : videoCount > 0 ? 'videos'
+        : 'documents';
+      found.push({
+        path: dir, name: path.basename(dir) || dir, videoCount, totalBytes, depth,
+        docCount, kind,
+        // A folder of slides is study material by definition — the media-vs-course
+        // heuristic only makes sense for video.
+        likelyCourse: kind === 'documents' ? true : likelyCourse,
+        reason: kind === 'documents'
+          ? `${docCount} slide${docCount === 1 ? '' : 's'} and PDFs, no video`
+          : reason
+      });
+      return;   // stop here: this is the folder, not its subfolders
     }
 
     for (const sub of subdirs) walk(sub, depth + 1);
@@ -810,11 +924,28 @@ function scanForCourses(root: string, deadlineMs: number) {
       docCount: children.reduce((n, c) => n + c.docCount, 0),
       depth: Math.max(0, Math.min(...children.map(c => c.depth)) - 1),
       likelyCourse: children.some(c => c.likelyCourse),
-      reason: `${children.length} sub-folders of lessons`
+      kind: children.every(c => c.kind === 'documents')
+        ? 'documents'
+        : children.some(c => c.videoCount > 0) && children.some(c => c.docCount > 0)
+          ? 'mixed' : children[0].kind,
+      reason: children.every(c => c.kind === 'documents')
+        ? `${children.length} sub-folders of slides and PDFs`
+        : `${children.length} sub-folders of lessons`
     });
   }
 
-  const result = [...rolled, ...found.filter(c => !absorbed.has(c.path))];
+  let result = [...rolled, ...found.filter(c => !absorbed.has(c.path))];
+
+  // Offering a folder AND its parent is noise: adding the parent indexes
+  // everything beneath it. Keep the outermost of any nested pair.
+  const byDepth = [...result].sort((a, b) => a.path.length - b.path.length);
+  const kept: typeof result = [];
+  for (const c of byDepth) {
+    const insideAKeeper = kept.some(k => isInside(k.path, c.path) && k.path !== c.path);
+    if (!insideAKeeper) kept.push(c);
+  }
+  result = kept;
+
   if (found.length >= MAX_RESULTS) truncated = true;
   return { found: result, truncated };
 }
@@ -1882,15 +2013,22 @@ app.get('/api/slides/all', (req: Request, res: Response) => {
   //    lives in its own folders rather than inside a course.
   for (const dir of inMemoryData.slideFolders || []) {
     if (fs.existsSync(dir)) {
-      walkForDecks(dir, visitedPaths, decks, path.basename(dir) || 'Slides');
+      walkForDecks(dir, visitedPaths, decks, path.basename(dir) || 'Slides', 0, dir);
     }
   }
 
   res.json({ decks });
 });
 
-/** Collect every deck under a directory, recursively. */
-function walkForDecks(dir: string, seen: Set<string>, out: any[], label: string, depth = 0): void {
+/**
+ * Collect every deck under a directory, recursively.
+ *
+ * `label` groups the results in the picker. When a registered folder holds
+ * several subjects, labelling all of them with the registration root buries
+ * them in one enormous group, so `groupRoot` lets each deck be grouped by the
+ * subject folder it actually lives in.
+ */
+function walkForDecks(dir: string, seen: Set<string>, out: any[], label: string, depth = 0, groupRoot?: string): void {
   if (depth > 8) return;
   let entries: fs.Dirent[];
   try {
@@ -1902,7 +2040,7 @@ function walkForDecks(dir: string, seen: Set<string>, out: any[], label: string,
     if (entry.name.startsWith('.') || IGNORED_NAMES.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      walkForDecks(full, seen, out, label, depth + 1);
+      walkForDecks(full, seen, out, label, depth + 1, groupRoot);
     } else if (entry.isFile()) {
       const ext = path.extname(entry.name).toLowerCase();
       if (!DOC_EXTENSIONS.has(ext) || seen.has(full)) continue;
@@ -1916,7 +2054,14 @@ function walkForDecks(dir: string, seen: Set<string>, out: any[], label: string,
         filePath: full,
         type: ext.slice(1),
         courseId: 'presentations',
-        courseName: label,
+        // Group by the subject folder directly beneath the registered root,
+        // rather than lumping every subject under the root's own name.
+        courseName: (() => {
+          if (!groupRoot) return label;
+          const rel = path.relative(groupRoot, path.dirname(full));
+          const first = rel.split(path.sep).filter(Boolean)[0];
+          return first ? `${label} › ${first}` : label;
+        })(),
         moduleName: path.basename(path.dirname(full)),
         sizeBytes: size
       });

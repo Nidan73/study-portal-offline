@@ -29,6 +29,8 @@ interface Candidate {
   likelyCourse: boolean;
   reason: string;
   alreadyAdded: boolean;
+  /** What the folder actually holds, which decides where adding it sends it. */
+  kind: 'videos' | 'documents' | 'mixed';
 }
 
 const formatSize = (bytes: number) => {
@@ -123,8 +125,22 @@ export const AddCourseModal: React.FC = () => {
     setAddingCount(picks.length);
     let added = 0;
     for (const c of picks) {
-      const ok = await addCustomCourse(c.path, c.name);
-      if (ok) added++;
+      // A folder with no video is not a course — it would index as an empty
+      // curriculum. Register it as a slide library instead, which is what the
+      // slides panel reads.
+      if (c.kind === 'documents') {
+        try {
+          const res = await fetch('/api/slides/folders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folderPath: c.path })
+          });
+          if (res.ok) added++;
+        } catch (e) { /* counted as a failure below */ }
+      } else {
+        const ok = await addCustomCourse(c.path, c.name);
+        if (ok) added++;
+      }
     }
     setAddingCount(0);
     if (added === picks.length) {
@@ -279,7 +295,7 @@ export const AddCourseModal: React.FC = () => {
 
                 {!isScanning && candidates?.length === 0 && (
                   <div className="h-full flex flex-col items-center justify-center text-center py-10 text-zinc-600 dark:text-zinc-400">
-                    <p className="text-[13px]">No folders with 3 or more videos found here.</p>
+                    <p className="text-[13px]">Nothing here looks like course material — no folders with videos, slides or PDFs.</p>
                     <p className="text-[11px] font-mono mt-1">Try a different drive, or add the path manually.</p>
                   </div>
                 )}
@@ -330,7 +346,11 @@ export const AddCourseModal: React.FC = () => {
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center gap-2 flex-wrap">
                               <span className="text-[13px] font-semibold text-zinc-900 dark:text-white truncate">{c.name}</span>
-                              {c.likelyCourse ? (
+                              {c.kind === 'documents' ? (
+                                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 flex-shrink-0">
+                                  Slides
+                                </span>
+                              ) : c.likelyCourse ? (
                                 <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20 flex-shrink-0">
                                   Course
                                 </span>
@@ -347,7 +367,9 @@ export const AddCourseModal: React.FC = () => {
                             </span>
                             <span className="block text-[10px] font-mono text-zinc-600 dark:text-zinc-400 truncate mt-0.5">{c.path}</span>
                             <span className="flex items-center gap-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-400 mt-1">
-                              <span className="flex items-center gap-1"><Film className="w-3 h-3" strokeWidth={1.5} />{c.videoCount}</span>
+                              {c.videoCount > 0 && (
+                                <span className="flex items-center gap-1"><Film className="w-3 h-3" strokeWidth={1.5} />{c.videoCount}</span>
+                              )}
                               {c.docCount > 0 && <span className="flex items-center gap-1"><FileText className="w-3 h-3" strokeWidth={1.5} />{c.docCount}</span>}
                               <span>{formatSize(c.totalBytes)}</span>
                               <span className="text-zinc-600 dark:text-zinc-400 truncate">{c.reason}</span>

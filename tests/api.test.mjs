@@ -237,6 +237,53 @@ try {
     const wide = await post(B, '/api/scan', { rootPath: '/', timeoutMs: 3000 });
     check('a whole-filesystem scan stays inside its deadline',
       wide.status === 200 && wide.body.elapsedMs < 12000, `${wide.body?.elapsedMs}ms`);
+
+    // A folder of slides with no video used to be invisible to the scanner.
+    const docs = await post(B, '/api/scan', { rootPath: '/usr/share/doc', timeoutMs: 8000 });
+    const kinds = new Set((docs.body?.candidates || []).map(c => c.kind));
+    check('every candidate says what it holds',
+      (docs.body?.candidates || []).every(c => ['videos', 'documents', 'mixed'].includes(c.kind)),
+      [...kinds].join(','));
+    check('no candidate is nested inside another',
+      (docs.body?.candidates || []).every(a =>
+        !(docs.body.candidates || []).some(b => b !== a && a.path.startsWith(b.path + '/'))));
+  }
+
+  // ------------------------------------------------------- generic discovery
+  section('Course discovery works for any layout');
+  {
+    // Discovery used to be hardcoded to three folders on one machine, so
+    // everybody else opened the app to an empty library.
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const pathMod = (await import('path')).default;
+
+    const lib = mkdtempSync(pathMod.join(tmpdir(), 'studyhub-lib-'));
+    mkdirSync(pathMod.join(lib, 'Rust Course', 'Week 1'), { recursive: true });
+    mkdirSync(pathMod.join(lib, 'Maths Notes'), { recursive: true });
+    for (const n of [1, 2, 3]) {
+      writeFileSync(pathMod.join(lib, 'Rust Course', 'Week 1', `lesson${n}.mp4`), Buffer.alloc(2 * 1024 * 1024));
+    }
+    writeFileSync(pathMod.join(lib, 'Maths Notes', 'algebra.pdf'), '%PDF-1.4\n');
+    writeFileSync(pathMod.join(lib, 'Maths Notes', 'calculus.pdf'), '%PDF-1.4\n');
+
+    const fresh = await startServer({ coursesRoot: lib });
+    try {
+      const { body } = await get(fresh.base, '/api/courses');
+      const ids = (body?.courses || []).map(c => c.id).sort();
+      check('a video folder is discovered with no configuration',
+        ids.includes('rust-course'), ids.join(','));
+      check('a folder of documents is discovered too',
+        ids.includes('maths-notes'), ids.join(','));
+      const rust = body.courses.find(c => c.id === 'rust-course');
+      check('the course is named from its folder, readably',
+        rust?.name === 'Rust Course', rust?.name);
+      const maths = body.courses.find(c => c.id === 'maths-notes');
+      check('a document folder is badged as reading material',
+        maths?.badge === 'Reading Material', maths?.badge);
+    } finally {
+      fresh.stop();
+    }
   }
 
   // --------------------------------------------------------------- durability
