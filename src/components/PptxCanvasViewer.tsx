@@ -55,7 +55,16 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
   useEffect(() => {
     return () => setActiveSlideNumber(null);
   }, [setActiveSlideNumber]);
+
   const [zoomScale, setZoomScale] = useState(1);
+  // The deck's real slide aspect ratio. Decks are not all 16:9 — an A4 portrait
+  // proposal is 0.707 — and rendering one into a hardcoded 16:9 canvas letterboxes
+  // it to ~40% width before the element is scaled down again, which is why such
+  // decks came out unreadably small.
+  const [slideAspect, setSlideAspect] = useState(16 / 9);
+  // Also held in a ref: the renderer reads the element's laid-out box at render
+  // time, and a React state commit is not guaranteed to have landed by then.
+  const slideAspectRef = useRef(16 / 9);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showThumbnails, setShowThumbnails] = useState(false);
   const [pinSuccess, setPinSuccess] = useState(false);
@@ -94,6 +103,7 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
   // Render a specific slide
   const renderSlide = useCallback(async (index: number) => {
     if (!viewerRef.current || !canvasRef.current) return;
+    fitCanvasToContainer();
     try {
       await viewerRef.current.render(canvasRef.current, { slideIndex: index });
       setCurrentSlideIndex(index);
@@ -123,6 +133,87 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
     }
   }, [currentSlideIndex, slideCount, goToSlide]);
 
+  /**
+   * Real slide dimensions from ppt/presentation.xml.
+   *
+   * PptxViewJS exposes no dimension getter (its API is nextSlide/goToSlide/
+   * getSlideCount/...), so read the <p:sldSz> element directly. Values are EMUs;
+   * only their ratio matters here.
+   */
+  const readSlideAspect = async (buffer: ArrayBuffer): Promise<number | null> => {
+    try {
+      const zip = await window.JSZip.loadAsync(buffer);
+      const entry = zip.file('ppt/presentation.xml');
+      if (!entry) return null;
+      const xml: string = await entry.async('string');
+      const m = xml.match(/<p:sldSz[^>]*\bcx="(\d+)"[^>]*\bcy="(\d+)"/) ||
+                xml.match(/<p:sldSz[^>]*\bcy="(\d+)"[^>]*\bcx="(\d+)"/);
+      if (!m) return null;
+      const cx = Number(m[1]); const cy = Number(m[2]);
+      if (!cx || !cy) return null;
+      const ratio = cx / cy;
+      return ratio > 0.2 && ratio < 5 ? ratio : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  /**
+   * Size the canvas box to fill its container at the deck's real aspect ratio.
+   *
+   * PptxViewJS overwrites canvas.width/height with the element's CSS box on
+   * every render (verified: a 600x849 box always yields a 600x849 backing
+   * store, whatever you preset). So the CSS box IS the resolution — which also
+   * means no HiDPI oversampling unless we ask for it. We set the box to the
+   * fitted size times the device pixel ratio and scale back down in CSS, so
+   * text stays crisp on retina panels.
+   */
+  const fitCanvasToContainer = useCallback(() => {
+    const canvas = canvasRef.current;
+    const box = canvas?.parentElement?.parentElement;
+    if (!canvas || !box) return;
+
+    const availW = box.clientWidth;
+    const availH = box.clientHeight;
+    if (availW < 40 || availH < 40) return;
+
+    const aspect = slideAspectRef.current || 16 / 9;
+    // Contain: whichever axis runs out first decides.
+    let dispW = availW;
+    let dispH = dispW / aspect;
+    if (dispH > availH) { dispH = availH; dispW = dispH * aspect; }
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.style.width = `${Math.round(dispW * dpr)}px`;
+    canvas.style.height = `${Math.round(dispH * dpr)}px`;
+    // Scale the oversampled box back to its true display size.
+    canvas.style.transform = dpr === 1 ? '' : `scale(${1 / dpr})`;
+    canvas.style.transformOrigin = 'center center';
+    canvas.style.aspectRatio = '';
+    void canvas.offsetHeight;
+  }, []);
+
+  // Refit when the split panel is dragged or the window resizes, otherwise the
+  // slide keeps the size it had when it first rendered.
+  useEffect(() => {
+    const box = canvasRef.current?.parentElement?.parentElement;
+    if (!box || typeof ResizeObserver === 'undefined') return;
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        fitCanvasToContainer();
+        // Re-render at the new resolution; the backing store was just resized.
+        const v = viewerRef.current;
+        if (v && canvasRef.current) {
+          v.render(canvasRef.current, { slideIndex: v.getCurrentSlideIndex?.() ?? 0 }).catch(() => {});
+        }
+      });
+    });
+    ro.observe(box);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+  }, [fitCanvasToContainer]);
+
   // Load PPTX File into Viewer
   useEffect(() => {
     let isMounted = true;
@@ -149,7 +240,7 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      // Standard presentation canvas resolution (16:9 High DPI 1920x1080)
+      // Provisional size; corrected below once the deck's real ratio is known.
       canvas.width = 1920;
       canvas.height = 1080;
 
@@ -181,6 +272,25 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
         if (!isMounted) return;
 
         setLoadingStatus('Parsing presentation layouts & vector graphics...');
+
+        // Match the backing store to the deck's own shape BEFORE rendering, so
+        // 'fit' fills the canvas instead of letterboxing into white bars.
+        // The long edge is capped so a tall page does not allocate a huge buffer.
+        const aspect = await readSlideAspect(buffer);
+        if (aspect && isMounted) {
+          const LONG_EDGE = 1920;
+          canvas.width = aspect >= 1 ? LONG_EDGE : Math.round(LONG_EDGE * aspect);
+          canvas.height = aspect >= 1 ? Math.round(LONG_EDGE / aspect) : LONG_EDGE;
+
+          // The renderer sizes its backing store from the element's LAID-OUT box,
+          // so the new ratio has to be in the DOM before render() measures it.
+          // A React state update would not have committed in time, leaving the
+          // element at 16:9 and the slide squashed into a 384x216 strip.
+          slideAspectRef.current = aspect;
+          setSlideAspect(aspect);
+          fitCanvasToContainer();
+        }
+
         await viewer.loadFile(buffer);
 
         if (!isMounted) return;
@@ -438,14 +548,14 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
 
         {/* The Real Canvas: High DPI Canvas Rendered directly from PPTX */}
         <div 
-          className="relative max-w-full max-h-full flex items-center justify-center transition-transform duration-200 ease-out"
+          className="relative w-full h-full max-w-full max-h-full flex items-center justify-center transition-transform duration-200 ease-out"
           style={{ transform: `scale(${zoomScale})` }}
         >
           <canvas
             id="pptx-render-canvas"
             ref={canvasRef}
-            className="rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/10 max-w-full max-h-[75vh] w-auto h-auto object-contain bg-white"
-            style={{ aspectRatio: '16 / 9' }}
+            className="rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/10 bg-white block"
+            style={{ aspectRatio: slideAspect ? undefined : '16 / 9' }}
           />
         </div>
 

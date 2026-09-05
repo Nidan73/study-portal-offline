@@ -4,6 +4,13 @@ import { CourseSummary, CourseCatalog, LessonItem, SupplementaryFile, StudyHubDa
 export type NavTab = 'player' | 'split-slides' | 'split-code' | 'notes' | 'ide' | 'library' | 'youtube';
 export type SidePanelTab = 'curriculum' | 'code' | 'notes' | 'slides';
 
+export interface ScratchNote {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Toast {
   id: string;
   message: string;
@@ -68,6 +75,9 @@ export interface StoreState {
   isExecutingCode: boolean;
   
   toasts: Toast[];
+  /** General notepad — notes with no lesson or course attached. */
+  scratchNotes: ScratchNote[];
+  isScratchpadOpen: boolean;
 
   // User Data State
   userData: StudyHubData | null;
@@ -76,6 +86,10 @@ export interface StoreState {
   // Actions
   pushToast: (message: string, tone?: Toast['tone'], action?: Toast['action']) => void;
   dismissToast: (id: string) => void;
+  setScratchpadOpen: (open: boolean) => void;
+  fetchScratchNotes: () => Promise<void>;
+  saveScratchNote: (content: string, id?: string) => Promise<void>;
+  removeScratchNote: (id: string) => Promise<void>;
   fetchInitialData: () => Promise<void>;
   selectCourse: (courseId: string) => Promise<void>;
   selectLesson: (lesson: LessonItem, startAt?: number) => void;
@@ -358,6 +372,8 @@ export const useStore = create<StoreState>((set, get) => ({
   isExecutingCode: false,
   
   toasts: [],
+  scratchNotes: [],
+  isScratchpadOpen: false,
 
   userData: null,
   lastSyncedTimestamp: 0,
@@ -371,6 +387,61 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   dismissToast: (id) => set(state => ({ toasts: state.toasts.filter(t => t.id !== id) })),
+
+  setScratchpadOpen: (open) => {
+    set({ isScratchpadOpen: open });
+    if (open) get().fetchScratchNotes();
+  },
+
+  fetchScratchNotes: async () => {
+    try {
+      const res = await fetch('/api/scratchpad');
+      if (!res.ok) return;
+      const data = await res.json();
+      set({ scratchNotes: data.notes || [] });
+    } catch (e) {
+      console.error('Failed to load notepad:', e);
+    }
+  },
+
+  saveScratchNote: async (content, id) => {
+    try {
+      const res = await fetch('/api/scratchpad', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, id })
+      });
+      if (!res.ok) throw new Error('save failed');
+      const data = await res.json();
+      set({ scratchNotes: data.notes || [] });
+    } catch (e) {
+      console.error('Failed to save notepad entry:', e);
+      get().pushToast('That notepad entry could not be saved.', 'error');
+    }
+  },
+
+  removeScratchNote: async (id) => {
+    const removed = get().scratchNotes.find(n => n.id === id);
+    try {
+      const res = await fetch('/api/scratchpad', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removeId: id })
+      });
+      if (!res.ok) throw new Error('delete failed');
+      const data = await res.json();
+      set({ scratchNotes: data.notes || [] });
+      if (removed) {
+        get().pushToast('Note deleted.', 'info', {
+          label: 'Undo',
+          run: () => get().saveScratchNote(removed.content)
+        });
+      }
+    } catch (e) {
+      console.error('Failed to delete notepad entry:', e);
+      get().pushToast('Could not delete that note.', 'error');
+    }
+  },
 
   fetchInitialData: async () => {
     try {
@@ -444,8 +515,19 @@ export const useStore = create<StoreState>((set, get) => ({
 
     } catch (err) {
       console.error('Failed to load catalog for course:', courseId, err);
-      get().pushToast('Could not load that course. The folder may have moved or been unplugged.', 'error');
       set({ isCatalogLoading: false });
+
+      // Fall back to any course that does still exist, rather than stranding
+      // the app on an empty state (this happens when a course is removed, or
+      // its drive is unplugged, while it was the active one).
+      const fallback = get().courses.find(c => c.id !== courseId);
+      if (fallback) {
+        get().pushToast(`That course is no longer available. Switched to "${fallback.name}".`, 'error');
+        await get().selectCourse(fallback.id);
+      } else {
+        get().pushToast('Could not load that course. The folder may have moved or been unplugged.', 'error');
+        set({ catalog: null, activeLesson: null });
+      }
     }
   },
 

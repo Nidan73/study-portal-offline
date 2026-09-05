@@ -13,6 +13,7 @@ import { AddCourseModal } from './components/AddCourseModal';
 import { ShortcutModal } from './components/ShortcutModal';
 import { YouTubeExplorer } from './components/YouTubeExplorer';
 import { Toaster } from './components/Toaster';
+import { Scratchpad } from './components/Scratchpad';
 import { 
   PanelRightOpen, 
   Maximize2,
@@ -122,6 +123,18 @@ export const App: React.FC = () => {
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
+  // Tabs that show the lecture alongside a tool. Kept as one layout so the
+  // player element survives switching between them.
+  const isVideoWorkspace =
+    activeTab === 'player' || activeTab === 'split-slides' ||
+    activeTab === 'notes'  || activeTab === 'split-code';
+  // Player mode can collapse its panel; the split modes always show their tool.
+  const showRightPane = activeTab === 'player' ? isSidebarOpen : true;
+  // Notes gets a little more room for the video; the rest split evenly.
+  const leftRatio = activeTab === 'player' ? splitRatio : activeTab === 'notes' ? 58 : 50;
+  // Bottom-dock is a player-mode option; the split tools are always side-by-side.
+  const isBottomDock = splitLayout === 'bottom' && activeTab === 'player';
+
   const startDragging = (e: React.MouseEvent) => {
     if (e.detail === 2) {
       setSplitRatio(70);
@@ -184,116 +197,72 @@ export const App: React.FC = () => {
           <BentoDashboard />
         )}
 
-        {/* Player Mode: Video + Multi-Tool Side Panel */}
-        {activeTab === 'player' && (
-          splitLayout === 'bottom' ? (
-            <div className="flex-1 flex flex-col space-y-4 w-full">
-              {/* Full-width Video Column */}
-              <div className="w-full max-w-[1680px] mx-auto space-y-4">
-                <CinemaPlayer />
 
-                {/* Lecture Context Strip - Double-Bezel Hardware Enclosure */}
-                {activeLesson && (
-                  <LessonStrip lesson={activeLesson} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />
-                )}
-              </div>
-
-              {/* Bottom Docked Panel Spanning Full Width */}
-              {isSidebarOpen && (
-                <div className="w-full h-[620px] pb-6">
-                  <RightSidePanel />
-                </div>
-              )}
-            </div>
-          ) : (
-            <div 
-              ref={containerRef}
-              className="flex-1 flex flex-col xl:flex-row items-start gap-4 xl:gap-0 relative w-full"
+        {/* Video workspace: player, slides, notes and code-along all show the
+            lecture on the left with a tool beside (or below) it. Deliberately ONE
+            layout with a swappable pane rather than separate branches — separate
+            branches meant separate <CinemaPlayer /> instances in mutually
+            exclusive positions, so React unmounted and remounted the <video> and
+            the YouTube iframe on every tab switch, restarting playback. */}
+        {isVideoWorkspace && (
+          <div
+            ref={containerRef}
+            className={`flex-1 flex relative w-full ${
+              isBottomDock ? 'flex-col space-y-4' : 'flex-col xl:flex-row items-start gap-4 xl:gap-0'
+            }`}
+          >
+            {/* Left / top: the lecture. The same element in every mode. */}
+            <div
+              style={!isBottomDock && isWideEnoughToSplit
+                ? { width: showRightPane ? `calc(${leftRatio}% - 6px)` : '100%' }
+                : undefined}
+              className={`w-full space-y-4 transition-[width,max-width] duration-150 ease-out ${
+                isBottomDock
+                  ? 'max-w-[1680px] mx-auto'
+                  : showRightPane ? 'xl:pr-3' : 'max-w-[1680px] mx-auto'
+              }`}
             >
-              {/* Left Column: Video + Context Strip */}
-              <div 
-                style={isWideEnoughToSplit ? { width: isSidebarOpen ? `calc(${splitRatio}% - 6px)` : '100%' } : undefined}
-                className={`w-full ${isSidebarOpen ? 'xl:pr-3' : 'max-w-[1680px] mx-auto'} space-y-4 transition-[width,max-width] duration-150 ease-out`}
+              <CinemaPlayer />
+              {activeLesson && (
+                activeTab === 'player'
+                  ? <LessonStrip lesson={activeLesson} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />
+                  : <SplitTitleBar
+                      title={activeLesson.title}
+                      closeId={activeTab === 'split-slides' ? 'close-split-slides-btn' : activeTab === 'split-code' ? 'close-split-code-btn' : undefined}
+                      onClose={() => setActiveTab('player')}
+                    />
+              )}
+            </div>
+
+            {/* Draggable divider — side-by-side player mode only */}
+            {showRightPane && !isBottomDock && activeTab === 'player' && (
+              <div
+                id="split-drag-divider"
+                onMouseDown={startDragging}
+                className="hidden xl:flex flex-col items-center justify-center w-3 self-stretch cursor-col-resize hover:bg-indigo-500/20 active:bg-indigo-500/40 rounded-full select-none group transition-colors flex-shrink-0 z-20"
+                title="Drag to resize video and side panel (double-click to reset to 70/30)"
+                onDoubleClick={() => setSplitRatio(70)}
               >
-                <CinemaPlayer />
-
-                {/* Lecture Context Strip - Double-Bezel Hardware Enclosure */}
-                {activeLesson && (
-                  <LessonStrip lesson={activeLesson} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />
-                )}
+                <div className="w-1 h-8 rounded-full bg-zinc-300 dark:bg-zinc-700 group-hover:bg-indigo-500 transition-colors" />
               </div>
+            )}
 
-              {/* Draggable Divider (Desktop) */}
-              {isSidebarOpen && (
-                <div
-                  id="split-drag-divider"
-                  onMouseDown={startDragging}
-                  className="hidden xl:flex flex-col items-center justify-center w-3 self-stretch cursor-col-resize hover:bg-indigo-500/20 active:bg-indigo-500/40 rounded-full select-none group transition-colors flex-shrink-0 z-20"
-                  title="Drag to resize video and code along width (Double click to reset 70/30)"
-                  onDoubleClick={() => setSplitRatio(70)}
-                >
-                  <div className="w-1 h-8 rounded-full bg-zinc-300 dark:bg-zinc-700 group-hover:bg-indigo-500 transition-colors" />
-                </div>
-              )}
-
-              {/* Right Column: Side Panel */}
-              {isSidebarOpen && (
-                <div 
-                  style={isWideEnoughToSplit ? { width: `calc(${100 - splitRatio}% - 6px)` } : undefined}
-                  className="w-full xl:pl-3 h-[560px] xl:h-[calc(100vh-100px)] xl:sticky xl:top-20 min-w-0 transition-[width] duration-150 ease-out"
-                >
-                  <RightSidePanel />
-                </div>
-              )}
-            </div>
-          )
-        )}
-
-        {/* Side-by-Side Split View: Video (Left) + Slides (Right) */}
-        {activeTab === 'split-slides' && (
-          <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-            <div className="xl:col-span-6 space-y-4">
-              <CinemaPlayer />
-                            {activeLesson && (
-                <SplitTitleBar title={activeLesson.title} closeId="close-split-slides-btn" onClose={() => setActiveTab('player')} />
-              )}
-            </div>
-
-            <div className="xl:col-span-6 h-[560px] xl:h-[calc(100vh-100px)] w-full xl:sticky xl:top-20">
-              <SplitPdfViewer />
-            </div>
-          </div>
-        )}
-
-        {/* Side-by-Side Split View: Video (Left) + Notes (Right) */}
-        {activeTab === 'notes' && (
-          <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-            <div className="xl:col-span-7 space-y-4">
-              <CinemaPlayer />
-                            {activeLesson && (
-                <SplitTitleBar title={activeLesson.title} onClose={() => setActiveTab('player')} />
-              )}
-            </div>
-
-            <div className="xl:col-span-5 h-[560px] xl:h-[calc(100vh-100px)] w-full xl:sticky xl:top-20">
-              <InteractiveNotes />
-            </div>
-          </div>
-        )}
-
-        {/* Side-by-Side Split View: Video (Left) + Code Along IDE (Right) */}
-        {activeTab === 'split-code' && (
-          <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-            <div className="xl:col-span-6 space-y-4">
-              <CinemaPlayer />
-                            {activeLesson && (
-                <SplitTitleBar title={activeLesson.title} closeId="close-split-code-btn" onClose={() => setActiveTab('player')} />
-              )}
-            </div>
-
-            <div className="xl:col-span-6 h-[560px] xl:h-[calc(100vh-100px)] w-full xl:sticky xl:top-20">
-              <IntegratedIDE isSplit onCloseSplit={() => setActiveTab('player')} />
-            </div>
+            {/* Right / bottom: whichever tool this tab selects */}
+            {showRightPane && (
+              <div
+                style={!isBottomDock && isWideEnoughToSplit ? { width: `calc(${100 - leftRatio}% - 6px)` } : undefined}
+                className={
+                  isBottomDock
+                    ? 'w-full h-[620px] pb-6'
+                    : 'w-full xl:pl-3 h-[560px] xl:h-[calc(100vh-100px)] xl:sticky xl:top-20 min-w-0 transition-[width] duration-150 ease-out'
+                }
+              >
+                {activeTab === 'player' && <RightSidePanel />}
+                {activeTab === 'split-slides' && <SplitPdfViewer />}
+                {activeTab === 'notes' && <InteractiveNotes />}
+                {activeTab === 'split-code' && <IntegratedIDE isSplit onCloseSplit={() => setActiveTab('player')} />}
+              </div>
+            )}
           </div>
         )}
 
@@ -308,6 +277,7 @@ export const App: React.FC = () => {
       {/* Global Overlays */}
       {isDragging && <div className="fixed inset-0 z-50 cursor-col-resize select-none pointer-events-auto" />}
       <Toaster />
+      <Scratchpad />
       <CommandPalette />
       <AddCourseModal />
       <ShortcutModal />

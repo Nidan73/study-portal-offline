@@ -40,6 +40,7 @@ export const ShortcutModal: React.FC = () => {
       icon: FileText,
       shortcuts: [
         { keys: ['Ctrl', 'Enter'], desc: 'Save timestamped note (with auto-resume)' },
+        { keys: ['Ctrl', 'Shift', 'N'], desc: 'Open the general notepad (works with no lecture open)' },
         { keys: ['B'], desc: 'Quick drop bookmark / pin at exact moment' }
       ]
     },

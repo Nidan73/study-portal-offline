@@ -85,11 +85,20 @@ export interface CourseProgressRecord {
   } | null;
 }
 
+export interface ScratchNote {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface HubProgressData {
   schemaVersion: number;
   activeCourseId: string;
   customCourses: CourseSummary[];
   courses: Record<string, CourseProgressRecord>;
+  /** Notes that belong to no lesson — the general notepad. */
+  scratchpad?: ScratchNote[];
   globalStats: {
     totalHoursWatchedSeconds: number;
     streakDays: number;
@@ -678,6 +687,11 @@ app.post('/api/scan', (req: Request, res: Response) => {
 // API: List Courses
 app.get('/api/courses', (req: Request, res: Response) => {
   const courses = discoverCourses();
+  // Never hand back an activeCourseId that no longer resolves — the client would
+  // request a catalog that 404s and land on a dead empty state.
+  if (inMemoryData.activeCourseId && !courses.some(c => c.id === inMemoryData.activeCourseId)) {
+    inMemoryData.activeCourseId = courses[0]?.id || '';
+  }
   res.json({
     activeCourseId: inMemoryData.activeCourseId,
     courses
@@ -1667,6 +1681,46 @@ except Exception as e:
       res.status(500).json({ error: 'Invalid PPTX data' });
     }
   });
+});
+
+// API: General notepad — notes not tied to any lesson or course.
+app.get('/api/scratchpad', (req: Request, res: Response) => {
+  res.json({ notes: inMemoryData.scratchpad || [] });
+});
+
+app.post('/api/scratchpad', (req: Request, res: Response) => {
+  const { id, content, removeId, clearAll } = req.body || {};
+  if (!inMemoryData.scratchpad) inMemoryData.scratchpad = [];
+
+  if (clearAll) {
+    inMemoryData.scratchpad = [];
+  } else if (removeId) {
+    inMemoryData.scratchpad = inMemoryData.scratchpad.filter(n => n.id !== removeId);
+  } else if (typeof content === 'string') {
+    const now = new Date().toISOString();
+    const existing = id ? inMemoryData.scratchpad.find(n => n.id === id) : null;
+    if (existing) {
+      existing.content = content;
+      existing.updatedAt = now;
+    } else {
+      inMemoryData.scratchpad.unshift({
+        id: id || `sn-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        content,
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+  } else {
+    return res.status(400).json({ error: 'content, removeId or clearAll required' });
+  }
+
+  try {
+    atomicWriteJson(PROGRESS_FILE, inMemoryData);
+  } catch (err) {
+    console.error('Failed to persist scratchpad:', err);
+    return res.status(500).json({ error: 'Failed to save' });
+  }
+  res.json({ success: true, notes: inMemoryData.scratchpad });
 });
 
 // API: Get User Progress & Notes

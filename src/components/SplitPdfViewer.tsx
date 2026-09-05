@@ -187,14 +187,14 @@ export const SplitPdfViewer: React.FC = () => {
             <button
               id="deck-selector-dropdown-btn"
               onClick={() => setIsDeckDropdownOpen(!isDeckDropdownOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] border border-black/[0.05] dark:border-white/[0.07] text-[12px] font-semibold text-zinc-900 dark:text-white transition-all max-w-[280px] sm:max-w-[340px] truncate"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] border border-black/[0.05] dark:border-white/[0.07] text-[12px] font-semibold text-zinc-900 dark:text-white transition-all w-full min-w-0 max-w-full"
             >
               {isCurrentPptx ? (
                 <Presentation className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               ) : (
                 <FileText className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
               )}
-              <span className="truncate">
+              <span className="truncate min-w-0" title={currentDeck ? currentDeck.title : undefined}>
                 {currentDeck ? currentDeck.title : 'Select Slide Deck...'}
               </span>
               <ChevronDown className="w-3 h-3 text-zinc-500 dark:text-zinc-400 shrink-0 ml-auto" />

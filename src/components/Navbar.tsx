@@ -18,6 +18,7 @@ import {
   HelpCircle,
   Youtube,
   Loader2,
+  NotebookPen,
   LucideIcon
 } from 'lucide-react';
 
@@ -56,6 +57,7 @@ export const Navbar: React.FC = () => {
   const setCommandPalette = useStore(state => state.setCommandPalette);
   const setAddCourseModal = useStore(state => state.setAddCourseModal);
   const setShortcutHelpOpen = useStore(state => state.setShortcutHelpOpen);
+  const setScratchpadOpen = useStore(state => state.setScratchpadOpen);
   const theme = useStore(state => state.theme);
   const toggleTheme = useStore(state => state.toggleTheme);
 
@@ -292,6 +294,17 @@ export const Navbar: React.FC = () => {
             <kbd className="hidden md:inline-block font-mono text-[9px] px-1 py-0.5 rounded bg-black/[0.04] dark:bg-white/10 text-zinc-500 dark:text-zinc-400">
               ⌘K
             </kbd>
+          </button>
+
+          {/* General notepad — works with no lecture selected */}
+          <button
+            id="navbar-notepad-btn"
+            onClick={() => setScratchpadOpen(true)}
+            className="w-8 h-8 rounded-full hidden sm:flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid"
+            title="Notepad (Ctrl+Shift+N) — quick notes, no lecture needed"
+            aria-label="Open notepad"
+          >
+            <NotebookPen className="w-3.5 h-3.5" strokeWidth={1.5} />
           </button>
 
           {/* Keyboard Shortcuts Trigger */}
