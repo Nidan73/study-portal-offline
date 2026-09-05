@@ -15,7 +15,13 @@ import {
   X
 } from 'lucide-react';
 
-export const InteractiveNotes: React.FC = () => {
+interface InteractiveNotesProps {
+  /** 'dock' is the compact strip under the video: composer first, one row per
+   *  note, no wasted empty state. 'panel' is the full side-panel layout. */
+  variant?: 'panel' | 'dock';
+}
+
+export const InteractiveNotes: React.FC<InteractiveNotesProps> = ({ variant = 'panel' }) => {
   const { 
     activeCourseId, 
     activeLesson, 
@@ -189,6 +195,98 @@ export const InteractiveNotes: React.FC = () => {
     clearAllBookmarks(activeLesson.id);
     setConfirmClearBookmarks(false);
   };
+
+  // ---- Compact dock ----------------------------------------------------
+  // Under the video you are writing while watching, so the composer comes
+  // first and each note is a single line. The panel layout below keeps the
+  // roomier arrangement, where there is vertical space to spend.
+  if (variant === 'dock') {
+    if (!activeLesson) {
+      return (
+        <div className="h-full flex items-center justify-center rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.05] dark:border-white/[0.07] text-[12px] text-zinc-600 dark:text-zinc-400">
+          Select a lecture to take notes.
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-full flex flex-col rounded-2xl bg-white dark:bg-[#111218] border border-black/[0.06] dark:border-white/[0.08] overflow-hidden">
+        <form onSubmit={handleAddNote} className="flex items-center gap-2 p-2.5 border-b border-black/[0.06] dark:border-white/[0.08] bg-black/[0.01] dark:bg-white/[0.02] flex-shrink-0">
+          <span className="text-[10px] font-mono px-2 py-1 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20 flex-shrink-0 tabular-nums">
+            {formatTimestamp(lockedTimestamp !== null ? lockedTimestamp : currentTime)}
+            {activeSlideNumber ? ` · S${activeSlideNumber}` : ''}
+          </span>
+          <input
+            id="dock-note-input"
+            value={noteContent}
+            onChange={(e) => setNoteContent(e.target.value)}
+            onFocus={handleFocusNote}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
+            placeholder="Note this moment… (Enter to save)"
+            className="flex-1 min-w-0 bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/10 rounded-full px-3.5 py-2 text-[12.5px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 transition-colors"
+          />
+          <button
+            type="button"
+            onClick={toggleAutoPauseOnNote}
+            className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-mono flex-shrink-0 transition-colors ${
+              autoPauseOnNote
+                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+                : 'bg-black/[0.04] dark:bg-white/[0.05] text-zinc-600 dark:text-zinc-400 border border-transparent'
+            }`}
+            title={autoPauseOnNote ? 'Auto-pause is on: the video pauses while you type' : 'Continuous: the video keeps playing while you type'}
+          >
+            {autoPauseOnNote ? <Zap className="w-3 h-3" /> : <ZapOff className="w-3 h-3" />}
+            <span>{autoPauseOnNote ? 'Pause' : 'Play'}</span>
+          </button>
+          <button
+            type="submit"
+            disabled={!noteContent.trim()}
+            className="px-3.5 py-2 rounded-full bg-zinc-900 dark:bg-white disabled:opacity-30 text-white dark:text-zinc-950 text-[11px] font-semibold flex-shrink-0 transition-all"
+          >
+            Save
+          </button>
+        </form>
+
+        <div className="flex-1 overflow-y-auto px-2.5 py-2 space-y-1" role="region" aria-live="polite" aria-label="Notes on this lecture">
+          {notes.length === 0 ? (
+            <p className="text-center text-[11.5px] text-zinc-600 dark:text-zinc-400 py-4">
+              No notes yet — type above and press Enter.
+            </p>
+          ) : (
+            [...notes].sort((a, b) => a.timestampSeconds - b.timestampSeconds).map((note) => (
+              <div
+                key={note.id}
+                className="group flex items-start gap-2.5 px-2 py-1.5 rounded-lg hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors"
+              >
+                <button
+                  onClick={() => setCurrentTime(note.timestampSeconds)}
+                  className="text-[10px] font-mono font-semibold text-indigo-700 dark:text-indigo-400 hover:underline flex-shrink-0 pt-0.5 tabular-nums"
+                  title="Jump to this moment"
+                >
+                  {formatTimestamp(note.timestampSeconds)}
+                </button>
+                <p className="text-[12px] leading-snug text-zinc-800 dark:text-zinc-200 flex-1 min-w-0 whitespace-pre-wrap select-text">
+                  {note.content}
+                  {note.slideNumber ? (
+                    <span className="ml-1.5 text-[9.5px] font-mono px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 align-middle">
+                      S{note.slideNumber}
+                    </span>
+                  ) : null}
+                </p>
+                <button
+                  onClick={() => removeNote(activeLesson.id, note.id)}
+                  aria-label="Delete this note"
+                  className="p-1 rounded text-zinc-500 dark:text-zinc-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
+                >
+                  <Trash2 className="w-3 h-3" strokeWidth={1.5} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!activeLesson) {
     return (

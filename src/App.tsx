@@ -105,6 +105,40 @@ export const App: React.FC = () => {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
 
+  // Height of the notes dock under the video, dragged from its top edge and
+  // remembered. A fixed height made it either cramped or a screen-eater.
+  const [notesDockHeight, setNotesDockHeight] = React.useState<number>(() => {
+    if (typeof window === 'undefined') return 260;
+    const saved = parseInt(localStorage.getItem('study_hub_notes_dock_h') || '', 10);
+    return !isNaN(saved) && saved >= 120 && saved <= 900 ? saved : 260;
+  });
+  const [isResizingDock, setIsResizingDock] = React.useState(false);
+
+  const startDockResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingDock(true);
+    const startY = e.clientY;
+    const startH = notesDockHeight;
+
+    const onMove = (ev: MouseEvent) => {
+      // Dragging up grows the dock, which is what the handle sitting on its
+      // top edge implies.
+      const next = Math.min(900, Math.max(120, startH + (startY - ev.clientY)));
+      setNotesDockHeight(next);
+    };
+    const onUp = () => {
+      setIsResizingDock(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      setNotesDockHeight(h => {
+        try { localStorage.setItem('study_hub_notes_dock_h', String(h)); } catch (err) {}
+        return h;
+      });
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   // The split panes size themselves with an inline style, which outranks every
   // Tailwind class — so `w-full` could never reclaim the layout on a phone and
   // the side panel stayed pinned to 30% of a 390px screen. Only apply those
@@ -250,8 +284,22 @@ export const App: React.FC = () => {
               {/* Second notes dock, so a slide deck can stay open on the right
                   while you write underneath the video. */}
               {showNotesUnderVideo && activeLesson && (
-                <div className="h-[420px]">
-                  <InteractiveNotes />
+                <div className="flex flex-col" style={{ height: notesDockHeight }}>
+                  <div
+                    id="notes-dock-resize-handle"
+                    onMouseDown={startDockResize}
+                    onDoubleClick={() => setNotesDockHeight(260)}
+                    role="separator"
+                    aria-orientation="horizontal"
+                    aria-label="Resize the notes area"
+                    className="h-3 flex items-center justify-center cursor-row-resize group flex-shrink-0"
+                    title="Drag to resize the notes area (double-click to reset)"
+                  >
+                    <span className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700 group-hover:bg-indigo-500 transition-colors" />
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    <InteractiveNotes variant="dock" />
+                  </div>
                 </div>
               )}
             </div>
@@ -299,6 +347,7 @@ export const App: React.FC = () => {
 
       {/* Global Overlays */}
       {isDragging && <div className="fixed inset-0 z-50 cursor-col-resize select-none pointer-events-auto" />}
+      {isResizingDock && <div className="fixed inset-0 z-50 cursor-row-resize select-none pointer-events-auto" />}
       <Toaster />
       <Scratchpad />
       <CommandPalette />

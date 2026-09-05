@@ -68,7 +68,7 @@ export const RightSidePanel: React.FC = () => {
     <div className="flex flex-col h-full space-y-2 select-none">
       {/* Side Panel Tool Switcher Floating Bar */}
       <div className="flex items-center justify-between gap-1.5 px-0.5">
-        <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] backdrop-blur-xl overflow-x-auto no-scrollbar min-w-0">
+        <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] backdrop-blur-xl overflow-x-auto no-scrollbar min-w-0 flex-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = sidePanelTab === tab.id;
@@ -76,6 +76,8 @@ export const RightSidePanel: React.FC = () => {
               <button
                 key={tab.id}
                 id={`panel-tab-${tab.id}`}
+                title={tab.label}
+                aria-label={tab.label}
                 onClick={() => pickTool(tab.id)}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-200 ease-fluid ${
                   isActive
@@ -84,8 +86,8 @@ export const RightSidePanel: React.FC = () => {
                 }`}
               >
                 <Icon className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={1.5} />
-                <span className="hidden xl:inline">{tab.label}</span>
-                <span className="inline xl:hidden">{tab.shortLabel}</span>
+                <span className="hidden min-[1750px]:inline">{tab.label}</span>
+                <span className="hidden min-[1500px]:inline min-[1750px]:hidden">{tab.shortLabel}</span>
               </button>
             );
           })}
@@ -93,38 +95,10 @@ export const RightSidePanel: React.FC = () => {
 
         {/* Panel Options: Split Presets, Layout Mode & Collapse */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Split Ratio Presets — only meaningful once the layout splits */}
-          <div className="hidden xl:flex items-center p-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.04] dark:border-white/[0.07] text-[10px] font-mono">
-            <button
-              onClick={() => setSplitRatio(70)}
-              className={`px-2 py-0.5 rounded-full transition-colors ${
-                splitRatio >= 68 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-              title="70% Video / 30% Side Panel (Default)"
-            >
-              70/30
-            </button>
-            <button
-              onClick={() => setSplitRatio(60)}
-              className={`hidden min-[1800px]:block px-2 py-0.5 rounded-full transition-colors ${
-                splitRatio >= 55 && splitRatio < 68 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-              title="60% Video / 40% Side Panel"
-            >
-              60/40
-            </button>
-            <button
-              id="split-width-toggle-btn"
-              onClick={toggleSplitWidth}
-              className={`px-2 py-0.5 rounded-full transition-colors ${
-                splitRatio <= 52 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-              title={splitRatio <= 52 ? 'Switch to Default (70/30)' : 'Switch to Balanced (50/50)'}
-            >
-              <span>{splitRatio <= 52 ? '70/30' : '50/50'}</span>
-            </button>
-          </div>
-
+          {/* The 70/30 · 60/40 · 50/50 presets used to live here. The divider is
+              draggable in every split view now, so they were a third way to do
+              the same thing — and they crowded the tab strip badly enough to
+              clip the Slides tab at every width. */}
           {/* Notes beneath the video, alongside whatever is in this panel */}
           <button
             id="toggle-notes-under-video-btn"
