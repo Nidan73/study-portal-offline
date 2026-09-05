@@ -105,6 +105,24 @@ export const App: React.FC = () => {
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const isStopped = useStore(state => state.isStopped);
+  const setStopped = useStore(state => state.setStopped);
+
+  // Every action in this app is a call to a local server that the user can now
+  // stop from the navbar — and that a laptop suspend or a crash can end too.
+  // Without this the page keeps looking alive and each click just does nothing.
+  React.useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await fetch('/api/health', { signal: AbortSignal.timeout(4000) });
+        if (!cancelled && res.ok) setStopped(false);
+      } catch (e) {
+        if (!cancelled) setStopped(true);
+      }
+    };
+    const id = setInterval(tick, 10000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [setStopped]);
   const [isDragging, setIsDragging] = React.useState(false);
 
   // Height of the notes dock under the video, dragged from its top edge and
@@ -362,12 +380,24 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white dark:bg-[#0b0c10] p-6 text-center">
           <div className="max-w-sm">
             <h2 className="text-xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
-              Study Hub has stopped
+              Study Hub is not running
             </h2>
             <p className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 mt-2.5">
-              Your notes and progress were saved. You can close this window — run the
-              launcher again whenever you want to come back.
+              Your notes and progress were saved. Nothing on this page will work until
+              the server is running again — start it with the launcher, then reconnect.
             </p>
+            <button
+              id="reconnect-btn"
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/health', { signal: AbortSignal.timeout(4000) });
+                  if (res.ok) { setStopped(false); window.location.reload(); }
+                } catch (e) { /* still down; the heartbeat keeps trying */ }
+              }}
+              className="mt-5 px-5 py-2.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[12px] font-bold hover:opacity-90 transition-opacity"
+            >
+              Reconnect
+            </button>
           </div>
         </div>
       )}

@@ -331,6 +331,13 @@ try {
     }
   }
 
+  // ---------------------------------------------------------------- liveness
+  section('Liveness');
+  {
+    const { status, body } = await get(srv.base, '/api/health');
+    check('the health probe answers', status === 200 && body?.ok === true, String(status));
+  }
+
   // ------------------------------------------------------------- stop control
   section('Stopping the server from the app');
   {

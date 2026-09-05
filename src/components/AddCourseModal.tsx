@@ -104,7 +104,10 @@ export const AddCourseModal: React.FC = () => {
       setCandidates(data.candidates || []);
       setScanMeta({ elapsedMs: data.elapsedMs, truncated: data.truncated });
     } catch (err: any) {
-      setError(err.message || 'Could not scan that location');
+      const offline = err instanceof TypeError || /fetch/i.test(err?.message || '');
+      setError(offline
+        ? 'Could not reach the server — it may have been stopped. Start Study Hub again and retry.'
+        : (err.message || 'Could not scan that location'));
     } finally {
       setIsScanning(false);
     }
@@ -371,7 +374,7 @@ export const AddCourseModal: React.FC = () => {
                                 <span className="flex items-center gap-1"><Film className="w-3 h-3" strokeWidth={1.5} />{c.videoCount}</span>
                               )}
                               {c.docCount > 0 && <span className="flex items-center gap-1"><FileText className="w-3 h-3" strokeWidth={1.5} />{c.docCount}</span>}
-                              <span>{formatSize(c.totalBytes)}</span>
+                              {c.totalBytes > 0 && <span>{formatSize(c.totalBytes)}</span>}
                               <span className="text-zinc-600 dark:text-zinc-400 truncate">{c.reason}</span>
                             </span>
                           </span>

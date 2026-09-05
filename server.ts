@@ -956,7 +956,14 @@ function scanForCourses(root: string, deadlineMs: number) {
       name: path.basename(parent) || parent,
       videoCount: children.reduce((n, c) => n + c.videoCount, 0),
       totalBytes: children.reduce((n, c) => n + c.totalBytes, 0),
-      docCount: children.reduce((n, c) => n + c.docCount, 0),
+      // Summing the children under-reports badly: the walk stops descending as
+      // soon as a folder qualifies, so anything deeper was never counted and a
+      // folder of 139 documents advertised 50. Recount the parent properly.
+      docCount: (() => {
+        const summed = children.reduce((n, c) => n + c.docCount, 0);
+        if (summed === 0) return 0;
+        try { return Math.max(summed, looksLikeCourse(parent).docs); } catch (e) { return summed; }
+      })(),
       depth: Math.max(0, Math.min(...children.map(c => c.depth)) - 1),
       likelyCourse: children.some(c => c.likelyCourse),
       kind: children.every(c => c.kind === 'documents')
@@ -2788,6 +2795,12 @@ app.get('/favicon.ico', (req: Request, res: Response) => {
 });
 
 // Serve production build if exists with strict no-cache on index.html
+// The page polls this so it can tell you the server is gone instead of failing
+// silently on every action.
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.json({ ok: true });
+});
+
 // Someone who launched this by double-clicking has no terminal to press Ctrl+C
 // in, so the app needs a way to stop its own server.
 app.post('/api/shutdown', (_req: Request, res: Response) => {
