@@ -63,6 +63,8 @@ export interface StoreState {
   isShortcutHelpOpen: boolean;
   isDarkPdf: boolean;
   autoPauseOnNote: boolean;
+  /** Second notes dock beneath the video, so a deck can stay open beside it. */
+  showNotesUnderVideo: boolean;
   /** Slide currently on screen in the deck viewer, so notes can attach it. */
   activeSlideNumber: number | null;
   
@@ -133,6 +135,7 @@ export interface StoreState {
   toggleDarkPdf: () => void;
   setActiveSlideNumber: (n: number | null) => void;
   toggleAutoPauseOnNote: () => void;
+  toggleNotesUnderVideo: () => void;
   setAutoPauseOnNote: (enabled: boolean) => void;
   setPlaybackRate: (rate: number) => void;
   setIsPlaying: (playing: boolean) => void;
@@ -379,6 +382,7 @@ export const useStore = create<StoreState>((set, get) => ({
   isShortcutHelpOpen: false,
   isDarkPdf: true,
   autoPauseOnNote: getInitialAutoPauseOnNote(),
+  showNotesUnderVideo: typeof window !== 'undefined' && localStorage.getItem('study_hub_notes_under_video') === 'true',
   activeSlideNumber: null,
   
   currentTime: 0,
@@ -566,7 +570,18 @@ export const useStore = create<StoreState>((set, get) => ({
 
   selectCourse: async (courseId: string) => {
     try {
-      set({ isCatalogLoading: true, activeCourseId: courseId });
+      // Clear the outgoing lesson immediately. The catalog fetch is async, so
+      // leaving it in place meant the previous course's video kept playing —
+      // and a YouTube video could sit under a freshly-selected local course.
+      set({
+        isCatalogLoading: true,
+        activeCourseId: courseId,
+        activeLesson: null,
+        activePdf: null,
+        isPlaying: false,
+        currentTime: 0,
+        duration: 0
+      });
       const res = await fetch(`/api/catalog/${courseId}`);
       if (!res.ok) throw new Error('Failed to load course catalog');
       const catalogData: CourseCatalog = await res.json();
@@ -591,7 +606,10 @@ export const useStore = create<StoreState>((set, get) => ({
       // cannot find it. Restore it from the saved descriptor before falling
       // back to the first lesson — otherwise reloading silently swapped you
       // onto an unrelated local lecture.
-      if (!resumeLesson && savedCourse?.lastWatched?.lessonId?.startsWith('yt_')) {
+      // Only for a virtual/YouTube course. Restoring a YouTube video when the
+      // user has just picked a local course is not what they asked for, and a
+      // stale yt_ pointer left in a local course would do exactly that.
+      if (!resumeLesson && catalogData.isVirtual && savedCourse?.lastWatched?.lessonId?.startsWith('yt_')) {
         const saved = get().userData?.lastYouTubeLesson;
         if (saved && saved.id === savedCourse.lastWatched.lessonId) {
           resumeLesson = {
@@ -759,6 +777,14 @@ export const useStore = create<StoreState>((set, get) => ({
   setAddCourseModal: (open) => set({ isAddCourseModalOpen: open }),
   toggleDarkPdf: () => set((state) => ({ isDarkPdf: !state.isDarkPdf })),
   setActiveSlideNumber: (n: number | null) => set({ activeSlideNumber: n }),
+  toggleNotesUnderVideo: () => {
+    const next = !get().showNotesUnderVideo;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('study_hub_notes_under_video', String(next));
+    }
+    set({ showNotesUnderVideo: next });
+  },
+
   toggleAutoPauseOnNote: () => {
     const next = !get().autoPauseOnNote;
     if (typeof window !== 'undefined') {

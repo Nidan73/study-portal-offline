@@ -369,8 +369,22 @@ function migrateYouTubeDataToBucket(): void {
       delete course.codeSnippets![key]; moved++;
     }
   }
-  if (moved > 0) {
-    console.log(`[Migration] Moved ${moved} YouTube entries into the shared bucket.`);
+  // A local course whose lastWatched points at a YouTube video would restore
+  // that video when the course is selected, instead of the course's own lesson.
+  let cleared = 0;
+  for (const [courseId, course] of Object.entries(inMemoryData.courses)) {
+    if (courseId === YOUTUBE_BUCKET) continue;
+    const isVirtual = (inMemoryData.customCourses || []).some(c => c.id === courseId && c.isVirtual);
+    if (isVirtual) continue;
+    if (course.lastWatched?.lessonId?.startsWith('yt_')) {
+      course.lastWatched = null;
+      cleared++;
+    }
+  }
+
+  if (moved > 0 || cleared > 0) {
+    if (moved) console.log(`[Migration] Moved ${moved} YouTube entries into the shared bucket.`);
+    if (cleared) console.log(`[Migration] Cleared ${cleared} stale YouTube pointer(s) from local courses.`);
     atomicWriteJson(PROGRESS_FILE, inMemoryData);
   }
 }

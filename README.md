@@ -85,6 +85,8 @@ Open your browser to: **`http://localhost:3000`**
 
 ### 7. 🧭 Bento Syllabus, Spotlight (`Ctrl + K`) & Streaks
 - **Raycast-Style Spotlight Search (`Ctrl + K`):** Instantly search and jump across all weeks, lectures, and topics in your local disk library and imported YouTube courses.
+- **Resizable Everywhere:** The drag handle between the video and the side panel works in every split view, not just the player, and the ratio is remembered.
+- **Notes Under the Video:** A second notes dock can open beneath the lecture, so you can keep a slide deck open beside it and write at the same time.
 - **21st.dev Bento Grid:** Visualizes weekly lesson progress, completion badges, and total study duration.
 - **Gamified Daily Streaks:** Tracks daily consistency and cohort completion percentages stored in local-first storage. Watch time counts real elapsed playback only — seeking does not inflate it.
 - **Per-Lesson Resume:** Every lesson and every YouTube video remembers its own position independently, so switching between them never loses your place.

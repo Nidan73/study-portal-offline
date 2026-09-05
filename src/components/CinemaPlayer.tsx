@@ -55,7 +55,8 @@ export const CinemaPlayer: React.FC = () => {
     userData, 
     goToNextLesson, 
     goToPrevLesson,
-    selectPdf
+    selectPdf,
+    isCatalogLoading
   } = useStore();
 
   const isYouTube = Boolean(activeLesson?.source === 'youtube' || activeLesson?.youtubeVideoId);
@@ -724,6 +725,19 @@ export const CinemaPlayer: React.FC = () => {
       document.exitFullscreen().catch(() => {});
     }
   };
+
+  if (isCatalogLoading) {
+    return (
+      <div className="p-2 rounded-[2rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
+        <div className="flex flex-col items-center justify-center h-[460px] rounded-[calc(2rem-0.5rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] select-none">
+          <div className="w-10 h-10 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center mb-3">
+            <div className="w-4 h-4 rounded-full border-2 border-zinc-400 border-t-transparent motion-safe:animate-spin" />
+          </div>
+          <p className="text-[13px] text-zinc-600 dark:text-zinc-400">Loading course…</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!activeLesson) {
     return (

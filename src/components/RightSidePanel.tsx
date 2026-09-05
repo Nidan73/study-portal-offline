@@ -1,5 +1,5 @@
 import React from 'react';
-import { useStore, SidePanelTab } from '../store/useStore';
+import { useStore, SidePanelTab, NavTab } from '../store/useStore';
 import { SyllabusDrawer } from './SyllabusDrawer';
 import { IntegratedIDE } from './IntegratedIDE';
 import { InteractiveNotes } from './InteractiveNotes';
@@ -12,6 +12,7 @@ import {
   Columns, 
   Rows,
   PanelRightClose,
+  PanelBottom,
   LucideIcon,
   Youtube
 } from 'lucide-react';
@@ -27,7 +28,11 @@ export const RightSidePanel: React.FC = () => {
     toggleSplitWidth,
     toggleSidebar,
     activeLesson,
-    catalog
+    catalog,
+    activeTab,
+    setActiveTab,
+    showNotesUnderVideo,
+    toggleNotesUnderVideo
   } = useStore();
 
   const isYouTubeActive = Boolean(activeLesson?.source === 'youtube' || activeLesson?.youtubeVideoId);
@@ -46,6 +51,19 @@ export const RightSidePanel: React.FC = () => {
     { id: 'slides', label: 'Slides', shortLabel: 'Slides', icon: BookOpen }
   ];
 
+  // In a split view the navbar tab and the panel tool are the same choice shown
+  // twice, so switching tool here keeps the navbar highlight honest instead of
+  // leaving it pointing at whichever tab you originally arrived through.
+  const tabToNav: Record<SidePanelTab, NavTab> = {
+    curriculum: 'player', notes: 'notes', slides: 'split-slides', code: 'split-code'
+  };
+  const isSplitView = activeTab === 'notes' || activeTab === 'split-slides' || activeTab === 'split-code';
+
+  const pickTool = (tab: SidePanelTab) => {
+    setSidePanelTab(tab);
+    if (isSplitView) setActiveTab(tabToNav[tab]);
+  };
+
   return (
     <div className="flex flex-col h-full space-y-2 select-none">
       {/* Side Panel Tool Switcher Floating Bar */}
@@ -58,7 +76,7 @@ export const RightSidePanel: React.FC = () => {
               <button
                 key={tab.id}
                 id={`panel-tab-${tab.id}`}
-                onClick={() => setSidePanelTab(tab.id)}
+                onClick={() => pickTool(tab.id)}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-200 ease-fluid ${
                   isActive
                     ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-xs'
@@ -106,6 +124,23 @@ export const RightSidePanel: React.FC = () => {
               <span>{splitRatio <= 52 ? '70/30' : '50/50'}</span>
             </button>
           </div>
+
+          {/* Notes beneath the video, alongside whatever is in this panel */}
+          <button
+            id="toggle-notes-under-video-btn"
+            onClick={toggleNotesUnderVideo}
+            className={`hidden xl:block p-1.5 rounded-full border transition-colors ${
+              showNotesUnderVideo
+                ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30'
+                : 'bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white border-black/[0.04] dark:border-white/[0.07]'
+            }`}
+            title={showNotesUnderVideo
+              ? 'Hide the notes dock under the video'
+              : 'Open notes under the video, so you can keep slides open here at the same time'}
+            aria-pressed={showNotesUnderVideo}
+          >
+            <PanelBottom className="w-3.5 h-3.5" strokeWidth={1.5} />
+          </button>
 
           {/* Layout Orientation: Side-by-Side vs Bottom Dock */}
           <button

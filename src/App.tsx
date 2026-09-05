@@ -4,9 +4,8 @@ import { Navbar } from './components/Navbar';
 import { BentoDashboard } from './components/BentoDashboard';
 import { CinemaPlayer } from './components/CinemaPlayer';
 import { SyllabusDrawer } from './components/SyllabusDrawer';
-import { SplitPdfViewer } from './components/SplitPdfViewer';
-import { InteractiveNotes } from './components/InteractiveNotes';
 import { IntegratedIDE } from './components/IntegratedIDE';
+import { InteractiveNotes } from './components/InteractiveNotes';
 import { RightSidePanel } from './components/RightSidePanel';
 import { CommandPalette } from './components/CommandPalette';
 import { AddCourseModal } from './components/AddCourseModal';
@@ -99,7 +98,8 @@ export const App: React.FC = () => {
     splitRatio,
     setSplitRatio,
     splitLayout,
-    setSplitLayout
+    setSplitLayout,
+    showNotesUnderVideo
   } = useStore();
 
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -131,7 +131,7 @@ export const App: React.FC = () => {
   // Player mode can collapse its panel; the split modes always show their tool.
   const showRightPane = activeTab === 'player' ? isSidebarOpen : true;
   // Notes gets a little more room for the video; the rest split evenly.
-  const leftRatio = activeTab === 'player' ? splitRatio : activeTab === 'notes' ? 58 : 50;
+  const leftRatio = splitRatio;   // draggable in every split view, and persisted
   // Bottom-dock is a player-mode option; the split tools are always side-by-side.
   const isBottomDock = splitLayout === 'bottom' && activeTab === 'player';
 
@@ -164,6 +164,20 @@ export const App: React.FC = () => {
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
+
+  // The navbar tab decides which tool the panel opens on.
+  useEffect(() => {
+    const toolForTab: Partial<Record<typeof activeTab, typeof sidePanelTab>> = {
+      'notes': 'notes',
+      'split-slides': 'slides',
+      'split-code': 'code'
+    };
+    const tool = toolForTab[activeTab];
+    if (tool && tool !== sidePanelTab) setSidePanelTab(tool);
+    // sidePanelTab is deliberately not a dependency: changing the tool from
+    // inside the panel must not bounce it back to the navbar's choice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, setSidePanelTab]);
 
   if (isLoading) {
     return (
@@ -232,10 +246,18 @@ export const App: React.FC = () => {
                       onClose={() => setActiveTab('player')}
                     />
               )}
+
+              {/* Second notes dock, so a slide deck can stay open on the right
+                  while you write underneath the video. */}
+              {showNotesUnderVideo && activeLesson && (
+                <div className="h-[420px]">
+                  <InteractiveNotes />
+                </div>
+              )}
             </div>
 
             {/* Draggable divider — side-by-side player mode only */}
-            {showRightPane && !isBottomDock && activeTab === 'player' && (
+            {showRightPane && !isBottomDock && (
               <div
                 id="split-drag-divider"
                 onMouseDown={startDragging}
@@ -257,10 +279,11 @@ export const App: React.FC = () => {
                     : 'w-full xl:pl-3 h-[560px] xl:h-[calc(100vh-100px)] xl:sticky xl:top-20 min-w-0 transition-[width] duration-150 ease-out'
                 }
               >
-                {activeTab === 'player' && <RightSidePanel />}
-                {activeTab === 'split-slides' && <SplitPdfViewer />}
-                {activeTab === 'notes' && <InteractiveNotes />}
-                {activeTab === 'split-code' && <IntegratedIDE isSplit onCloseSplit={() => setActiveTab('player')} />}
+                {/* Always the full panel, so the tool switcher and split controls
+                    are present however you arrived — reaching Notes from the main
+                    navbar used to render the notes alone, with no way to switch
+                    to Slides or Code without going back to Player first. */}
+                <RightSidePanel />
               </div>
             )}
           </div>
