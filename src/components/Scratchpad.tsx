@@ -11,7 +11,14 @@ import { X, Plus, Trash2, Download, Search, NotebookPen, Check } from 'lucide-re
  * place: notes with no lesson, course, or timestamp attached, opened with
  * Ctrl+Shift+N from anywhere.
  */
-export const Scratchpad: React.FC = () => {
+interface ScratchpadProps {
+  /** 'dock' renders the same notepad inline, without the modal chrome, for the
+   *  strip under the video — which is also where you land when the material is
+   *  a PDF and there is no lecture to attach a timestamp to. */
+  variant?: 'modal' | 'dock';
+}
+
+export const Scratchpad: React.FC<ScratchpadProps> = ({ variant = 'modal' }) => {
   const isOpen = useStore(s => s.isScratchpadOpen);
   const setOpen = useStore(s => s.setScratchpadOpen);
   const notes = useStore(s => s.scratchNotes);
@@ -42,7 +49,16 @@ export const Scratchpad: React.FC = () => {
     if (isOpen) setTimeout(() => textareaRef.current?.focus(), 60);
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // The dock is mounted rather than opened, so nothing had ever triggered the
+  // initial load — entries saved fine but vanished on reload.
+  const fetchNotes = useStore(s2 => s2.fetchScratchNotes);
+  useEffect(() => {
+    if (variant === 'dock') fetchNotes();
+  }, [variant, fetchNotes]);
+
+  // The dock is always mounted where it is placed; only the modal has an
+  // open/closed state.
+  if (variant === 'modal' && !isOpen) return null;
 
   const submit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -73,6 +89,65 @@ export const Scratchpad: React.FC = () => {
 
   const q = query.trim().toLowerCase();
   const visible = q ? notes.filter(n => n.content.toLowerCase().includes(q)) : notes;
+
+  const composer = (
+    <form onSubmit={submit} className="flex items-center gap-2 p-2.5 border-b border-black/[0.06] dark:border-white/[0.08] bg-black/[0.01] dark:bg-white/[0.02] flex-shrink-0">
+      <span className="text-[10px] font-mono px-2 py-1 rounded-full bg-black/[0.04] dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-400 flex-shrink-0">
+        Notepad
+      </span>
+      <input
+        id="dock-scratch-input"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
+        placeholder="Anything you want to remember… (Enter to save)"
+        className="flex-1 min-w-0 bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/10 rounded-full px-3.5 py-2 text-[12.5px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 transition-colors"
+      />
+      <button
+        type="submit"
+        disabled={!draft.trim()}
+        className="px-3.5 py-2 rounded-full bg-zinc-900 dark:bg-white disabled:opacity-30 text-white dark:text-zinc-950 text-[11px] font-semibold flex-shrink-0 transition-all"
+      >
+        {editingId ? 'Update' : 'Save'}
+      </button>
+    </form>
+  );
+
+  if (variant === 'dock') {
+    return (
+      <div className="h-full flex flex-col rounded-2xl bg-white dark:bg-[#111218] border border-black/[0.06] dark:border-white/[0.08] overflow-hidden">
+        {composer}
+        <div className="flex-1 overflow-y-auto px-2.5 py-2 space-y-1" role="region" aria-live="polite" aria-label="Notepad entries">
+          {visible.length === 0 ? (
+            <p className="text-center text-[11.5px] text-zinc-600 dark:text-zinc-400 py-4">
+              No lecture is playing, so these are general notes — type above and press Enter.
+            </p>
+          ) : (
+            visible.map(n => (
+              <div key={n.id} className="group flex items-start gap-2.5 px-2 py-1.5 rounded-lg hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors">
+                <p className="text-[12px] leading-snug text-zinc-800 dark:text-zinc-200 flex-1 min-w-0 whitespace-pre-wrap select-text">
+                  {n.content}
+                </p>
+                <button
+                  onClick={() => { setEditingId(n.id); setDraft(n.content); }}
+                  className="px-2 py-0.5 rounded text-[10px] font-mono text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => removeNote(n.id)}
+                  aria-label="Delete this note"
+                  className="p-1 rounded text-zinc-500 dark:text-zinc-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
+                >
+                  <Trash2 className="w-3 h-3" strokeWidth={1.5} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none" role="dialog" aria-modal="true" aria-label="Notepad">

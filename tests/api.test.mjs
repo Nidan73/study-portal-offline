@@ -208,6 +208,22 @@ try {
     check('an import without a playlist id is rejected', missing.status === 400);
   }
 
+  // ----------------------------------------------------------- slide folders
+  section('Slide folders');
+  {
+    const bad = await post(B, '/api/slides/folders', {});
+    check('adding a folder with no path is rejected', bad.status === 400);
+    const missing = await post(B, '/api/slides/folders', { folderPath: '/no/such/dir' });
+    check('adding a missing folder 404s', missing.status === 404);
+    const notDir = await post(B, '/api/slides/folders', { folderPath: '/etc/hostname' });
+    check('adding a file rather than a folder is rejected', notDir.status === 400);
+    const empty = await post(B, '/api/slides/folders', { folderPath: '/proc' });
+    check('a folder with no decks is rejected rather than silently added', empty.status === 400);
+
+    const listed = await get(B, '/api/slides/folders');
+    check('the folder list is readable', Array.isArray(listed.body?.folders));
+  }
+
   // -------------------------------------------------------------------- scan
   section('Drive scanner');
   {

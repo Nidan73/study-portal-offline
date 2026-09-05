@@ -14,7 +14,10 @@ import {
   ChevronDown, 
   Presentation,
   FolderOpen,
-  Loader2
+  FolderPlus,
+  Search,
+  Loader2,
+  Trash2
 } from 'lucide-react';
 
 export const SplitPdfViewer: React.FC = () => {
@@ -38,12 +41,114 @@ export const SplitPdfViewer: React.FC = () => {
 
   const [availableDecks, setAvailableDecks] = useState<SupplementaryFile[]>([]);
   const [isDeckDropdownOpen, setIsDeckDropdownOpen] = useState(false);
+  // A flat list of every deck across every course is unusable once you have
+  // more than a handful — filter, then group by where each deck came from.
+  const [deckQuery, setDeckQuery] = useState('');
+
+  const formatDeckSize = (deck: any) => {
+    // The discovery endpoint returns sizeBytes; only locally-opened files carry
+    // fileSizeBytes. Reading the wrong one rendered "NaN KB" for every deck.
+    const bytes = deck.fileSizeBytes ?? deck.sizeBytes;
+    if (!bytes || isNaN(bytes)) return '';
+    return bytes >= 1024 * 1024
+      ? ` • ${(bytes / 1024 / 1024).toFixed(1)} MB`
+      : ` • ${Math.round(bytes / 1024)} KB`;
+  };
+
+  // Grouped by where the deck came from, with the course you are actually in
+  // listed first — a flat list mixed every course's material together.
+  const groupedDecks = React.useMemo(() => {
+    const q = deckQuery.trim().toLowerCase();
+    const matches = availableDecks.filter(d =>
+      !q ||
+      d.title.toLowerCase().includes(q) ||
+      (d.courseName || '').toLowerCase().includes(q) ||
+      ((d as any).moduleName || '').toLowerCase().includes(q)
+    );
+
+    const groups = new Map<string, typeof availableDecks>();
+    for (const d of matches) {
+      const key = d.courseName || 'Other material';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(d);
+    }
+
+    const activeName = catalog?.name;
+    return [...groups.entries()].sort(([a], [b]) => {
+      if (a === activeName) return -1;
+      if (b === activeName) return 1;
+      return a.localeCompare(b);
+    });
+  }, [availableDecks, deckQuery, catalog?.name]);
   const [currentDeck, setCurrentDeck] = useState<SupplementaryFile | null>(null);
   const [localBlobUrl, setLocalBlobUrl] = useState<string | null>(null);
 
   const [isLaunchingDesktop, setIsLaunchingDesktop] = useState(false);
   const [desktopMessage, setDesktopMessage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Study material often lives in its own folders rather than inside a course,
+  // and adding decks one file at a time is not a workflow. Registered folders
+  // are indexed recursively and every deck in them joins the switcher.
+  const [slideFolders, setSlideFolders] = useState<{ path: string; name: string; deckCount: number; exists: boolean }[]>([]);
+  const [isAddingFolder, setIsAddingFolder] = useState(false);
+  const [folderInput, setFolderInput] = useState('');
+  const [folderError, setFolderError] = useState<string | null>(null);
+  const [isSavingFolder, setIsSavingFolder] = useState(false);
+
+  const loadSlideFolders = async () => {
+    try {
+      const res = await fetch('/api/slides/folders');
+      if (res.ok) setSlideFolders((await res.json()).folders || []);
+    } catch (e) {}
+  };
+
+  const reloadDecks = async () => {
+    try {
+      const res = await fetch('/api/slides/all');
+      if (res.ok) setAvailableDecks((await res.json()).decks || []);
+    } catch (e) {}
+  };
+
+  useEffect(() => { loadSlideFolders(); }, []);
+
+  const addSlideFolder = async () => {
+    const p = folderInput.trim();
+    if (!p) return;
+    setIsSavingFolder(true);
+    setFolderError(null);
+    try {
+      const res = await fetch('/api/slides/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderPath: p })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not add that folder');
+      setFolderInput('');
+      setIsAddingFolder(false);
+      await Promise.all([loadSlideFolders(), reloadDecks()]);
+      pushToast(`Added ${data.added} slide${data.added === 1 ? '' : 's'} from that folder.`, 'success');
+    } catch (e: any) {
+      setFolderError(e.message);
+    } finally {
+      setIsSavingFolder(false);
+    }
+  };
+
+  const removeSlideFolder = async (p: string) => {
+    try {
+      await fetch('/api/slides/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removePath: p })
+      });
+      await Promise.all([loadSlideFolders(), reloadDecks()]);
+      pushToast('Folder removed. The files on disk are untouched.', 'info');
+    } catch (e) {
+      pushToast('Could not remove that folder.', 'error');
+    }
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load all available slide decks across courses and presentations
@@ -208,13 +313,33 @@ export const SplitPdfViewer: React.FC = () => {
                   onClick={() => setIsDeckDropdownOpen(false)} 
                 />
                 <div className="absolute left-0 mt-2 w-80 sm:w-96 rounded-[1.5rem] bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-2xl border border-black/[0.08] dark:border-white/10 shadow-2xl p-2 z-50 animate-in fade-in">
-                  <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
-                    <span>Available Presentations ({availableDecks.length})</span>
-                    <span>PDF & PPTX</span>
+                  <div className="px-2 pb-2 pt-1">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
+                      <input
+                        id="deck-search-input"
+                        value={deckQuery}
+                        onChange={(e) => setDeckQuery(e.target.value)}
+                        placeholder={`Search ${availableDecks.length} slides and PDFs...`}
+                        className="w-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.06] dark:border-white/10 rounded-lg pl-8 pr-2.5 py-1.5 text-[11.5px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                      />
+                    </div>
                   </div>
 
-                  <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
-                    {availableDecks.map((deck) => {
+                  <div className="space-y-3 max-h-[22rem] overflow-y-auto pr-1">
+                    {groupedDecks.length === 0 && (
+                      <p className="px-3 py-6 text-center text-[11.5px] text-zinc-600 dark:text-zinc-400">
+                        Nothing matches &ldquo;{deckQuery}&rdquo;.
+                      </p>
+                    )}
+                    {groupedDecks.map(([groupName, decks]) => (
+                    <div key={groupName}>
+                      <div className="flex items-center justify-between px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 sticky top-0 bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-sm z-10">
+                        <span className="truncate">{groupName}</span>
+                        <span className="flex-shrink-0 ml-2">{decks.length}</span>
+                      </div>
+                      <div className="space-y-1">
+                    {decks.map((deck) => {
                       const isSelected = currentDeck?.id === deck.id;
                       const isDeckPptx = deck.type === 'pptx' || deck.type === 'ppt' || deck.type === 'pptm';
                       return (
@@ -241,7 +366,7 @@ export const SplitPdfViewer: React.FC = () => {
                             <div className="truncate">
                               <div className="truncate font-semibold">{deck.title}</div>
                               <div className="text-[10px] font-mono opacity-60 truncate">
-                                {deck.courseName || deck.type.toUpperCase()} • {(deck.fileSizeBytes / 1024).toFixed(0)} KB
+                                {deck.moduleName || deck.type.toUpperCase()}{formatDeckSize(deck)}
                               </div>
                             </div>
                           </div>
@@ -249,6 +374,9 @@ export const SplitPdfViewer: React.FC = () => {
                         </button>
                       );
                     })}
+                      </div>
+                    </div>
+                    ))}
                   </div>
 
                   {/* Browse Local File Action */}
@@ -261,8 +389,73 @@ export const SplitPdfViewer: React.FC = () => {
                       className="w-full flex items-center gap-2 p-2 rounded-xl text-[12px] text-zinc-700 dark:text-zinc-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
                     >
                       <FolderOpen className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Browse Local File from PC...</span>
+                      <span>Open a single file from your PC...</span>
                     </button>
+
+                    {/* Whole folders of material, indexed recursively */}
+                    {slideFolders.map(fol => (
+                      <div key={fol.path} className="w-full flex items-center gap-2 p-2 rounded-xl text-[12px] text-zinc-700 dark:text-zinc-300 group">
+                        <FolderPlus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                        <span className="truncate flex-1 min-w-0" title={fol.path}>
+                          {fol.name}
+                          <span className="ml-1.5 text-[10px] font-mono text-zinc-600 dark:text-zinc-400">
+                            {fol.exists ? `${fol.deckCount} decks` : 'missing'}
+                          </span>
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeSlideFolder(fol.path); }}
+                          aria-label={`Stop indexing ${fol.name}`}
+                          className="p-1 rounded text-zinc-500 dark:text-zinc-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
+                        >
+                          <Trash2 className="w-3 h-3" strokeWidth={1.5} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {isAddingFolder ? (
+                      <div className="p-2 space-y-2">
+                        <input
+                          id="slide-folder-input"
+                          autoFocus
+                          value={folderInput}
+                          onChange={(e) => setFolderInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); addSlideFolder(); }
+                            if (e.key === 'Escape') { setIsAddingFolder(false); setFolderError(null); }
+                          }}
+                          placeholder="/path/to/your/slides"
+                          className="w-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.06] dark:border-white/10 rounded-lg px-2.5 py-1.5 text-[11.5px] font-mono text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                        />
+                        {folderError && (
+                          <p className="text-[11px] text-rose-600 dark:text-rose-400">{folderError}</p>
+                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => { setIsAddingFolder(false); setFolderError(null); }}
+                            className="px-2.5 py-1 rounded-full text-[11px] text-zinc-700 dark:text-zinc-300 hover:bg-black/[0.05] dark:hover:bg-white/10"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            id="confirm-add-slide-folder"
+                            onClick={addSlideFolder}
+                            disabled={!folderInput.trim() || isSavingFolder}
+                            className="px-3 py-1 rounded-full bg-zinc-900 dark:bg-white disabled:opacity-30 text-white dark:text-zinc-950 text-[11px] font-semibold"
+                          >
+                            {isSavingFolder ? 'Scanning…' : 'Add folder'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        id="add-slide-folder-btn"
+                        onClick={() => setIsAddingFolder(true)}
+                        className="w-full flex items-center gap-2 p-2 rounded-xl text-[12px] text-zinc-700 dark:text-zinc-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+                      >
+                        <FolderPlus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Add a whole folder of slides...</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </>

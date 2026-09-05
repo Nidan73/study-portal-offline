@@ -121,6 +121,8 @@ export interface HubProgressData {
   } | null;
   /** Most-recent-first watch history, capped so the file cannot grow forever. */
   youtubeHistory?: YouTubeHistoryEntry[];
+  /** Extra folders of slides/PDFs to index, beyond the course folders. */
+  slideFolders?: string[];
   globalStats: {
     totalHoursWatchedSeconds: number;
     streakDays: number;
@@ -218,6 +220,10 @@ function resolveServable(candidate: string): string | null {
   if (isInside(COURSES_ROOT, resolved)) return resolved;
   for (const course of discoverCourses()) {
     if (course.rootPath && isInside(course.rootPath, resolved)) return resolved;
+  }
+  // Folders the user explicitly added as slide/material libraries.
+  for (const dir of inMemoryData.slideFolders || []) {
+    if (isInside(dir, resolved)) return resolved;
   }
   return null;
 }
@@ -1866,41 +1872,108 @@ app.get('/api/slides/all', (req: Request, res: Response) => {
     } catch (e) {}
   }
 
-  // 2. Discover decks in Presentations directory
+  // 2. The conventional Presentations directory beside the courses
   const presDir = path.join(COURSES_ROOT, 'Presentations');
   if (fs.existsSync(presDir)) {
-    const walk = (d: string) => {
-      try {
-        const entries = fs.readdirSync(d, { withFileTypes: true });
-        for (const e of entries) {
-          const full = path.join(d, e.name);
-          if (e.isDirectory()) {
-            walk(full);
-          } else if (e.isFile()) {
-            const ext = path.extname(e.name).toLowerCase();
-            if (DOC_EXTENSIONS.has(ext) && !visitedPaths.has(full)) {
-              visitedPaths.add(full);
-              const stat = fs.statSync(full);
-              decks.push({
-                id: Buffer.from(full).toString('base64url'),
-                title: cleanTitle(e.name),
-                filename: e.name,
-                filePath: full,
-                type: ext.slice(1),
-                courseId: 'presentations',
-                courseName: 'Workshop Presentations',
-                moduleName: path.basename(d),
-                sizeBytes: stat.size
-              });
-            }
-          }
-        }
-      } catch (err) {}
-    };
-    walk(presDir);
+    walkForDecks(presDir, visitedPaths, decks, 'Workshop Presentations');
+  }
+
+  // 3. Any folder the user added as a slide library — study material often
+  //    lives in its own folders rather than inside a course.
+  for (const dir of inMemoryData.slideFolders || []) {
+    if (fs.existsSync(dir)) {
+      walkForDecks(dir, visitedPaths, decks, path.basename(dir) || 'Slides');
+    }
   }
 
   res.json({ decks });
+});
+
+/** Collect every deck under a directory, recursively. */
+function walkForDecks(dir: string, seen: Set<string>, out: any[], label: string, depth = 0): void {
+  if (depth > 8) return;
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (e) {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.name.startsWith('.') || IGNORED_NAMES.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkForDecks(full, seen, out, label, depth + 1);
+    } else if (entry.isFile()) {
+      const ext = path.extname(entry.name).toLowerCase();
+      if (!DOC_EXTENSIONS.has(ext) || seen.has(full)) continue;
+      seen.add(full);
+      let size = 0;
+      try { size = fs.statSync(full).size; } catch (e) {}
+      out.push({
+        id: Buffer.from(full).toString('base64url'),
+        title: cleanTitle(entry.name),
+        filename: entry.name,
+        filePath: full,
+        type: ext.slice(1),
+        courseId: 'presentations',
+        courseName: label,
+        moduleName: path.basename(path.dirname(full)),
+        sizeBytes: size
+      });
+    }
+  }
+}
+
+// API: Folders of slides and PDFs the user has added, beyond their courses
+app.get('/api/slides/folders', (req: Request, res: Response) => {
+  const folders = (inMemoryData.slideFolders || []).map(dir => {
+    let deckCount = 0;
+    try {
+      const found: any[] = [];
+      walkForDecks(dir, new Set(), found, path.basename(dir));
+      deckCount = found.length;
+    } catch (e) {}
+    return { path: dir, name: path.basename(dir) || dir, deckCount, exists: fs.existsSync(dir) };
+  });
+  res.json({ folders });
+});
+
+app.post('/api/slides/folders', (req: Request, res: Response) => {
+  const { folderPath, removePath } = req.body || {};
+
+  if (removePath) {
+    inMemoryData.slideFolders = (inMemoryData.slideFolders || [])
+      .filter(d => path.resolve(d) !== path.resolve(removePath));
+    flushProgressNow();
+    return res.json({ success: true, folders: inMemoryData.slideFolders });
+  }
+
+  if (!folderPath || typeof folderPath !== 'string') {
+    return res.status(400).json({ error: 'A folder path is required' });
+  }
+
+  const resolved = path.resolve(folderPath);
+  try {
+    if (!fs.statSync(resolved).isDirectory()) {
+      return res.status(400).json({ error: 'That path is not a folder' });
+    }
+  } catch (e) {
+    return res.status(404).json({ error: 'That folder does not exist or cannot be read' });
+  }
+
+  const found: any[] = [];
+  walkForDecks(resolved, new Set(), found, path.basename(resolved));
+  if (found.length === 0) {
+    return res.status(400).json({ error: 'No PDF or PowerPoint files found anywhere in that folder' });
+  }
+
+  if (!inMemoryData.slideFolders) inMemoryData.slideFolders = [];
+  if (!inMemoryData.slideFolders.some(d => path.resolve(d) === resolved)) {
+    inMemoryData.slideFolders.push(resolved);
+  }
+  flushProgressNow();
+  console.log(`[Slides] Added folder ${resolved} (${found.length} decks)`);
+  res.json({ success: true, added: found.length, folders: inMemoryData.slideFolders });
 });
 
 // API: Launch Presentation in Native Desktop App (OnlyOffice, PowerPoint, Keynote)

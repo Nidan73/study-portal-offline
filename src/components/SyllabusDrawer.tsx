@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
+import { SupplementaryFile } from '../types';
 import { SkeletonList } from './Skeleton';
 import { 
   Check, 
@@ -7,7 +8,8 @@ import {
   Play, 
   ChevronDown, 
   ChevronRight, 
-  FileText, 
+  FileText,
+  Presentation, 
   Search, 
   Layers,
   Youtube,
@@ -28,6 +30,8 @@ export const SyllabusDrawer: React.FC = () => {
   const userData = useStore(state => state.userData);
   const toggleLessonComplete = useStore(state => state.toggleLessonComplete);
   const setSidePanelTab = useStore(state => state.setSidePanelTab);
+  const activeTab = useStore(state => state.activeTab);
+  const activePdf = useStore(state => state.activePdf);
   const setActiveTab = useStore(state => state.setActiveTab);
   const isCatalogLoading = useStore(state => state.isCatalogLoading);
 
@@ -98,6 +102,14 @@ export const SyllabusDrawer: React.FC = () => {
       ...prev,
       [modId]: !prev[modId]
     }));
+  };
+
+  // Selecting a document used to set activePdf and stop there, leaving you on
+  // the player with nothing visibly different. Open the viewer too.
+  const openDocument = (doc: SupplementaryFile) => {
+    selectPdf(doc);
+    if (activeTab === 'player') setSidePanelTab('slides');
+    else setActiveTab('split-slides');
   };
 
   const handleToggleComplete = (e: React.MouseEvent, lessonId: string) => {
@@ -247,7 +259,9 @@ export const SyllabusDrawer: React.FC = () => {
                     </div>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-400 border border-black/[0.04] dark:border-white/[0.08] shrink-0 font-medium">
-                    {catalog.totalVideos} Lectures
+                    {catalog.totalVideos > 0
+                    ? `${catalog.totalVideos} Lectures`
+                    : `${catalog.totalPdfs} Documents`}
                   </span>
                 </div>
 
@@ -318,7 +332,9 @@ export const SyllabusDrawer: React.FC = () => {
                   <h2 className="font-bold text-[14px] tracking-tight text-zinc-900 dark:text-white">Curriculum</h2>
                 </div>
                 <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-400 border border-black/[0.04] dark:border-white/[0.08] font-medium">
-                  {catalog.totalVideos} Lectures
+                  {catalog.totalVideos > 0
+                    ? `${catalog.totalVideos} Lectures`
+                    : `${catalog.totalPdfs} Documents`}
                 </span>
               </div>
 
@@ -373,7 +389,9 @@ export const SyllabusDrawer: React.FC = () => {
                             ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
                             : 'text-zinc-600 dark:text-zinc-400 bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.04] dark:border-white/[0.08]'
                         }`}>
-                          {completedInMod}/{mod.lessons.length}
+                          {mod.lessons.length > 0
+                            ? `${completedInMod}/${mod.lessons.length}`
+                            : `${mod.supplementaryFiles.length} ${mod.supplementaryFiles.length === 1 ? 'file' : 'files'}`}
                         </span>
                       </button>
 
@@ -381,19 +399,33 @@ export const SyllabusDrawer: React.FC = () => {
                       {isExpanded && (
                         <div className="p-1 space-y-0.5 border-t border-black/[0.04] dark:border-white/[0.06] bg-white dark:bg-[#111218]">
                           {/* Slides */}
-                          {mod.supplementaryFiles.map((pdf) => (
-                            <button
-                              key={pdf.id}
-                              onClick={() => selectPdf(pdf)}
-                              className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-left text-[12px] text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors group"
-                            >
-                              <div className="flex items-center gap-2 truncate pr-2">
-                                <FileText className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" strokeWidth={1.5} />
-                                <span className="truncate font-medium">{pdf.title}</span>
-                              </div>
-                              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">PDF</span>
-                            </button>
-                          ))}
+                          {mod.supplementaryFiles.map((doc) => {
+                            const kind = (doc.type || doc.filename?.split('.').pop() || 'pdf').toLowerCase();
+                            const isDeck = kind.startsWith('ppt');
+                            const isOpen = activePdf?.id === doc.id;
+                            return (
+                              <button
+                                key={doc.id}
+                                onClick={() => openDocument(doc)}
+                                title={`Open ${doc.title}`}
+                                className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-[12px] transition-colors group ${
+                                  isOpen
+                                    ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
+                                    : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate pr-2">
+                                  {isDeck
+                                    ? <Presentation className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" strokeWidth={1.5} />
+                                    : <FileText className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" strokeWidth={1.5} />}
+                                  <span className="truncate font-medium">{doc.title}</span>
+                                </div>
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 flex-shrink-0">
+                                  {kind}
+                                </span>
+                              </button>
+                            );
+                          })}
 
                           {/* Lessons */}
                           {mod.lessons.map((lesson) => {

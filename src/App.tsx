@@ -282,9 +282,12 @@ export const App: React.FC = () => {
                     />
               )}
 
-              {/* Second notes dock, so a slide deck can stay open on the right
-                  while you write underneath the video. */}
-              {showNotesUnderVideo && activeLesson && (
+              {/* Second notes dock, so a deck can stay open on the right while
+                  you write underneath. With a lecture playing these are its
+                  timestamped notes; with none — a PDF-only course, say — it
+                  falls back to the general notepad rather than rendering
+                  nothing, which is what it used to do. */}
+              {showNotesUnderVideo && (
                 <div className="flex flex-col" style={{ height: notesDockHeight }}>
                   <div
                     id="notes-dock-resize-handle"
@@ -299,7 +302,9 @@ export const App: React.FC = () => {
                     <span className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700 group-hover:bg-indigo-500 transition-colors" />
                   </div>
                   <div className="flex-1 min-h-0">
-                    <InteractiveNotes variant="dock" />
+                    {activeLesson
+                      ? <InteractiveNotes variant="dock" />
+                      : <Scratchpad variant="dock" />}
                   </div>
                 </div>
               )}
