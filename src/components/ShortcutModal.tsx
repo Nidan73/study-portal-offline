@@ -3,7 +3,10 @@ import { useStore } from '../store/useStore';
 import { X, Keyboard, Video, Terminal, Globe, FileText } from 'lucide-react';
 
 export const ShortcutModal: React.FC = () => {
-  const { isShortcutHelpOpen, setShortcutHelpOpen } = useStore();
+  // Per-field selectors: a whole-store destructure re-renders this on every
+  // change, including the ~4/sec currentTime tick during playback.
+  const isShortcutHelpOpen = useStore(state => state.isShortcutHelpOpen);
+  const setShortcutHelpOpen = useStore(state => state.setShortcutHelpOpen);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

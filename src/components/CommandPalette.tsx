@@ -10,19 +10,19 @@ import {
 } from 'lucide-react';
 
 export const CommandPalette: React.FC = () => {
-  const { 
-    isCommandPaletteOpen, 
-    setCommandPalette, 
-    catalog, 
-    courses, 
-    userData,
-    activeCourseId,
-    setCurrentTime,
-    selectCourse, 
-    selectLesson, 
-    selectPdf, 
-    setActiveTab 
-  } = useStore();
+  // Per-field selectors: a whole-store destructure re-renders this on every
+  // change, including the ~4/sec currentTime tick during playback.
+  const isCommandPaletteOpen = useStore(state => state.isCommandPaletteOpen);
+  const setCommandPalette = useStore(state => state.setCommandPalette);
+  const catalog = useStore(state => state.catalog);
+  const courses = useStore(state => state.courses);
+  const userData = useStore(state => state.userData);
+  const activeCourseId = useStore(state => state.activeCourseId);
+  const setCurrentTime = useStore(state => state.setCurrentTime);
+  const selectCourse = useStore(state => state.selectCourse);
+  const selectLesson = useStore(state => state.selectLesson);
+  const selectPdf = useStore(state => state.selectPdf);
+  const setActiveTab = useStore(state => state.setActiveTab);
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);

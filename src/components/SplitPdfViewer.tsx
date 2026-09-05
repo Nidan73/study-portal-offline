@@ -18,23 +18,23 @@ import {
 } from 'lucide-react';
 
 export const SplitPdfViewer: React.FC = () => {
-  const { 
-    activeCourseId, 
-    activeLesson,
-    currentTime,
-    activePdf, 
-    selectPdf, 
-    closePdf, 
-    isDarkPdf, 
-    toggleDarkPdf, 
-    catalog,
-    addNote,
-    activeTab,
-    setActiveTab,
-    sidePanelTab,
-    setSidePanelTab,
-    pushToast
-  } = useStore();
+  // Per-field selectors: a whole-store destructure re-renders this on every
+  // change, including the ~4/sec currentTime tick during playback.
+  const activeCourseId = useStore(state => state.activeCourseId);
+  const activeLesson = useStore(state => state.activeLesson);
+  const currentTime = useStore(state => state.currentTime);
+  const activePdf = useStore(state => state.activePdf);
+  const selectPdf = useStore(state => state.selectPdf);
+  const closePdf = useStore(state => state.closePdf);
+  const isDarkPdf = useStore(state => state.isDarkPdf);
+  const toggleDarkPdf = useStore(state => state.toggleDarkPdf);
+  const catalog = useStore(state => state.catalog);
+  const addNote = useStore(state => state.addNote);
+  const activeTab = useStore(state => state.activeTab);
+  const setActiveTab = useStore(state => state.setActiveTab);
+  const sidePanelTab = useStore(state => state.sidePanelTab);
+  const setSidePanelTab = useStore(state => state.setSidePanelTab);
+  const pushToast = useStore(state => state.pushToast);
 
   const [availableDecks, setAvailableDecks] = useState<SupplementaryFile[]>([]);
   const [isDeckDropdownOpen, setIsDeckDropdownOpen] = useState(false);

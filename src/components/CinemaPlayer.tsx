@@ -24,40 +24,40 @@ import {
 } from 'lucide-react';
 
 export const CinemaPlayer: React.FC = () => {
-  const { 
-    activeCourseId, 
-    activeLesson, 
-    currentTime, 
-    setCurrentTime, 
-    duration, 
-    setDuration, 
-    isPlaying, 
-    setIsPlaying, 
-    playbackRate, 
-    setPlaybackRate, 
-    volume, 
-    setVolume, 
-    isMuted, 
-    toggleMute,
-    audioBoost,
-    setAudioBoost,
-    abLoop,
-    setLoopA,
-    setLoopB,
-    toggleLoop,
-    clearLoop,
-    addBookmark,
-    removeBookmark,
-    clearAllBookmarks,
-    setShortcutHelpOpen,
-    syncProgressToDisk, 
-    toggleLessonComplete, 
-    userData, 
-    goToNextLesson, 
-    goToPrevLesson,
-    selectPdf,
-    isCatalogLoading
-  } = useStore();
+  // Per-field selectors: a whole-store destructure re-renders this on every
+  // change, including the ~4/sec currentTime tick during playback.
+  const activeCourseId = useStore(state => state.activeCourseId);
+  const activeLesson = useStore(state => state.activeLesson);
+  const currentTime = useStore(state => state.currentTime);
+  const setCurrentTime = useStore(state => state.setCurrentTime);
+  const duration = useStore(state => state.duration);
+  const setDuration = useStore(state => state.setDuration);
+  const isPlaying = useStore(state => state.isPlaying);
+  const setIsPlaying = useStore(state => state.setIsPlaying);
+  const playbackRate = useStore(state => state.playbackRate);
+  const setPlaybackRate = useStore(state => state.setPlaybackRate);
+  const volume = useStore(state => state.volume);
+  const setVolume = useStore(state => state.setVolume);
+  const isMuted = useStore(state => state.isMuted);
+  const toggleMute = useStore(state => state.toggleMute);
+  const audioBoost = useStore(state => state.audioBoost);
+  const setAudioBoost = useStore(state => state.setAudioBoost);
+  const abLoop = useStore(state => state.abLoop);
+  const setLoopA = useStore(state => state.setLoopA);
+  const setLoopB = useStore(state => state.setLoopB);
+  const toggleLoop = useStore(state => state.toggleLoop);
+  const clearLoop = useStore(state => state.clearLoop);
+  const addBookmark = useStore(state => state.addBookmark);
+  const removeBookmark = useStore(state => state.removeBookmark);
+  const clearAllBookmarks = useStore(state => state.clearAllBookmarks);
+  const setShortcutHelpOpen = useStore(state => state.setShortcutHelpOpen);
+  const syncProgressToDisk = useStore(state => state.syncProgressToDisk);
+  const toggleLessonComplete = useStore(state => state.toggleLessonComplete);
+  const userData = useStore(state => state.userData);
+  const goToNextLesson = useStore(state => state.goToNextLesson);
+  const goToPrevLesson = useStore(state => state.goToPrevLesson);
+  const selectPdf = useStore(state => state.selectPdf);
+  const isCatalogLoading = useStore(state => state.isCatalogLoading);
 
   const isYouTube = Boolean(activeLesson?.source === 'youtube' || activeLesson?.youtubeVideoId);
   // A pasted link is cross-origin. crossOrigin="anonymous" makes the browser

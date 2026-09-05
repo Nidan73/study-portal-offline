@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { CourseSummary, CourseCatalog, LessonItem, SupplementaryFile, StudyHubData, LessonBookmark } from '../types';
+import { CourseSummary, CourseCatalog, LessonItem, SupplementaryFile, StudyHubData, LessonBookmark, CourseUserData } from '../types';
 
 /** YouTube videos belong to no course, so their notes, pins and positions live
  *  in one shared bucket instead of under whichever course was active when you
@@ -360,6 +360,76 @@ int main() {
 </html>
 `
 };
+
+
+/**
+ * Apply an optimistic change to one lesson's slice of a course record.
+ *
+ * Every write action used to hand-roll this same four-level spread. That is
+ * where a new field gets forgotten — adding resumePositions and the YouTube
+ * bucket each meant editing all seven copies, and a missed spread does not
+ * crash or fail typecheck, it silently drops your data.
+ */
+function patchLesson<K extends 'notes' | 'bookmarks' | 'codeSnippets'>(
+  userData: StudyHubData | null,
+  bucketId: string,
+  field: K,
+  lessonId: string,
+  value: NonNullable<CourseUserData[K]>[string]
+): StudyHubData {
+  const course = userData?.courses?.[bucketId];
+  return {
+    ...userData!,
+    courses: {
+      ...userData?.courses,
+      [bucketId]: {
+        ...(course || { id: bucketId, completedLessonIds: [], notes: {} }),
+        [field]: { ...(course?.[field] || {}), [lessonId]: value }
+      }
+    }
+  };
+}
+
+/** Same, for a course-level field rather than a per-lesson one. */
+function patchCourse<K extends 'completedLessonIds' | 'resumePositions'>(
+  userData: StudyHubData | null,
+  bucketId: string,
+  field: K,
+  value: NonNullable<CourseUserData[K]>
+): StudyHubData {
+  const course = userData?.courses?.[bucketId];
+  return {
+    ...userData!,
+    courses: {
+      ...userData?.courses,
+      [bucketId]: {
+        ...(course || { id: bucketId, completedLessonIds: [], notes: {} }),
+        [field]: value
+      }
+    }
+  };
+}
+
+/** One place that talks to /api/progress, with one place that reports failure. */
+async function postProgress(
+  body: Record<string, unknown>,
+  onError: (message: string) => void,
+  failureMessage: string
+): Promise<boolean> {
+  try {
+    const res = await fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return true;
+  } catch (e) {
+    console.error(failureMessage, e);
+    onError(failureMessage);
+    return false;
+  }
+}
 
 export const useStore = create<StoreState>((set, get) => ({
   courses: [],
@@ -844,18 +914,7 @@ export const useStore = create<StoreState>((set, get) => ({
       ? [...currentCompleted, lessonId] 
       : currentCompleted.filter(id => id !== lessonId);
 
-    const updatedUserData: StudyHubData = {
-      ...userData!,
-      courses: {
-        ...userData?.courses,
-        [bucketId]: {
-          ...(userData?.courses?.[bucketId] || { id: bucketId, notes: {} }),
-          completedLessonIds: updatedCompleted
-        }
-      }
-    };
-
-    set({ userData: updatedUserData });
+    set({ userData: patchCourse(userData, bucketId, 'completedLessonIds', updatedCompleted) });
 
     try {
       await fetch('/api/progress', {
@@ -885,23 +944,7 @@ export const useStore = create<StoreState>((set, get) => ({
     };
 
     const courseNotes = userData?.courses?.[bucketId]?.notes?.[lessonId] || [];
-    const updatedNotes = [...courseNotes, newNote];
-
-    const updatedUserData: StudyHubData = {
-      ...userData!,
-      courses: {
-        ...userData?.courses,
-        [bucketId]: {
-          ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [] }),
-          notes: {
-            ...(userData?.courses?.[bucketId]?.notes || {}),
-            [lessonId]: updatedNotes
-          }
-        }
-      }
-    };
-
-    set({ userData: updatedUserData });
+    set({ userData: patchLesson(userData, bucketId, 'notes', lessonId, [...courseNotes, newNote]) });
 
     try {
       await fetch('/api/progress', {
@@ -930,18 +973,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const removed = existing.find(n => n.id === noteId);
     const updated = existing.filter(n => n.id !== noteId);
 
-    set({
-      userData: {
-        ...userData!,
-        courses: {
-          ...userData?.courses,
-          [bucketId]: {
-            ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [] }),
-            notes: { ...(userData?.courses?.[bucketId]?.notes || {}), [lessonId]: updated }
-          }
-        }
-      } as StudyHubData
-    });
+    set({ userData: patchLesson(userData, bucketId, 'notes', lessonId, updated) });
 
     try {
       await fetch('/api/progress', {
@@ -968,18 +1000,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const bucketId = dataBucketFor(lessonId, activeCourseId);
     const removedAll = userData?.courses?.[bucketId]?.notes?.[lessonId] || [];
 
-    set({
-      userData: {
-        ...userData!,
-        courses: {
-          ...userData?.courses,
-          [bucketId]: {
-            ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [] }),
-            notes: { ...(userData?.courses?.[bucketId]?.notes || {}), [lessonId]: [] }
-          }
-        }
-      } as StudyHubData
-    });
+    set({ userData: patchLesson(userData, bucketId, 'notes', lessonId, []) });
 
     try {
       await fetch('/api/progress', {
@@ -1015,21 +1036,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const courseBookmarks = userData?.courses?.[bucketId]?.bookmarks?.[lessonId] || [];
     const updatedBookmarks = [...courseBookmarks, newBookmark];
 
-    const updatedUserData: StudyHubData = {
-      ...userData!,
-      courses: {
-        ...userData?.courses,
-        [bucketId]: {
-          ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [], notes: {} }),
-          bookmarks: {
-            ...(userData?.courses?.[bucketId]?.bookmarks || {}),
-            [lessonId]: updatedBookmarks
-          }
-        }
-      }
-    };
-
-    set({ userData: updatedUserData });
+    set({ userData: patchLesson(userData, bucketId, 'bookmarks', lessonId, updatedBookmarks) });
 
     try {
       await fetch('/api/progress', {
@@ -1053,21 +1060,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const courseBookmarks = userData?.courses?.[bucketId]?.bookmarks?.[lessonId] || [];
     const updatedBookmarks = courseBookmarks.filter(b => b.id !== bookmarkId);
 
-    const updatedUserData: StudyHubData = {
-      ...userData!,
-      courses: {
-        ...userData?.courses,
-        [bucketId]: {
-          ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [], notes: {} }),
-          bookmarks: {
-            ...(userData?.courses?.[bucketId]?.bookmarks || {}),
-            [lessonId]: updatedBookmarks
-          }
-        }
-      }
-    };
-
-    set({ userData: updatedUserData });
+    set({ userData: patchLesson(userData, bucketId, 'bookmarks', lessonId, updatedBookmarks) });
 
     try {
       await fetch('/api/progress', {
@@ -1095,21 +1088,7 @@ export const useStore = create<StoreState>((set, get) => ({
   clearAllBookmarks: async (lessonId: string) => {
     const { activeCourseId, userData } = get();
     const bucketId = dataBucketFor(lessonId, activeCourseId);
-    const updatedUserData: StudyHubData = {
-      ...userData!,
-      courses: {
-        ...userData?.courses,
-        [bucketId]: {
-          ...(userData?.courses?.[bucketId] || { id: bucketId, completedLessonIds: [], notes: {} }),
-          bookmarks: {
-            ...(userData?.courses?.[bucketId]?.bookmarks || {}),
-            [lessonId]: []
-          }
-        }
-      }
-    };
-
-    set({ userData: updatedUserData });
+    set({ userData: patchLesson(userData, bucketId, 'bookmarks', lessonId, []) });
 
     try {
       await fetch('/api/progress', {
@@ -1422,17 +1401,17 @@ export const useStore = create<StoreState>((set, get) => ({
     const bucketId = dataBucketFor(lessonId, activeCourseId);
     if (!activeCourseId || !lessonId) return;
 
-    if (userData?.courses?.[bucketId]) {
-      if (!userData.courses[activeCourseId].codeSnippets) {
-        userData.courses[activeCourseId].codeSnippets = {};
-      }
-      userData.courses[activeCourseId].codeSnippets[lessonId] = {
+    // Two bugs lived here: it read bucketId but wrote activeCourseId, so a
+    // YouTube lesson's snippet went to the wrong record (or threw, when that
+    // record did not exist); and it mutated the existing state in place before
+    // shallow-copying the top level, so nested consumers never saw a change.
+    set({
+      userData: patchLesson(userData, bucketId, 'codeSnippets', lessonId, {
         language,
         code,
         updatedAt: new Date().toISOString()
-      };
-      set({ userData: { ...userData } });
-    }
+      })
+    });
 
     try {
       await fetch('/api/progress', {

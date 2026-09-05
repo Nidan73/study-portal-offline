@@ -129,6 +129,23 @@ try {
       !d.courses['course-A']?.notes?.yt_ABC && !d.courses['course-B']?.bookmarks?.yt_ABC);
   }
 
+  // --------------------------------------------------------- code snippets
+  section('Code snippets');
+  {
+    await post(B, '/api/progress', { courseId: CID, lessonId: 'L1', codeSnippet: { language: 'python', code: 'print(1)' } });
+    let snip = (await get(B, '/api/progress')).body.courses[CID].codeSnippets?.L1;
+    check('a code snippet is saved against its lesson', snip?.code === 'print(1)', snip?.language);
+
+    // Regression: this used to read the YouTube bucket but write the active
+    // course, sending the snippet to the wrong record or throwing outright.
+    await post(B, '/api/progress', { courseId: 'some-course', lessonId: 'yt_XYZ', codeSnippet: { language: 'javascript', code: 'let a=1' } });
+    const d = (await get(B, '/api/progress')).body;
+    check('a YouTube lesson snippet lands in the shared bucket',
+      d.courses['__youtube__']?.codeSnippets?.yt_XYZ?.code === 'let a=1');
+    check('it does not leak into the active course',
+      !d.courses['some-course']?.codeSnippets?.yt_XYZ);
+  }
+
   // -------------------------------------------------------------- scratchpad
   section('Notepad');
   {

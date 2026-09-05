@@ -34,11 +34,11 @@ const CURATED_TOPICS = [
 ];
 
 export const YouTubeExplorer: React.FC = () => {
-  const { 
-    playYouTubeVideoImmediately, 
-    saveYouTubeCourse,
-    pushToast
-  } = useStore();
+  // Per-field selectors: a whole-store destructure re-renders this on every
+  // change, including the ~4/sec currentTime tick during playback.
+  const playYouTubeVideoImmediately = useStore(state => state.playYouTubeVideoImmediately);
+  const saveYouTubeCourse = useStore(state => state.saveYouTubeCourse);
+  const pushToast = useStore(state => state.pushToast);
 
   const playDirectUrl = useStore(s => s.playDirectUrl);
   const youtubeHistory = useStore(s => s.youtubeHistory);

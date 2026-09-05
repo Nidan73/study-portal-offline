@@ -18,22 +18,22 @@ import {
 } from 'lucide-react';
 
 export const RightSidePanel: React.FC = () => {
-  const { 
-    sidePanelTab, 
-    setSidePanelTab, 
-    splitRatio,
-    setSplitRatio,
-    splitLayout,
-    setSplitLayout,
-    toggleSplitWidth,
-    toggleSidebar,
-    activeLesson,
-    catalog,
-    activeTab,
-    setActiveTab,
-    showNotesUnderVideo,
-    toggleNotesUnderVideo
-  } = useStore();
+  // Per-field selectors: a whole-store destructure re-renders this on every
+  // change, including the ~4/sec currentTime tick during playback.
+  const sidePanelTab = useStore(state => state.sidePanelTab);
+  const setSidePanelTab = useStore(state => state.setSidePanelTab);
+  const splitRatio = useStore(state => state.splitRatio);
+  const setSplitRatio = useStore(state => state.setSplitRatio);
+  const splitLayout = useStore(state => state.splitLayout);
+  const setSplitLayout = useStore(state => state.setSplitLayout);
+  const toggleSplitWidth = useStore(state => state.toggleSplitWidth);
+  const toggleSidebar = useStore(state => state.toggleSidebar);
+  const activeLesson = useStore(state => state.activeLesson);
+  const catalog = useStore(state => state.catalog);
+  const activeTab = useStore(state => state.activeTab);
+  const setActiveTab = useStore(state => state.setActiveTab);
+  const showNotesUnderVideo = useStore(state => state.showNotesUnderVideo);
+  const toggleNotesUnderVideo = useStore(state => state.toggleNotesUnderVideo);
 
   const isYouTubeActive = Boolean(activeLesson?.source === 'youtube' || activeLesson?.youtubeVideoId);
   const isVirtualCatalog = Boolean(catalog?.isVirtual);

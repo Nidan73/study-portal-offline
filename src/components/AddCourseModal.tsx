@@ -38,7 +38,11 @@ const formatSize = (bytes: number) => {
 };
 
 export const AddCourseModal: React.FC = () => {
-  const { isAddCourseModalOpen, setAddCourseModal, addCustomCourse } = useStore();
+  // Per-field selectors: a whole-store destructure re-renders this on every
+  // change, including the ~4/sec currentTime tick during playback.
+  const isAddCourseModalOpen = useStore(state => state.isAddCourseModalOpen);
+  const setAddCourseModal = useStore(state => state.setAddCourseModal);
+  const addCustomCourse = useStore(state => state.addCustomCourse);
 
   const [mode, setMode] = useState<'scan' | 'manual'>('scan');
 

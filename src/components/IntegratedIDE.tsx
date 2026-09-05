@@ -33,23 +33,23 @@ interface IntegratedIDEProps {
 }
 
 export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, onCloseSplit }) => {
-  const { 
-    theme, 
-    activeCourseId,
-    activeLesson, 
-    currentTime,
-    setCurrentTime,
-    activeCodeLanguage, 
-    setActiveCodeLanguage, 
-    currentCode, 
-    setCurrentCode, 
-    codeOutput, 
-    isExecutingCode, 
-    executeCode, 
-    resetCodeTemplate,
-    setActiveTab,
-    setSidePanelTab
-  } = useStore();
+  // Per-field selectors: a whole-store destructure re-renders this on every
+  // change, including the ~4/sec currentTime tick during playback.
+  const theme = useStore(state => state.theme);
+  const activeCourseId = useStore(state => state.activeCourseId);
+  const activeLesson = useStore(state => state.activeLesson);
+  const currentTime = useStore(state => state.currentTime);
+  const setCurrentTime = useStore(state => state.setCurrentTime);
+  const activeCodeLanguage = useStore(state => state.activeCodeLanguage);
+  const setActiveCodeLanguage = useStore(state => state.setActiveCodeLanguage);
+  const currentCode = useStore(state => state.currentCode);
+  const setCurrentCode = useStore(state => state.setCurrentCode);
+  const codeOutput = useStore(state => state.codeOutput);
+  const isExecutingCode = useStore(state => state.isExecutingCode);
+  const executeCode = useStore(state => state.executeCode);
+  const resetCodeTemplate = useStore(state => state.resetCodeTemplate);
+  const setActiveTab = useStore(state => state.setActiveTab);
+  const setSidePanelTab = useStore(state => state.setSidePanelTab);
 
   const [copied, setCopied] = useState(false);
   const [isOutputCollapsed, setIsOutputCollapsed] = useState(false);

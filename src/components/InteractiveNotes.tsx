@@ -22,24 +22,24 @@ interface InteractiveNotesProps {
 }
 
 export const InteractiveNotes: React.FC<InteractiveNotesProps> = ({ variant = 'panel' }) => {
-  const { 
-    activeCourseId, 
-    activeLesson, 
-    currentTime, 
-    setCurrentTime, 
-    isPlaying,
-    setIsPlaying,
-    autoPauseOnNote,
-    toggleAutoPauseOnNote,
-    activeSlideNumber,
-    userData, 
-    addNote,
-    removeNote,
-    clearAllNotes,
-    addBookmark,
-    removeBookmark,
-    clearAllBookmarks
-  } = useStore();
+  // Per-field selectors: a whole-store destructure re-renders this on every
+  // change, including the ~4/sec currentTime tick during playback.
+  const activeCourseId = useStore(state => state.activeCourseId);
+  const activeLesson = useStore(state => state.activeLesson);
+  const currentTime = useStore(state => state.currentTime);
+  const setCurrentTime = useStore(state => state.setCurrentTime);
+  const isPlaying = useStore(state => state.isPlaying);
+  const setIsPlaying = useStore(state => state.setIsPlaying);
+  const autoPauseOnNote = useStore(state => state.autoPauseOnNote);
+  const toggleAutoPauseOnNote = useStore(state => state.toggleAutoPauseOnNote);
+  const activeSlideNumber = useStore(state => state.activeSlideNumber);
+  const userData = useStore(state => state.userData);
+  const addNote = useStore(state => state.addNote);
+  const removeNote = useStore(state => state.removeNote);
+  const clearAllNotes = useStore(state => state.clearAllNotes);
+  const addBookmark = useStore(state => state.addBookmark);
+  const removeBookmark = useStore(state => state.removeBookmark);
+  const clearAllBookmarks = useStore(state => state.clearAllBookmarks);
 
   const [activeTab, setActiveTab] = useState<'notes' | 'bookmarks'>('notes');
   const [noteContent, setNoteContent] = useState('');

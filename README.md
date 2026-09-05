@@ -154,6 +154,19 @@ list everything that looks like course material and let you choose.
 
 ---
 
+## 🧪 Tests
+
+```bash
+npm test          # both suites
+npm run test:api  # server only, a few seconds
+npm run test:ui   # browser
+```
+
+Each suite starts its own server on a random high port with its own scratch data
+directory (`STUDYHUB_DATA_DIR`), so running tests never touches your real notes.
+
+---
+
 ## 📜 License
 
 MIT License. Designed and engineered for frictionless, lifelong self-directed learning.
