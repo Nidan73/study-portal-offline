@@ -85,7 +85,9 @@ body {
 }
 
 #youtube-player-element,
-#youtube-player-element iframe {
+#youtube-player-target,
+#youtube-player-element iframe,
+#youtube-player-target iframe {
   width: 100% !important;
   height: 100% !important;
   display: block !important;

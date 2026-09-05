@@ -213,11 +213,13 @@ export const CinemaPlayer: React.FC = () => {
       }
 
       if (ytMountRef.current) {
-        ytMountRef.current.innerHTML = '<div id="youtube-player-element" style="width:100%;height:100%;pointer-events:none;"></div>';
+        // Distinct id: the outer container is React's, this inner node is the one
+        // YT.Player is allowed to replace with its iframe.
+        ytMountRef.current.innerHTML = '<div id="youtube-player-target" style="width:100%;height:100%;pointer-events:none;"></div>';
       }
 
       try {
-        const player = new (window as any).YT.Player('youtube-player-element', {
+        const player = new (window as any).YT.Player('youtube-player-target', {
           width: '100%',
           height: '100%',
           videoId: ytVideoId,
