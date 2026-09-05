@@ -1,5 +1,4 @@
 import express, { Request, Response, NextFunction } from 'express';
-import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -111,7 +110,28 @@ const cliPort = portArgIndex !== -1 && process.argv[portArgIndex + 1] ? parseInt
 const DEFAULT_PORT = cliPort || parseInt(process.env.PORT || "3000", 10);
 
 // Middleware
-app.use(cors());
+//
+// No CORS. The client is served same-origin in production and Vite proxies /api
+// in dev, so nothing legitimate needs it — while `cors()` previously answered
+// preflight for every origin with `Access-Control-Allow-Origin: *`. That let any
+// page you happened to have open POST to /api/execute (whose "localhost only"
+// check passes, because a browser tab on this machine *is* localhost) and read
+// the result back. Same-origin is the whole defence here; keep it that way.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    let host: string;
+    try {
+      host = new URL(origin).hostname;
+    } catch {
+      return res.status(403).json({ error: 'Forbidden: malformed Origin' });
+    }
+    if (host !== 'localhost' && host !== '127.0.0.1' && host !== '::1') {
+      return res.status(403).json({ error: 'Forbidden: cross-origin requests are not allowed' });
+    }
+  }
+  next();
+});
 app.use(express.json({ limit: '10mb' }));
 
 // Paths
@@ -120,6 +140,40 @@ const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const PROGRESS_FILE = path.join(DATA_DIR, 'study-hub-data.json');
 const VIDEO_CACHE_DIR = path.join(DATA_DIR, 'video-cache');
 const COURSES_ROOT = path.resolve(__dirname, '..'); // /run/media/nidan73/M44L/03_Courses_and_Learning
+
+/**
+ * True when `target` really sits inside `root`.
+ *
+ * `target.startsWith(root)` is not this test: a root of /courses/react also
+ * "contains" /courses/react-private. path.relative gives the honest answer —
+ * anything outside comes back starting with '..' or as an absolute path.
+ */
+function isInside(root: string, target: string): boolean {
+  const rel = path.relative(path.resolve(root), path.resolve(target));
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+/**
+ * Resolve a caller-supplied path and confirm it lands under a directory we
+ * actually serve. Returns null when it does not, so callers can 403 uniformly.
+ *
+ * Every endpoint that accepts a path from the client must go through this.
+ * Without it, `path.resolve(req.body.filePath)` reads (or launches) anything
+ * on the disk that happens to have a matching extension.
+ */
+function resolveServable(candidate: string): string | null {
+  let resolved: string;
+  try {
+    resolved = path.resolve(candidate);
+  } catch {
+    return null;
+  }
+  if (isInside(COURSES_ROOT, resolved)) return resolved;
+  for (const course of discoverCourses()) {
+    if (course.rootPath && isInside(course.rootPath, resolved)) return resolved;
+  }
+  return null;
+}
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -905,8 +959,8 @@ app.get('/api/stream/:courseId/:lessonId', async (req: Request, res: Response) =
 
   const targetPath = path.resolve(course.rootPath, relativePath);
 
-  // Security Jail: Prevent Path Traversal
-  if (!targetPath.startsWith(course.rootPath)) {
+  // Security Jail: Prevent Path Traversal (real containment, not a prefix test)
+  if (!isInside(course.rootPath, targetPath)) {
     return res.status(403).send('Access Denied: Path Traversal Prohibited');
   }
 
@@ -1020,11 +1074,15 @@ app.get('/api/pdf/:courseId/:pdfId', (req: Request, res: Response) => {
   let targetPath = '';
 
   if (courseId === 'presentations') {
+    let decoded: string;
     try {
-      targetPath = path.resolve(Buffer.from(pdfId, 'base64url').toString('utf-8'));
+      decoded = Buffer.from(pdfId, 'base64url').toString('utf-8');
     } catch (e) {
       return res.status(400).send('Invalid Presentation ID format');
     }
+    const servable = resolveServable(decoded);
+    if (!servable) return res.status(403).send('Access Denied: path is outside the course library');
+    targetPath = servable;
   } else {
     const courses = discoverCourses();
     const course = courses.find(c => c.id === courseId);
@@ -1039,8 +1097,8 @@ app.get('/api/pdf/:courseId/:pdfId', (req: Request, res: Response) => {
 
     targetPath = path.resolve(course.rootPath, relativePath);
 
-    // Path Traversal Security Guard
-    if (!targetPath.startsWith(course.rootPath)) {
+    // Path Traversal Security Guard (real containment, not a prefix test)
+    if (!isInside(course.rootPath, targetPath)) {
       return res.status(403).send('Access Denied');
     }
   }
@@ -1080,17 +1138,22 @@ app.get('/api/slides/raw', (req: Request, res: Response) => {
   const id = req.query.id as string;
   let targetPath = '';
 
+  let requested = '';
   if (filePath) {
-    targetPath = path.resolve(filePath);
+    requested = filePath;
   } else if (id) {
     try {
-      targetPath = path.resolve(Buffer.from(id, 'base64url').toString('utf-8'));
+      requested = Buffer.from(id, 'base64url').toString('utf-8');
     } catch (e) {
       return res.status(400).send('Invalid slide deck ID');
     }
   } else {
     return res.status(400).send('File path or ID required');
   }
+
+  const servable = resolveServable(requested);
+  if (!servable) return res.status(403).send('Access Denied: path is outside the course library');
+  targetPath = servable;
 
   // Security guard: must exist and have document extension
   if (!fs.existsSync(targetPath)) {
@@ -1199,7 +1262,10 @@ app.post('/api/slides/open-system', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'File path required' });
   }
 
-  const resolved = path.resolve(filePath);
+  const resolved = resolveServable(filePath);
+  if (!resolved) {
+    return res.status(403).json({ error: 'Access denied: path is outside the course library' });
+  }
   if (!fs.existsSync(resolved)) {
     return res.status(404).json({ error: 'File not found on disk' });
   }
@@ -1254,7 +1320,10 @@ app.post('/api/slides/extract-pptx', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'File path required' });
   }
 
-  const resolved = path.resolve(filePath);
+  const resolved = resolveServable(filePath);
+  if (!resolved) {
+    return res.status(403).json({ error: 'Access denied: path is outside the course library' });
+  }
   if (!fs.existsSync(resolved)) {
     return res.status(404).json({ error: 'File not found on disk' });
   }
@@ -1436,7 +1505,7 @@ app.post('/api/execute', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Code string required' });
   }
 
-  const validLangs = new Set(['javascript', 'js', 'python', 'py', 'cpp', 'c++', 'c', 'bash', 'sh']);
+  const validLangs = new Set(['javascript', 'js', 'python', 'py', 'cpp', 'c++', 'c']);
   const lang = (language || 'javascript').toLowerCase();
   if (!validLangs.has(lang)) {
     return res.status(400).json({ error: `Unsupported language: ${lang}` });
@@ -1465,12 +1534,6 @@ app.post('/api/execute', async (req: Request, res: Response) => {
       filesToCleanup.push(srcFile);
       binary = process.platform === 'win32' ? 'python' : (fs.existsSync('/usr/bin/python3') ? '/usr/bin/python3' : 'python3');
       args = [srcFile];
-    } else if (lang === 'bash' || lang === 'sh') {
-      const srcFile = path.join(tmpDir, `${id}.sh`);
-      fs.writeFileSync(srcFile, code);
-      filesToCleanup.push(srcFile);
-      binary = process.platform === 'win32' ? 'cmd.exe' : (fs.existsSync('/usr/bin/bash') ? '/usr/bin/bash' : 'bash');
-      args = process.platform === 'win32' ? ['/c', srcFile] : [srcFile];
     } else if (lang === 'cpp' || lang === 'c++') {
       const srcFile = path.join(tmpDir, `${id}.cpp`);
       const binFile = path.join(tmpDir, `${id}.bin`);
