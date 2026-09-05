@@ -192,7 +192,7 @@ export const InteractiveNotes: React.FC = () => {
 
   if (!activeLesson) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[350px] p-6 text-center text-slate-400 dark:text-slate-500">
+      <div className="flex flex-col items-center justify-center h-full min-h-[350px] p-6 text-center text-zinc-500 dark:text-zinc-400">
         <p className="text-[13px]">Select a lecture to view notes and bookmarks.</p>
       </div>
     );
@@ -222,7 +222,7 @@ export const InteractiveNotes: React.FC = () => {
               onClick={() => setActiveTab('bookmarks')}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[12px] font-medium transition-all ${
                 activeTab === 'bookmarks'
-                  ? 'bg-white dark:bg-white/15 text-amber-600 dark:text-amber-400 shadow-sm font-semibold'
+                  ? 'bg-white dark:bg-white/15 text-amber-700 dark:text-amber-400 shadow-sm font-semibold'
                   : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
               }`}
             >
@@ -241,7 +241,7 @@ export const InteractiveNotes: React.FC = () => {
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-200 text-[11px] font-medium transition-colors"
                 title="Copy all notes to clipboard as Markdown"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={1.5} /> : <Copy className="w-3.5 h-3.5 text-zinc-400" strokeWidth={1.5} />}
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={1.5} /> : <Copy className="w-3.5 h-3.5 text-zinc-500" strokeWidth={1.5} />}
                 <span className="font-mono hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
               </button>
 
@@ -251,7 +251,7 @@ export const InteractiveNotes: React.FC = () => {
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-200 text-[11px] font-medium transition-colors"
                 title="Save notes as a .md file on this machine"
               >
-                <Download className="w-3.5 h-3.5 text-zinc-400" strokeWidth={1.5} />
+                <Download className="w-3.5 h-3.5 text-zinc-500" strokeWidth={1.5} />
                 <span className="font-mono hidden sm:inline">Save</span>
               </button>
 
@@ -261,7 +261,7 @@ export const InteractiveNotes: React.FC = () => {
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-medium transition-all ${
                   confirmClearNotes
                     ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
-                    : 'bg-black/[0.03] hover:bg-rose-500/10 dark:bg-white/[0.05] dark:hover:bg-rose-500/15 border-black/[0.05] dark:border-white/[0.08] hover:border-rose-500/30 text-zinc-500 hover:text-rose-400'
+                    : 'bg-black/[0.03] hover:bg-rose-500/10 dark:bg-white/[0.05] dark:hover:bg-rose-500/15 border-black/[0.05] dark:border-white/[0.08] hover:border-rose-500/30 text-zinc-500 dark:text-zinc-400 hover:text-rose-400'
                 }`}
                 title="Delete every note on this lecture"
               >
@@ -277,7 +277,7 @@ export const InteractiveNotes: React.FC = () => {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-medium transition-all ${
                 confirmClearBookmarks
                   ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse'
-                  : 'bg-black/[0.03] hover:bg-rose-500/10 dark:bg-white/[0.05] dark:hover:bg-rose-500/15 border-black/[0.05] dark:border-white/[0.08] hover:border-rose-500/30 text-zinc-500 hover:text-rose-400'
+                  : 'bg-black/[0.03] hover:bg-rose-500/10 dark:bg-white/[0.05] dark:hover:bg-rose-500/15 border-black/[0.05] dark:border-white/[0.08] hover:border-rose-500/30 text-zinc-500 dark:text-zinc-400 hover:text-rose-400'
               }`}
               title="Clear all bookmarks for this lesson"
             >
@@ -293,19 +293,19 @@ export const InteractiveNotes: React.FC = () => {
             {notes.length > 0 && (
               <div className="px-3.5 pt-3 pb-1">
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
+                  <Search className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
                   <input
                     id="notes-search-input"
                     type="text"
                     value={noteQuery}
                     onChange={(e) => setNoteQuery(e.target.value)}
                     placeholder={`Search ${notes.length} note${notes.length === 1 ? '' : 's'} on this lecture...`}
-                    className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/10 rounded-full pl-9 pr-8 py-2 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/10 rounded-full pl-9 pr-8 py-2 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 transition-colors"
                   />
                   {noteQuery && (
                     <button
                       onClick={() => setNoteQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition-colors"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition-colors"
                       title="Clear search"
                       aria-label="Clear search"
                     >
@@ -316,18 +316,18 @@ export const InteractiveNotes: React.FC = () => {
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5" role="region" aria-live="polite" aria-label="Notes for this lecture">
               {notes.length === 0 ? (
-                <div className="text-center py-12 text-zinc-400 dark:text-zinc-500 text-[13px]">
+                <div className="text-center py-12 text-zinc-500 dark:text-zinc-400 text-[13px]">
                   <p>No notes for this lecture yet.</p>
-                  <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-1 font-mono">
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-mono">
                     Press Ctrl+Enter to save a note with current timestamp.
                   </p>
                 </div>
               ) : visibleNotes.length === 0 ? (
-                <div className="text-center py-12 text-zinc-400 dark:text-zinc-500 text-[13px]">
+                <div className="text-center py-12 text-zinc-500 dark:text-zinc-400 text-[13px]">
                   <p>No notes match &ldquo;{noteQuery}&rdquo;.</p>
-                  <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-1 font-mono">
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-mono">
                     Press Ctrl+K to search notes across every lecture.
                   </p>
                 </div>
@@ -340,7 +340,7 @@ export const InteractiveNotes: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <button
                         onClick={() => setCurrentTime(note.timestampSeconds)}
-                        className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white dark:bg-white/10 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-black/[0.05] dark:border-white/10 font-mono text-[10px] font-semibold transition-colors"
+                        className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white dark:bg-white/10 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-black/[0.05] dark:border-white/10 font-mono text-[10px] font-semibold transition-colors"
                         title="Click to seek in video"
                       >
                         <Clock className="w-3 h-3 text-indigo-500 dark:text-indigo-400" strokeWidth={1.5} />
@@ -348,12 +348,12 @@ export const InteractiveNotes: React.FC = () => {
                       </button>
                       
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
                           {new Date(note.createdAt).toLocaleDateString()}
                         </span>
                         <button
                           onClick={() => removeNote(activeLesson.id, note.id)}
-                          className="p-1 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          className="p-1 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                           title="Delete this note"
                           aria-label="Delete this note"
                         >
@@ -365,7 +365,7 @@ export const InteractiveNotes: React.FC = () => {
                       {note.content}
                     </p>
                     {note.slideNumber ? (
-                      <span className="inline-block text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                      <span className="inline-block text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
                         Slide {note.slideNumber}
                       </span>
                     ) : null}
@@ -377,7 +377,7 @@ export const InteractiveNotes: React.FC = () => {
             {/* Note Input */}
             <div className="p-3.5 border-t border-black/[0.06] dark:border-white/[0.08] bg-black/[0.01] dark:bg-white/[0.02] space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
                   {lockedTimestamp !== null ? `Locked @ ${formatTimestamp(lockedTimestamp)}` : `Capture @ ${formatTimestamp(currentTime)}`}
                   {activeSlideNumber ? ` + Slide ${activeSlideNumber}` : ''}
                 </span>
@@ -389,7 +389,7 @@ export const InteractiveNotes: React.FC = () => {
                   onClick={toggleAutoPauseOnNote}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono transition-all select-none ${
                     autoPauseOnNote
-                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-semibold'
+                      ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold'
                       : 'bg-black/[0.04] dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 border border-transparent'
                   }`}
                   title={autoPauseOnNote ? 'Auto-pause active: video pauses while typing, resumes on submit' : 'Continuous mode: video keeps playing in background'}
@@ -416,11 +416,11 @@ export const InteractiveNotes: React.FC = () => {
                   onKeyDown={handleKeyDownNote}
                   placeholder={`Add a note at [${formatTimestamp(lockedTimestamp !== null ? lockedTimestamp : currentTime)}]... (Ctrl+Enter)`}
                   rows={2}
-                  className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/10 rounded-2xl p-3 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500 resize-none transition-colors"
+                  className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/10 rounded-2xl p-3 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 resize-none transition-colors"
                 />
 
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">
+                  <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
                     Timestamp: {formatTimestamp(lockedTimestamp !== null ? lockedTimestamp : currentTime)}
                   </span>
 
@@ -445,9 +445,9 @@ export const InteractiveNotes: React.FC = () => {
           <>
             <div className="flex-1 overflow-y-auto p-3.5 space-y-2">
               {sortedBookmarks.length === 0 ? (
-                <div className="text-center py-12 text-zinc-400 dark:text-zinc-500 text-[13px]">
+                <div className="text-center py-12 text-zinc-500 dark:text-zinc-400 text-[13px]">
                   <p>No bookmarks for this lecture yet.</p>
-                  <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-1 font-mono">
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-mono">
                     Press &apos;B&apos; during video playback or add a pin below.
                   </p>
                 </div>
@@ -460,7 +460,7 @@ export const InteractiveNotes: React.FC = () => {
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <button
                         onClick={() => setCurrentTime(bm.timestampSeconds)}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono text-[11px] font-semibold transition-colors shrink-0"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono text-[11px] font-semibold transition-colors shrink-0"
                         title="Click to seek in video"
                       >
                         <Clock className="w-3 h-3" strokeWidth={1.5} />
@@ -474,7 +474,7 @@ export const InteractiveNotes: React.FC = () => {
 
                     <button
                       onClick={() => removeBookmark(activeLesson.id, bm.id)}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
+                      className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
                       title="Delete bookmark"
                       aria-label="Delete bookmark"
                     >
@@ -493,11 +493,11 @@ export const InteractiveNotes: React.FC = () => {
                   value={bookmarkLabel}
                   onChange={(e) => setBookmarkLabel(e.target.value)}
                   placeholder={`Pin label (optional) at [${formatTimestamp(currentTime)}]...`}
-                  className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/10 rounded-2xl px-3 py-2.5 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition-colors"
+                  className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/10 rounded-2xl px-3 py-2.5 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/40 transition-colors"
                 />
 
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">
+                  <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
                     Seek: {formatTimestamp(currentTime)}
                   </span>
 

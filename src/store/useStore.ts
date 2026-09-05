@@ -4,6 +4,16 @@ import { CourseSummary, CourseCatalog, LessonItem, SupplementaryFile, StudyHubDa
 export type NavTab = 'player' | 'split-slides' | 'split-code' | 'notes' | 'ide' | 'library' | 'youtube';
 export type SidePanelTab = 'curriculum' | 'code' | 'notes' | 'slides';
 
+export interface Toast {
+  id: string;
+  message: string;
+  tone: 'success' | 'error' | 'info';
+  /** Optional single action, used for Undo on destructive operations. */
+  action?: { label: string; run: () => void };
+  /** ms before auto-dismiss; undoable toasts get longer. */
+  durationMs: number;
+}
+
 export interface StoreState {
   // Course State
   courses: CourseSummary[];
@@ -57,11 +67,15 @@ export interface StoreState {
   } | null;
   isExecutingCode: boolean;
   
+  toasts: Toast[];
+
   // User Data State
   userData: StudyHubData | null;
   lastSyncedTimestamp: number;
 
   // Actions
+  pushToast: (message: string, tone?: Toast['tone'], action?: Toast['action']) => void;
+  dismissToast: (id: string) => void;
   fetchInitialData: () => Promise<void>;
   selectCourse: (courseId: string) => Promise<void>;
   selectLesson: (lesson: LessonItem, startAt?: number) => void;
@@ -343,8 +357,20 @@ export const useStore = create<StoreState>((set, get) => ({
   codeOutput: null,
   isExecutingCode: false,
   
+  toasts: [],
+
   userData: null,
   lastSyncedTimestamp: 0,
+
+  pushToast: (message, tone = 'info', action) => {
+    const id = `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    // Undoable toasts stay long enough to actually undo.
+    const durationMs = action ? 8000 : tone === 'error' ? 6000 : 3000;
+    set(state => ({ toasts: [...state.toasts, { id, message, tone, action, durationMs }] }));
+    setTimeout(() => get().dismissToast(id), durationMs);
+  },
+
+  dismissToast: (id) => set(state => ({ toasts: state.toasts.filter(t => t.id !== id) })),
 
   fetchInitialData: async () => {
     try {
@@ -369,6 +395,7 @@ export const useStore = create<StoreState>((set, get) => ({
       await get().selectCourse(initialCourseId);
     } catch (err) {
       console.error('Failed to fetch initial data:', err);
+      get().pushToast('Could not reach the StudyHub server. Is it still running?', 'error');
       set({ isLoading: false });
     }
   },
@@ -417,6 +444,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     } catch (err) {
       console.error('Failed to load catalog for course:', courseId, err);
+      get().pushToast('Could not load that course. The folder may have moved or been unplugged.', 'error');
       set({ isCatalogLoading: false });
     }
   },
@@ -614,6 +642,7 @@ export const useStore = create<StoreState>((set, get) => ({
       });
     } catch (e) {
       console.error('Failed to update completion:', e);
+      get().pushToast('Could not save that completion change. Your progress may be out of date.', 'error');
     }
   },
 
@@ -662,12 +691,14 @@ export const useStore = create<StoreState>((set, get) => ({
       });
     } catch (e) {
       console.error('Failed to save note:', e);
+      get().pushToast('That note could not be saved to disk.', 'error');
     }
   },
 
   removeNote: async (lessonId: string, noteId: string) => {
     const { activeCourseId, userData } = get();
     const existing = userData?.courses?.[activeCourseId]?.notes?.[lessonId] || [];
+    const removed = existing.find(n => n.id === noteId);
     const updated = existing.filter(n => n.id !== noteId);
 
     set({
@@ -689,13 +720,23 @@ export const useStore = create<StoreState>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseId: activeCourseId, lessonId, removeNoteId: noteId })
       });
+      // Deleting writing with no way back is the one place this app could
+      // actually lose your work. Offer the way back.
+      if (removed) {
+        get().pushToast('Note deleted.', 'info', {
+          label: 'Undo',
+          run: () => get().addNote(lessonId, removed.timestampSeconds, removed.content, removed.slideNumber)
+        });
+      }
     } catch (e) {
       console.error('Failed to remove note:', e);
+      get().pushToast('Could not delete that note on disk — it may reappear.', 'error');
     }
   },
 
   clearAllNotes: async (lessonId: string) => {
     const { activeCourseId, userData } = get();
+    const removedAll = userData?.courses?.[activeCourseId]?.notes?.[lessonId] || [];
 
     set({
       userData: {
@@ -716,8 +757,17 @@ export const useStore = create<StoreState>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseId: activeCourseId, lessonId, clearAllNotes: true })
       });
+      if (removedAll.length) {
+        get().pushToast(`Cleared ${removedAll.length} note${removedAll.length === 1 ? '' : 's'}.`, 'info', {
+          label: 'Undo',
+          run: async () => {
+            for (const n of removedAll) await get().addNote(lessonId, n.timestampSeconds, n.content, n.slideNumber);
+          }
+        });
+      }
     } catch (e) {
       console.error('Failed to clear notes:', e);
+      get().pushToast('Could not clear notes on disk.', 'error');
     }
   },
 
@@ -762,6 +812,7 @@ export const useStore = create<StoreState>((set, get) => ({
       });
     } catch (e) {
       console.error('Failed to save bookmark:', e);
+      get().pushToast('That bookmark could not be saved.', 'error');
     }
   },
 
@@ -796,8 +847,16 @@ export const useStore = create<StoreState>((set, get) => ({
           removeBookmarkId: bookmarkId
         })
       });
+      const gone = courseBookmarks.find(b => b.id === bookmarkId);
+      if (gone) {
+        get().pushToast('Bookmark deleted.', 'info', {
+          label: 'Undo',
+          run: () => get().addBookmark(lessonId, gone.timestampSeconds, gone.label)
+        });
+      }
     } catch (e) {
       console.error('Failed to remove bookmark:', e);
+      get().pushToast('Could not delete that bookmark on disk.', 'error');
     }
   },
 
@@ -895,6 +954,7 @@ export const useStore = create<StoreState>((set, get) => ({
       return true;
     } catch (err) {
       console.error('Error adding course:', err);
+      get().pushToast('Could not index that folder. Check the path exists and contains videos.', 'error');
       return false;
     }
   },
@@ -930,6 +990,7 @@ export const useStore = create<StoreState>((set, get) => ({
       return null;
     } catch (err) {
       console.error('Error saving YouTube course:', err);
+      get().pushToast('Could not save that playlist as a course.', 'error');
       set({ isLoading: false });
       return null;
     }

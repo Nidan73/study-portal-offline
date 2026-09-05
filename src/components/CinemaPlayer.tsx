@@ -717,7 +717,7 @@ export const CinemaPlayer: React.FC = () => {
     return (
       <div className="p-2 rounded-[2rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
         <div className="flex flex-col items-center justify-center h-[460px] rounded-[calc(2rem-0.5rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-8 text-center select-none transition-colors">
-          <div className="w-14 h-14 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center text-zinc-400 dark:text-zinc-500 mb-4 border border-black/[0.04] dark:border-white/[0.08]">
+          <div className="w-14 h-14 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center text-zinc-500 dark:text-zinc-400 mb-4 border border-black/[0.04] dark:border-white/[0.08]">
             <Play className="w-5 h-5 ml-0.5" strokeWidth={1.5} />
           </div>
           <span className="rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-[0.2em] font-medium font-mono bg-zinc-100 dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400 mb-2">
@@ -798,12 +798,12 @@ export const CinemaPlayer: React.FC = () => {
         {showNextOverlay && (
           <div className="absolute bottom-16 right-4 bg-zinc-950/95 border border-white/15 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl z-30 max-w-xs animate-in fade-in">
             <div className="flex items-center justify-between gap-3 mb-2.5">
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400">
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
                 Up next in {nextCountdown}s
               </span>
               <button 
                 onClick={() => setShowNextOverlay(false)}
-                className="text-zinc-400 hover:text-white transition-colors"
+                className="text-zinc-500 dark:text-zinc-400 hover:text-white transition-colors"
               >
                 <X className="w-4 h-4" strokeWidth={1.5} />
               </button>
@@ -910,7 +910,7 @@ export const CinemaPlayer: React.FC = () => {
                       e.stopPropagation();
                       removeBookmark(activeLesson.id, bm.id);
                     }}
-                    className="w-4 h-4 rounded-full hover:bg-rose-500/30 text-zinc-400 hover:text-rose-400 flex items-center justify-center transition-colors"
+                    className="w-4 h-4 rounded-full hover:bg-rose-500/30 text-zinc-500 dark:text-zinc-400 hover:text-rose-400 flex items-center justify-center transition-colors"
                     title="Delete Pin"
                   >
                     <Trash2 className="w-2.5 h-2.5" strokeWidth={1.5} />
@@ -1046,7 +1046,7 @@ export const CinemaPlayer: React.FC = () => {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsBoostMenuOpen(false)} />
                   <div id="audio-boost-popover" className="absolute left-0 bottom-full mb-2 w-56 rounded-2xl bg-zinc-950/95 backdrop-blur-2xl border border-white/15 shadow-2xl p-2.5 z-50 animate-in fade-in space-y-2 select-none">
-                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-zinc-400 px-1">
+                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400 px-1">
                       <span>Audio Booster</span>
                       <span className="text-amber-400 font-bold">{Math.round(audioBoost * 100)}%</span>
                     </div>
@@ -1080,7 +1080,7 @@ export const CinemaPlayer: React.FC = () => {
                       ))}
                     </div>
 
-                    <div className="text-[9px] text-zinc-500 px-1 text-center font-mono">
+                    <div className="text-[9px] text-zinc-500 dark:text-zinc-400 px-1 text-center font-mono">
                       Vocal Dynamics Compressor Active
                     </div>
                   </div>
@@ -1142,8 +1142,8 @@ export const CinemaPlayer: React.FC = () => {
                     </div>
 
                     {bookmarks.length === 0 ? (
-                      <div className="p-3 text-center text-[11px] text-zinc-500 italic">
-                        No pins dropped yet. Press <kbd className="font-mono text-zinc-400">B</kbd> or click "+ Pin".
+                      <div className="p-3 text-center text-[11px] text-zinc-500 dark:text-zinc-400 italic">
+                        No pins dropped yet. Press <kbd className="font-mono text-zinc-500">B</kbd> or click "+ Pin".
                       </div>
                     ) : (
                       <div className="max-h-52 overflow-y-auto space-y-1 pr-0.5">
@@ -1177,7 +1177,7 @@ export const CinemaPlayer: React.FC = () => {
                                   e.stopPropagation();
                                   removeBookmark(activeLesson.id, bm.id);
                                 }}
-                                className="p-1 rounded-lg hover:bg-rose-500/20 text-zinc-500 hover:text-rose-400 opacity-60 group-hover/item:opacity-100 transition-all flex-shrink-0"
+                                className="p-1 rounded-lg hover:bg-rose-500/20 text-zinc-500 dark:text-zinc-400 hover:text-rose-400 opacity-60 group-hover/item:opacity-100 transition-all flex-shrink-0"
                                 title="Delete pin"
                               >
                                 <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -1191,7 +1191,7 @@ export const CinemaPlayer: React.FC = () => {
                       <div className="pt-1.5 border-t border-white/10 flex justify-end">
                         <button
                           onClick={() => clearAllBookmarks(activeLesson.id)}
-                          className="text-[10px] text-zinc-500 hover:text-rose-400 transition-colors flex items-center gap-1"
+                          className="text-[10px] text-zinc-500 dark:text-zinc-400 hover:text-rose-400 transition-colors flex items-center gap-1"
                         >
                           <Trash2 className="w-3 h-3" strokeWidth={1.5} />
                           <span>Clear All Pins</span>
@@ -1227,7 +1227,7 @@ export const CinemaPlayer: React.FC = () => {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsLoopMenuOpen(false)} />
                   <div className="absolute right-0 bottom-full mb-2 w-52 rounded-2xl bg-zinc-950/95 backdrop-blur-2xl border border-white/15 shadow-2xl p-2.5 z-50 animate-in fade-in space-y-2">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 px-1">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400 px-1">
                       A-B Looper Practice
                     </div>
                     <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono">
@@ -1273,7 +1273,7 @@ export const CinemaPlayer: React.FC = () => {
                         onClick={() => {
                           clearLoop();
                         }}
-                        className="px-2 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-[11px]"
+                        className="px-2 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-500 dark:text-zinc-400 hover:text-white text-[11px]"
                         title="Clear A and B markers"
                       >
                         Reset
@@ -1299,7 +1299,7 @@ export const CinemaPlayer: React.FC = () => {
               onClick={() => toggleLessonComplete(activeLesson.id)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap flex-shrink-0 transition-all duration-200 ease-fluid ${
                 isCompleted 
-                  ? 'bg-emerald-600 text-white shadow-sm' 
+                  ? 'bg-emerald-700 text-white shadow-sm' 
                   : 'bg-white/10 text-white hover:bg-white/15'
               }`}
               title="Toggle Completed"

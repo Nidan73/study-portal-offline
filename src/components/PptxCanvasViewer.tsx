@@ -333,7 +333,7 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsFocused(true)}
       onBlur={() => setIsFocused(false)}
-      className={`relative flex flex-col h-full w-full bg-[#08090d] text-white overflow-hidden select-none transition-all duration-300 focus:outline-none ${
+      className={`relative flex flex-col h-full w-full bg-[#08090d] text-white overflow-hidden select-none transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
         isFullscreen ? 'fixed inset-0 z-50 p-4' : 'rounded-[calc(2rem-0.375rem)]'
       }`}
     >
@@ -409,7 +409,7 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
             </div>
             <div className="space-y-1">
               <p className="text-sm font-semibold text-white tracking-tight">{loadingStatus}</p>
-              <p className="text-xs text-zinc-400">Rendering authentic PowerPoint vector canvas</p>
+              <p className="text-xs text-zinc-500">Rendering authentic PowerPoint vector canvas</p>
             </div>
           </div>
         )}
@@ -422,7 +422,7 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
             </div>
             <div className="space-y-1.5">
               <h4 className="text-base font-bold text-white">Presentation Preview Notice</h4>
-              <p className="text-xs text-zinc-400 leading-relaxed">{error}</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{error}</p>
             </div>
             {deck.filePath && onLaunchDesktop && (
               <button
@@ -527,7 +527,7 @@ export const PptxCanvasViewer: React.FC<PptxCanvasViewerProps> = ({
                 </option>
               ))}
             </select>
-            <span className="pointer-events-none absolute right-2.5 text-[10px] text-zinc-400">▾</span>
+            <span className="pointer-events-none absolute right-2.5 text-[10px] text-zinc-500">▾</span>
           </div>
 
           <button

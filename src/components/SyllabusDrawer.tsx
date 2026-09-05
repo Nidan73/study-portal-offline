@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
+import { SkeletonList } from './Skeleton';
 import { 
   Check, 
   Circle, 
@@ -28,6 +29,7 @@ export const SyllabusDrawer: React.FC = () => {
   const toggleLessonComplete = useStore(state => state.toggleLessonComplete);
   const setSidePanelTab = useStore(state => state.setSidePanelTab);
   const setActiveTab = useStore(state => state.setActiveTab);
+  const isCatalogLoading = useStore(state => state.isCatalogLoading);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
@@ -77,10 +79,16 @@ export const SyllabusDrawer: React.FC = () => {
     }
   };
 
-  if (!catalog) {
+  // Shape-matched placeholder rather than the old centred text, which was also
+  // hardcoded to #141413 and therefore near-invisible on the dark theme.
+  // isCatalogLoading was previously computed by the store and consumed nowhere,
+  // so switching course showed stale lessons until the new ones popped in.
+  if (!catalog || isCatalogLoading) {
     return (
-      <div className="p-6 text-center text-[#141413]/60 text-[12px] font-mono">
-        Loading syllabus...
+      <div className="p-1.5 rounded-[2rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08] h-full">
+        <div className="h-full bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] rounded-[calc(2rem-0.375rem)] p-4 overflow-hidden">
+          <SkeletonList rows={7} label={isCatalogLoading ? 'Loading the new course' : 'Loading syllabus'} />
+        </div>
       </div>
     );
   }
@@ -125,12 +133,12 @@ export const SyllabusDrawer: React.FC = () => {
             {/* Header Eyebrow */}
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-400">
+                <div className="w-6 h-6 rounded-full bg-red-500/10 flex items-center justify-center text-red-700 dark:text-red-400">
                   <Youtube className="w-3.5 h-3.5" />
                 </div>
                 <h2 className="font-bold text-[14px] tracking-tight text-zinc-900 dark:text-white">YouTube Companion</h2>
               </div>
-              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 font-medium">
+              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20 font-medium">
                 Live Stream
               </span>
             </div>
@@ -172,12 +180,12 @@ export const SyllabusDrawer: React.FC = () => {
                     onClick={() => setSidePanelTab('notes')}
                     className="flex items-center gap-2 p-2.5 rounded-xl bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-left transition-colors group"
                   >
-                    <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 flex items-center justify-center shrink-0">
                       <FileText className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </div>
                     <div className="min-w-0">
                       <div className="text-[11px] font-semibold text-zinc-900 dark:text-white truncate">Take Notes</div>
-                      <div className="text-[9px] text-zinc-400 font-mono">Timestamped</div>
+                      <div className="text-[9px] text-zinc-500 dark:text-zinc-400 font-mono">Timestamped</div>
                     </div>
                   </button>
 
@@ -186,12 +194,12 @@ export const SyllabusDrawer: React.FC = () => {
                     onClick={() => setSidePanelTab('code')}
                     className="flex items-center gap-2 p-2.5 rounded-xl bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-left transition-colors group"
                   >
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
                       <Code2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </div>
                     <div className="min-w-0">
                       <div className="text-[11px] font-semibold text-zinc-900 dark:text-white truncate">Code Along</div>
-                      <div className="text-[9px] text-zinc-400 font-mono">In-App IDE</div>
+                      <div className="text-[9px] text-zinc-500 dark:text-zinc-400 font-mono">In-App IDE</div>
                     </div>
                   </button>
 
@@ -200,12 +208,12 @@ export const SyllabusDrawer: React.FC = () => {
                     onClick={() => setSidePanelTab('slides')}
                     className="flex items-center gap-2 p-2.5 rounded-xl bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-left transition-colors group"
                   >
-                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
                       <BookOpen className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </div>
                     <div className="min-w-0">
                       <div className="text-[11px] font-semibold text-zinc-900 dark:text-white truncate">Open Slides</div>
-                      <div className="text-[9px] text-zinc-400 font-mono">PDF & PPTX</div>
+                      <div className="text-[9px] text-zinc-500 dark:text-zinc-400 font-mono">PDF & PPTX</div>
                     </div>
                   </button>
 
@@ -214,12 +222,12 @@ export const SyllabusDrawer: React.FC = () => {
                     onClick={() => setActiveTab('youtube')}
                     className="flex items-center gap-2 p-2.5 rounded-xl bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-left transition-colors group"
                   >
-                    <div className="w-7 h-7 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-red-500/10 text-red-700 dark:text-red-400 flex items-center justify-center shrink-0">
                       <Youtube className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </div>
                     <div className="min-w-0">
                       <div className="text-[11px] font-semibold text-zinc-900 dark:text-white truncate">Explorer</div>
-                      <div className="text-[9px] text-zinc-400 font-mono">More Videos</div>
+                      <div className="text-[9px] text-zinc-500 dark:text-zinc-400 font-mono">More Videos</div>
                     </div>
                   </button>
                 </div>
@@ -231,7 +239,7 @@ export const SyllabusDrawer: React.FC = () => {
               <div className="p-3 bg-black/[0.01] dark:bg-white/[0.01] flex flex-col space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 pr-2">
-                    <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
                       Local Offline Repository
                     </span>
                     <div className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate mt-0.5">
@@ -304,7 +312,7 @@ export const SyllabusDrawer: React.FC = () => {
             <div className="p-4 border-b border-black/[0.06] dark:border-white/[0.08] bg-black/[0.01] dark:bg-white/[0.02]">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <div className="w-6 h-6 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-700 dark:text-indigo-400">
                     <Layers className="w-3.5 h-3.5" strokeWidth={1.5} />
                   </div>
                   <h2 className="font-bold text-[14px] tracking-tight text-zinc-900 dark:text-white">Curriculum</h2>
@@ -316,13 +324,13 @@ export const SyllabusDrawer: React.FC = () => {
 
               {/* Search */}
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.5} />
+                <Search className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.5} />
                 <input
                   type="text"
                   placeholder="Search lectures & topics..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.07] rounded-full pl-9 pr-4 py-1.5 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.07] rounded-full pl-9 pr-4 py-1.5 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 transition-colors"
                 />
               </div>
             </div>
@@ -330,7 +338,7 @@ export const SyllabusDrawer: React.FC = () => {
             {/* Modules List */}
             <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
               {filteredModules.length === 0 ? (
-                <div className="p-8 text-center text-zinc-400 dark:text-zinc-500 text-[12px] font-mono">
+                <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 text-[12px] font-mono">
                   No lectures matching "{searchQuery}"
                 </div>
               ) : (
@@ -351,9 +359,9 @@ export const SyllabusDrawer: React.FC = () => {
                       >
                         <div className="flex items-center gap-2 min-w-0 pr-2">
                           {isExpanded ? (
-                            <ChevronDown className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" strokeWidth={1.5} />
+                            <ChevronDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 flex-shrink-0" strokeWidth={1.5} />
                           ) : (
-                            <ChevronRight className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" strokeWidth={1.5} />
+                            <ChevronRight className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 flex-shrink-0" strokeWidth={1.5} />
                           )}
                           <h4 className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 truncate tracking-tight">
                             {mod.title}
@@ -362,7 +370,7 @@ export const SyllabusDrawer: React.FC = () => {
 
                         <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-medium ${
                           isModAllCompleted
-                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
                             : 'text-zinc-500 dark:text-zinc-400 bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.04] dark:border-white/[0.08]'
                         }`}>
                           {completedInMod}/{mod.lessons.length}
@@ -383,7 +391,7 @@ export const SyllabusDrawer: React.FC = () => {
                                 <FileText className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" strokeWidth={1.5} />
                                 <span className="truncate font-medium">{pdf.title}</span>
                               </div>
-                              <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-400">PDF</span>
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400">PDF</span>
                             </button>
                           ))}
 
@@ -405,7 +413,7 @@ export const SyllabusDrawer: React.FC = () => {
                                 <div className="flex items-center gap-2.5 min-w-0 pr-2">
                                   <button
                                     onClick={(e) => handleToggleComplete(e, lesson.id)}
-                                    className={`transition-colors flex-shrink-0 ${isActive ? 'text-white dark:text-zinc-950' : 'text-zinc-400 hover:text-indigo-600'}`}
+                                    className={`transition-colors flex-shrink-0 ${isActive ? 'text-white dark:text-zinc-950' : 'text-zinc-500 dark:text-zinc-400 hover:text-indigo-600'}`}
                                   >
                                     {isDone ? (
                                       <Check className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400 dark:text-emerald-600' : 'text-emerald-500'}`} strokeWidth={1.5} />
@@ -418,7 +426,7 @@ export const SyllabusDrawer: React.FC = () => {
                                     <div className="truncate text-[12px] tracking-tight">
                                       {lesson.title}
                                     </div>
-                                    <div className={`text-[10px] font-mono ${isActive ? 'text-white/70 dark:text-zinc-950/70' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                                    <div className={`text-[10px] font-mono ${isActive ? 'text-white/70 dark:text-zinc-950/70' : 'text-zinc-500 dark:text-zinc-400'}`}>
                                       {lesson.fileSizeBytes > 0 ? `${(lesson.fileSizeBytes / (1024 * 1024)).toFixed(0)} MB` : 'Video'}
                                     </div>
                                   </div>

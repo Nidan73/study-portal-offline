@@ -32,7 +32,8 @@ export const SplitPdfViewer: React.FC = () => {
     activeTab,
     setActiveTab,
     sidePanelTab,
-    setSidePanelTab
+    setSidePanelTab,
+    pushToast
   } = useStore();
 
   const [availableDecks, setAvailableDecks] = useState<SupplementaryFile[]>([]);
@@ -87,10 +88,10 @@ export const SplitPdfViewer: React.FC = () => {
         setDesktopMessage(`Launched in desktop presentation app (${deckToLaunch.filename})`);
         setTimeout(() => setDesktopMessage(null), 4000);
       } else {
-        alert(data.error || 'Failed to open file on desktop');
+        pushToast(data.error || 'Could not open that deck in a desktop app. Check that a presentation app is installed.', 'error');
       }
     } catch (e: any) {
-      alert(`Error launching: ${e.message}`);
+      pushToast(`Could not launch the desktop viewer: ${e.message}`, 'error');
     } finally {
       setIsLaunchingDesktop(false);
     }
@@ -140,7 +141,7 @@ export const SplitPdfViewer: React.FC = () => {
         setCurrentDeck(match);
         selectPdf(match);
       } else {
-        alert(`Loaded "${file.name}". You can browse all discovered project presentations from the deck switcher above.`);
+        pushToast(`Loaded "${file.name}". Browse every discovered deck from the switcher above.`, 'success');
       }
     }
   };
@@ -196,7 +197,7 @@ export const SplitPdfViewer: React.FC = () => {
               <span className="truncate">
                 {currentDeck ? currentDeck.title : 'Select Slide Deck...'}
               </span>
-              <ChevronDown className="w-3 h-3 text-zinc-400 shrink-0 ml-auto" />
+              <ChevronDown className="w-3 h-3 text-zinc-500 dark:text-zinc-400 shrink-0 ml-auto" />
             </button>
 
             {/* Dropdown Menu */}
@@ -207,7 +208,7 @@ export const SplitPdfViewer: React.FC = () => {
                   onClick={() => setIsDeckDropdownOpen(false)} 
                 />
                 <div className="absolute left-0 mt-2 w-80 sm:w-96 rounded-[1.5rem] bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-2xl border border-black/[0.08] dark:border-white/10 shadow-2xl p-2 z-50 animate-in fade-in">
-                  <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                  <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
                     <span>Available Presentations ({availableDecks.length})</span>
                     <span>PDF & PPTX</span>
                   </div>
@@ -288,7 +289,7 @@ export const SplitPdfViewer: React.FC = () => {
                 id="btn-launch-desktop-toolbar"
                 onClick={() => handleLaunchDesktop(currentDeck)}
                 disabled={isLaunchingDesktop}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-semibold transition-all active:scale-95 shadow-xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-[11px] font-semibold transition-all active:scale-95 shadow-xs"
                 title="Launch this presentation in OnlyOffice / PowerPoint on your PC"
               >
                 {isLaunchingDesktop ? (
@@ -341,7 +342,7 @@ export const SplitPdfViewer: React.FC = () => {
         </div>
 
         {desktopMessage && (
-          <div className="bg-emerald-500/10 border-b border-emerald-500/20 px-4 py-1.5 text-center text-emerald-600 dark:text-emerald-400 text-[11px] font-medium animate-in fade-in">
+          <div className="bg-emerald-500/10 border-b border-emerald-500/20 px-4 py-1.5 text-center text-emerald-700 dark:text-emerald-400 text-[11px] font-medium animate-in fade-in">
             {desktopMessage}
           </div>
         )}
@@ -378,7 +379,7 @@ export const SplitPdfViewer: React.FC = () => {
                 <div className="w-12 h-12 rounded-full bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center mx-auto mb-3">
                   <Presentation className="w-6 h-6" strokeWidth={1.5} />
                 </div>
-                <span className="rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-[0.2em] font-medium font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <span className="rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-[0.2em] font-medium font-mono bg-amber-500/10 text-amber-700 dark:text-amber-400">
                   Slide Companion
                 </span>
                 <h3 className="text-base font-bold text-zinc-900 dark:text-white tracking-tight mt-2">
@@ -404,7 +405,7 @@ export const SplitPdfViewer: React.FC = () => {
               {/* Available Decks Grid */}
               {availableDecks.length > 0 && (
                 <div className="space-y-2.5 pt-3 border-t border-black/[0.06] dark:border-white/[0.08]">
-                  <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-zinc-400 px-1">
+                  <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 px-1">
                     <span>Discovered Materials ({availableDecks.length})</span>
                     <span>Ready to Study</span>
                   </div>
@@ -440,7 +441,7 @@ export const SplitPdfViewer: React.FC = () => {
                               <h4 className="text-xs font-semibold text-zinc-900 dark:text-white truncate group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors">
                                 {deck.title}
                               </h4>
-                              <p className="text-[10px] font-mono text-zinc-400 truncate">
+                              <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
                                 {deck.courseName || deck.type.toUpperCase()} • {sizeKb} KB
                               </p>
                             </div>
@@ -450,7 +451,7 @@ export const SplitPdfViewer: React.FC = () => {
                             {isDeckPptx && (
                               <button
                                 onClick={() => handleLaunchDesktop(deck)}
-                                className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-medium transition-colors"
+                                className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[11px] font-medium transition-colors"
                                 title="Open in OnlyOffice Desktop"
                               >
                                 <Monitor className="w-3.5 h-3.5" strokeWidth={1.5} />

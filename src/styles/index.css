@@ -94,3 +94,56 @@ body {
   border: 0 !important;
 }
 
+
+@keyframes toast-drain {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+/* Respect the OS "reduce motion" setting. The UI has a pulsing live badge,
+   spinners and long fluid transitions; none of that should be forced on
+   someone who has asked the system for less movement. Transitions are
+   collapsed rather than removed so state changes still read as changes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Visible keyboard focus everywhere. Several components set
+   focus:outline-none with no replacement, which left keyboard users with no
+   indication of position at all. */
+:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Screen-reader-only text for live regions that should not be visible. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+/* The tab strip scrolls on narrow screens, because six 44px touch targets do
+   not fit beside the brand on a phone. Fade the trailing edge so the extra
+   tabs are discoverable rather than silently cut off. The fade is removed once
+   everything fits. */
+.nav-tab-scroller {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent 100%);
+  scroll-snap-type: x proximity;
+}
+.nav-tab-scroller > * { scroll-snap-align: center; }
+
+@media (min-width: 1024px) {
+  .nav-tab-scroller {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}

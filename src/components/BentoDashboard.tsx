@@ -1,5 +1,6 @@
 import React from 'react';
 import { useStore } from '../store/useStore';
+import { SkeletonCards } from './Skeleton';
 import { 
   Play, 
   Flame, 
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 
 export const BentoDashboard: React.FC = () => {
+  const [confirmRemoveId, setConfirmRemoveId] = React.useState<string | null>(null);
   // Per-field selectors, not a whole-store destructure: this component used to
   // re-render on every currentTime tick (~4x/sec during playback).
   const courses = useStore(state => state.courses);
@@ -27,6 +29,8 @@ export const BentoDashboard: React.FC = () => {
   const setActiveTab = useStore(state => state.setActiveTab);
   const userData = useStore(state => state.userData);
   const setAddCourseModal = useStore(state => state.setAddCourseModal);
+  const pushToast = useStore(state => state.pushToast);
+  const isCatalogLoading = useStore(state => state.isCatalogLoading);
 
   const activeCourse = courses.find(c => c.id === activeCourseId) || courses[0];
   const userCourseData = userData?.courses?.[activeCourseId];
@@ -57,10 +61,10 @@ export const BentoDashboard: React.FC = () => {
         <div className="p-6 sm:p-10 rounded-[calc(2.5rem-0.375rem)] sm:rounded-[calc(2.5rem-0.5rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3 max-w-3xl">
             <div className="flex items-center gap-2">
-              <span className="rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium font-mono bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/40">
+              <span className="rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium font-mono bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/40">
                 Active Repository
               </span>
-              <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
                 Offline Verified
               </span>
             </div>
@@ -94,14 +98,14 @@ export const BentoDashboard: React.FC = () => {
           <div className="p-6 sm:p-8 rounded-[calc(2rem-0.375rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex-1 flex flex-col justify-between space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <div className="w-7 h-7 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-700 dark:text-indigo-400">
                   <Clock className="w-3.5 h-3.5" strokeWidth={1.5} />
                 </div>
-                <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+                <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
                   Continue Watching
                 </span>
               </div>
-              <span className="text-[11px] font-mono font-semibold text-indigo-600 dark:text-indigo-400 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50">
+              <span className="text-[11px] font-mono font-semibold text-indigo-700 dark:text-indigo-400 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50">
                 {percent}% Mastered
               </span>
             </div>
@@ -112,7 +116,7 @@ export const BentoDashboard: React.FC = () => {
                   <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white tracking-tight line-clamp-1">
                     {resumeLesson.title}
                   </h3>
-                  <p className="text-[12px] text-zinc-400 dark:text-zinc-500 font-mono mt-1 truncate">
+                  <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-mono mt-1 truncate">
                     {resumeLesson.relativePath}
                   </p>
                 </div>
@@ -125,7 +129,7 @@ export const BentoDashboard: React.FC = () => {
                     />
                   </div>
                   {resumeDuration > 0 && (
-                    <p className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                    <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
                       {Math.floor(resumeSeconds / 60)}m of {Math.round(resumeDuration / 60)}m watched
                     </p>
                   )}
@@ -155,7 +159,7 @@ export const BentoDashboard: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="py-10 text-center text-zinc-400 dark:text-zinc-500 text-[13px] font-mono">
+              <div className="py-10 text-center text-zinc-500 dark:text-zinc-400 text-[13px] font-mono">
                 No lectures found in directory.
               </div>
             )}
@@ -171,17 +175,17 @@ export const BentoDashboard: React.FC = () => {
                   <div className="w-7 h-7 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
                     <Flame className="w-3.5 h-3.5" strokeWidth={1.5} />
                   </div>
-                  <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+                  <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
                     Streak
                   </span>
                 </div>
-                <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full bg-amber-500/10">
+                <span className="text-[11px] font-mono font-bold text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full bg-amber-500/10">
                   {streak} Days
                 </span>
               </div>
 
               <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
-                {streak} <span className="text-[13px] font-mono font-normal text-zinc-400">consecutive</span>
+                {streak} <span className="text-[13px] font-mono font-normal text-zinc-500">consecutive</span>
               </div>
             </div>
 
@@ -199,16 +203,16 @@ export const BentoDashboard: React.FC = () => {
           <div className="p-6 sm:p-7 rounded-[calc(2rem-0.375rem)] bg-white dark:bg-[#111218] border border-black/[0.05] dark:border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex-1 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+                <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
                   Course Completion
                 </span>
                 <span className="text-[11px] font-mono font-bold text-zinc-900 dark:text-white">{percent}%</span>
               </div>
 
               <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
-                {completedCount} <span className="text-[13px] font-mono font-normal text-zinc-400">/ {totalCount}</span>
+                {completedCount} <span className="text-[13px] font-mono font-normal text-zinc-500">/ {totalCount}</span>
               </div>
-              <p className="text-[12px] text-zinc-400 dark:text-zinc-500 mt-1 font-mono">
+              <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-1 font-mono">
                 {catalog?.modules.length || 0} modules indexed
               </p>
             </div>
@@ -226,7 +230,7 @@ export const BentoDashboard: React.FC = () => {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-500" strokeWidth={1.5} />
-                <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-400">
+                <span className="text-[10px] font-mono font-medium uppercase tracking-[0.2em] text-zinc-500">
                   Local-First Engine
                 </span>
               </div>
@@ -259,11 +263,12 @@ export const BentoDashboard: React.FC = () => {
             </div>
             <h2 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">Local Library</h2>
           </div>
-          <span className="text-[11px] font-mono text-zinc-400">
+          <span className="text-[11px] font-mono text-zinc-500">
             {courses.length} courses loaded
           </span>
         </div>
 
+        {isCatalogLoading && courses.length === 0 ? <SkeletonCards count={3} /> : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {courses.map((course) => {
             const isCurrent = course.id === activeCourseId;
@@ -283,7 +288,7 @@ export const BentoDashboard: React.FC = () => {
                         {course.badge || 'Local Course'}
                       </span>
                       {isCurrent && (
-                        <span className="flex items-center gap-1 text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                        <span className="flex items-center gap-1 text-[10px] font-mono font-semibold text-emerald-700 dark:text-emerald-400">
                           <Check className="w-3 h-3" strokeWidth={1.5} />
                           <span>Active</span>
                         </span>
@@ -299,7 +304,7 @@ export const BentoDashboard: React.FC = () => {
                   </div>
 
                   <div className="pt-4 border-t border-black/[0.04] dark:border-white/[0.06] flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-zinc-400 truncate max-w-[150px]" title={course.rootPath || ''}>
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate max-w-[150px]" title={course.rootPath || ''}>
                       {course.isVirtual ? 'YouTube Series' : (course.rootPath ? course.rootPath.split('/').filter(Boolean).slice(-2).join('/') : 'Local')}
                     </span>
 
@@ -308,14 +313,26 @@ export const BentoDashboard: React.FC = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm(`Are you sure you want to remove "${course.name}" from your library?`)) {
-                              removeCourse(course.id);
+                            // Two-step in the UI's own language rather than a
+                            // native confirm() dialog. Removing only un-indexes
+                            // the course; nothing on disk is touched.
+                            if (confirmRemoveId !== course.id) {
+                              setConfirmRemoveId(course.id);
+                              setTimeout(() => setConfirmRemoveId(prev => (prev === course.id ? null : prev)), 4000);
+                              return;
                             }
+                            setConfirmRemoveId(null);
+                            removeCourse(course.id).then(ok =>
+                              pushToast(
+                                ok ? `Removed "${course.name}" from the library. Files on disk are untouched.` : `Could not remove "${course.name}".`,
+                                ok ? 'success' : 'error'
+                              )
+                            );
                           }}
-                          className="p-1.5 rounded-full hover:bg-red-500/10 text-zinc-400 hover:text-red-500 transition-colors"
-                          title="Remove Course"
+                          className={`rounded-full transition-colors ${confirmRemoveId === course.id ? 'px-2.5 py-1.5 bg-rose-500/15 text-rose-500 text-[10px] font-mono font-semibold' : 'p-1.5 hover:bg-red-500/10 text-zinc-500 dark:text-zinc-400 hover:text-red-500'}`}
+                          title={confirmRemoveId === course.id ? 'Click again to remove' : 'Remove course from library'}
                         >
-                          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                          {confirmRemoveId === course.id ? <span>Confirm?</span> : <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />}
                         </button>
                       )}
 
@@ -350,18 +367,19 @@ export const BentoDashboard: React.FC = () => {
             className="p-1.5 rounded-[2rem] bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.04] dark:border-white/[0.06] cursor-pointer group"
           >
             <div className="p-6 rounded-[calc(2rem-0.375rem)] border-2 border-dashed border-black/[0.08] dark:border-white/[0.1] group-hover:border-zinc-400 dark:group-hover:border-white/30 h-full flex flex-col items-center justify-center text-center min-h-[160px] transition-all duration-200">
-              <div className="w-10 h-10 rounded-full bg-black/[0.03] dark:bg-white/[0.06] flex items-center justify-center text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors mb-2">
+              <div className="w-10 h-10 rounded-full bg-black/[0.03] dark:bg-white/[0.06] flex items-center justify-center text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors mb-2">
                 <Plus className="w-4 h-4" strokeWidth={1.5} />
               </div>
               <h4 className="text-[13px] font-bold text-zinc-800 dark:text-zinc-200">
                 Scan Course Folder
               </h4>
-              <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 font-mono">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 font-mono">
                 Index directory of video lessons
               </p>
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

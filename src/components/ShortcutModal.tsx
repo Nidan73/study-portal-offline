@@ -78,7 +78,7 @@ export const ShortcutModal: React.FC = () => {
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-black/[0.06] dark:border-white/[0.08]">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+              <div className="w-9 h-9 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
                 <Keyboard className="w-4 h-4" strokeWidth={1.5} />
               </div>
               <div>
@@ -93,7 +93,7 @@ export const ShortcutModal: React.FC = () => {
 
             <button
               onClick={() => setShortcutHelpOpen(false)}
-              className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/[0.08] transition-colors"
+              className="p-1.5 rounded-full text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/[0.08] transition-colors"
             >
               <X className="w-4 h-4" strokeWidth={1.5} />
             </button>
@@ -124,7 +124,7 @@ export const ShortcutModal: React.FC = () => {
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {sc.keys.map((k, ki) => (
                             k === 'or' ? (
-                              <span key={ki} className="text-[10px] text-zinc-400 font-mono px-0.5">/</span>
+                              <span key={ki} className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono px-0.5">/</span>
                             ) : (
                               <kbd
                                 key={ki}
@@ -144,7 +144,7 @@ export const ShortcutModal: React.FC = () => {
           </div>
 
           {/* Footer */}
-          <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500">
+          <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
             <span>Press <kbd className="px-1.5 py-0.5 rounded bg-black/[0.05] dark:bg-white/10 font-mono text-[10px] text-zinc-600 dark:text-zinc-300 border border-black/[0.05] dark:border-white/10">?</kbd> anywhere to open or close</span>
             <span>StudyHub Core</span>
           </div>

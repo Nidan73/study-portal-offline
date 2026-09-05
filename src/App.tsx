@@ -12,6 +12,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { AddCourseModal } from './components/AddCourseModal';
 import { ShortcutModal } from './components/ShortcutModal';
 import { YouTubeExplorer } from './components/YouTubeExplorer';
+import { Toaster } from './components/Toaster';
 import { 
   PanelRightOpen, 
   Maximize2,
@@ -37,7 +38,7 @@ const LessonStrip: React.FC<{
         <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate tracking-tight">
           {lesson.title}
         </h2>
-        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono mt-0.5 truncate">
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
           {lesson.relativePath}
         </p>
       </div>
@@ -158,7 +159,7 @@ export const App: React.FC = () => {
           <Layers className="w-5 h-5" strokeWidth={1.5} />
         </div>
         <h2 className="text-[15px] font-bold text-zinc-900 dark:text-white tracking-tight">Initializing StudyHub Core</h2>
-        <p className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500 mt-1">Indexing local storage & course databases</p>
+        <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 mt-1">Indexing local storage & course databases</p>
       </div>
     );
   }
@@ -306,6 +307,7 @@ export const App: React.FC = () => {
 
       {/* Global Overlays */}
       {isDragging && <div className="fixed inset-0 z-50 cursor-col-resize select-none pointer-events-auto" />}
+      <Toaster />
       <CommandPalette />
       <AddCourseModal />
       <ShortcutModal />
