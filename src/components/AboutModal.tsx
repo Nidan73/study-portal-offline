@@ -72,7 +72,7 @@ const SECTIONS: { icon: typeof Video; title: string; points: string[] }[] = [
       'Course folders are told apart from downloaded media, so lectures come first',
       'Nothing is added until you tick it — it suggests, you decide',
       'Folders of slides and PDFs are found too, not just video',
-      'Stop the server from the bottom of the page — no terminal needed'
+      'Stop the whole app with the red cross in the top right — no terminal needed'
     ]
   },
   {

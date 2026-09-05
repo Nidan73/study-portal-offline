@@ -13,6 +13,7 @@ import {
   LayoutGrid, 
   Sun, 
   Moon, 
+  X, 
   Globe,
   Code2,
   HelpCircle,
@@ -60,6 +61,8 @@ export const Navbar: React.FC = () => {
   const setShortcutHelpOpen = useStore(state => state.setShortcutHelpOpen);
   const setScratchpadOpen = useStore(state => state.setScratchpadOpen);
   const setAboutOpen = useStore(state => state.setAboutOpen);
+  const setStopped = useStore(state => state.setStopped);
+  const [confirmStop, setConfirmStop] = React.useState(false);
   const theme = useStore(state => state.theme);
   const toggleTheme = useStore(state => state.toggleTheme);
 
@@ -338,6 +341,36 @@ export const Navbar: React.FC = () => {
             title="Toggle Fullscreen"
           >
             <Maximize2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+          </button>
+
+          {/* Stop the whole application. Someone who launched by double-clicking
+              has no terminal to press Ctrl+C in, so this has to live somewhere
+              obvious. Two-step, like removing a course — one stray click should
+              not take the server down. */}
+          <button
+            id="navbar-stop-btn"
+            onClick={() => {
+              if (!confirmStop) {
+                setConfirmStop(true);
+                setTimeout(() => setConfirmStop(false), 4000);
+                return;
+              }
+              fetch('/api/shutdown', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                .catch(() => {})
+                .finally(() => setStopped(true));
+            }}
+            className={`h-8 rounded-full flex items-center justify-center transition-all duration-200 ease-fluid border ${
+              confirmStop
+                ? 'px-3 gap-1.5 bg-red-600 border-red-600 text-white'
+                : 'w-8 bg-red-500/10 hover:bg-red-500/20 border-red-500/20 text-red-600 dark:text-red-400'
+            }`}
+            title={confirmStop
+              ? 'Click again to stop Study Hub'
+              : 'Stop the application — shuts the server down and saves your notes'}
+            aria-label="Stop the application"
+          >
+            <X className="w-3.5 h-3.5" strokeWidth={2} />
+            {confirmStop && <span className="text-[11px] font-semibold">Stop?</span>}
           </button>
         </div>
       </header>

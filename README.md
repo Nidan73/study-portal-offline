@@ -76,7 +76,7 @@ whole library with a folder tree, type filters, sort and search.
 
 ### Stopping it
 
-Click **Stop the server** at the bottom of the page, or press Ctrl+C in the
+Click the red **✕** at the right-hand end of the navbar, or press Ctrl+C in the
 terminal the launcher opened. Double-clicking `launch.sh` opens a terminal
 window of its own, so there is always something visible to close.
 

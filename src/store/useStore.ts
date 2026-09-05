@@ -62,6 +62,7 @@ export interface StoreState {
   isAddCourseModalOpen: boolean;
   isShortcutHelpOpen: boolean;
   isAboutOpen: boolean;
+  isStopped: boolean;
   isDarkPdf: boolean;
   autoPauseOnNote: boolean;
   /** Second notes dock beneath the video, so a deck can stay open beside it. */
@@ -134,6 +135,7 @@ export interface StoreState {
   setAddCourseModal: (open: boolean) => void;
   setShortcutHelpOpen: (open: boolean) => void;
   setAboutOpen: (open: boolean) => void;
+  setStopped: (v: boolean) => void;
   toggleDarkPdf: () => void;
   setActiveSlideNumber: (n: number | null) => void;
   toggleAutoPauseOnNote: () => void;
@@ -453,6 +455,7 @@ export const useStore = create<StoreState>((set, get) => ({
   isAddCourseModalOpen: false,
   isShortcutHelpOpen: false,
   isAboutOpen: false,
+  isStopped: false,
   isDarkPdf: true,
   autoPauseOnNote: getInitialAutoPauseOnNote(),
   showNotesUnderVideo: typeof window !== 'undefined' && localStorage.getItem('study_hub_notes_under_video') === 'true',
@@ -879,6 +882,7 @@ export const useStore = create<StoreState>((set, get) => ({
   toggleMute: () => set((state) => ({ isMuted: !state.isMuted })),
   setShortcutHelpOpen: (open) => set({ isShortcutHelpOpen: open }),
   setAboutOpen: (open) => set({ isAboutOpen: open }),
+  setStopped: (v) => set({ isStopped: v }),
   setAudioBoost: (boost) => set({ audioBoost: Math.max(1, Math.min(3, Number(boost.toFixed(2)))) }),
   setLoopA: (time) => {
     const t = time !== undefined ? time : get().currentTime;

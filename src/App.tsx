@@ -104,9 +104,8 @@ export const App: React.FC = () => {
   } = useStore();
 
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const isStopped = useStore(state => state.isStopped);
   const [isDragging, setIsDragging] = React.useState(false);
-  const [confirmStop, setConfirmStop] = React.useState(false);
-  const [stopped, setStopped] = React.useState(false);
 
   // Height of the notes dock under the video, dragged from its top edge and
   // remembered. A fixed height made it either cramped or a screen-eater.
@@ -353,35 +352,13 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="relative z-10 py-6 flex flex-col items-center gap-2.5 select-none">
+      <footer className="relative z-10 py-6 text-center select-none">
         <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
           Built with care &amp; love
         </p>
-        <button
-          id="stop-server-btn"
-          onClick={() => {
-            if (!confirmStop) {
-              setConfirmStop(true);
-              setTimeout(() => setConfirmStop(false), 4000);
-              return;
-            }
-            fetch('/api/shutdown', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-              .catch(() => {})
-              .finally(() => setStopped(true));
-          }}
-          className={`text-[10.5px] font-mono rounded-full px-3 py-1 transition-colors ${
-            confirmStop
-              ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 font-semibold'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
-          }`}
-        >
-          {confirmStop ? 'Click again to stop the server' : 'Stop the server'}
-        </button>
       </footer>
 
-      {/* Nothing is running once the server exits, so this has to be the last
-          thing the page renders — a blank tab would look like a crash. */}
-      {stopped && (
+      {isStopped && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white dark:bg-[#0b0c10] p-6 text-center">
           <div className="max-w-sm">
             <h2 className="text-xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
