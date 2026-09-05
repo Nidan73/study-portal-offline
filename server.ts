@@ -99,6 +99,15 @@ export interface HubProgressData {
   courses: Record<string, CourseProgressRecord>;
   /** Notes that belong to no lesson — the general notepad. */
   scratchpad?: ScratchNote[];
+  /** The last YouTube video played directly from the explorer. Such a video
+   *  belongs to no catalog, so without this it cannot be restored on boot. */
+  lastYouTubeLesson?: {
+    id: string;
+    title: string;
+    youtubeVideoId: string;
+    durationSeconds?: number;
+    thumbnailUrl?: string;
+  } | null;
   globalStats: {
     totalHoursWatchedSeconds: number;
     streakDays: number;
@@ -240,6 +249,39 @@ function atomicWriteJson(filePath: string, data: any): void {
       throw err;
     }
   }
+}
+
+/**
+ * Coalesced disk writer for the progress database.
+ *
+ * atomicWriteJson serialises everything, fdatasyncs and renames. Doing that on
+ * every 2-second playback ping is a lot of write amplification for a file that
+ * lives on external media. Callers that must not lose data (tab-close beacon,
+ * shutdown) call flushProgressNow() instead.
+ */
+let progressWriteTimer: NodeJS.Timeout | null = null;
+const PROGRESS_WRITE_DEBOUNCE_MS = 4000;
+
+function scheduleProgressWrite(): void {
+  if (progressWriteTimer) return;      // a write is already pending
+  progressWriteTimer = setTimeout(() => {
+    progressWriteTimer = null;
+    try {
+      atomicWriteJson(PROGRESS_FILE, inMemoryData);
+    } catch (err) {
+      console.error('Deferred progress write failed:', err);
+    }
+  }, PROGRESS_WRITE_DEBOUNCE_MS);
+  // Never hold the process open just for a pending write.
+  progressWriteTimer.unref?.();
+}
+
+function flushProgressNow(): void {
+  if (progressWriteTimer) {
+    clearTimeout(progressWriteTimer);
+    progressWriteTimer = null;
+  }
+  atomicWriteJson(PROGRESS_FILE, inMemoryData);
 }
 
 // Read Progress Data with Auto-Recovery
@@ -1736,6 +1778,10 @@ app.post('/api/progress', (req: Request, res: Response) => {
     inMemoryData.activeCourseId = activeCourseId;
   }
 
+  if (req.body.youtubeLesson !== undefined) {
+    inMemoryData.lastYouTubeLesson = req.body.youtubeLesson;
+  }
+
   if (courseId) {
     if (!inMemoryData.courses[courseId]) {
       inMemoryData.courses[courseId] = {
@@ -1845,13 +1891,8 @@ app.post('/api/progress', (req: Request, res: Response) => {
     }
   }
 
-  // Atomic write to disk
-  try {
-    atomicWriteJson(PROGRESS_FILE, inMemoryData);
-  } catch (err) {
-    console.error('Failed to write progress to disk:', err);
-    return res.status(500).json({ error: 'Failed to persist progress' });
-  }
+  // Deferred write: this endpoint fires every couple of seconds during playback.
+  scheduleProgressWrite();
 
   // Deliberately not echoing inMemoryData: the client never reads it, and this
   // endpoint fires every couple of seconds during playback.
@@ -2033,7 +2074,7 @@ app.post('/api/progress/beacon', express.text({ type: '*/*' }), (req: Request, r
       };
       if (!rec.resumePositions) rec.resumePositions = {};
       rec.resumePositions[payload.lessonId] = Math.floor(payload.timestamp);
-      atomicWriteJson(PROGRESS_FILE, inMemoryData);
+      flushProgressNow();   // the page is closing; do not defer this one
     }
   } catch (e) {}
   res.status(204).end();
@@ -2118,7 +2159,7 @@ function startServer(port: number) {
   const shutdown = () => {
     console.log('\n[Study Hub Backend] Flushing state and shutting down cleanly...');
     try {
-      atomicWriteJson(PROGRESS_FILE, inMemoryData);
+      flushProgressNow();
     } catch (e) {}
     server.close(() => process.exit(0));
   };

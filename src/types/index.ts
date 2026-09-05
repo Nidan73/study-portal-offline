@@ -114,6 +114,13 @@ export interface StudyHubData {
   activeCourseId: string;
   customCourses: CourseSummary[];
   courses: Record<string, CourseUserData>;
+  lastYouTubeLesson?: {
+    id: string;
+    title: string;
+    youtubeVideoId: string;
+    durationSeconds?: number;
+    thumbnailUrl?: string;
+  } | null;
   globalStats: {
     totalHoursWatchedSeconds: number;
     streakDays: number;

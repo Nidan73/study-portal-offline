@@ -494,6 +494,30 @@ export const useStore = create<StoreState>((set, get) => ({
         }
       }
 
+      // A directly-played YouTube video is in no catalog, so the loop above
+      // cannot find it. Restore it from the saved descriptor before falling
+      // back to the first lesson — otherwise reloading silently swapped you
+      // onto an unrelated local lecture.
+      if (!resumeLesson && savedCourse?.lastWatched?.lessonId?.startsWith('yt_')) {
+        const saved = get().userData?.lastYouTubeLesson;
+        if (saved && saved.id === savedCourse.lastWatched.lessonId) {
+          resumeLesson = {
+            id: saved.id,
+            title: saved.title,
+            filename: `${saved.youtubeVideoId}.mp4`,
+            relativePath: saved.youtubeVideoId,
+            fileSizeBytes: 0,
+            durationSeconds: saved.durationSeconds || 0,
+            extension: '.mp4',
+            source: 'youtube',
+            youtubeVideoId: saved.youtubeVideoId,
+            thumbnailUrl: saved.thumbnailUrl
+          } as LessonItem;
+          resumeTime = savedCourse.resumePositions?.[saved.id]
+            ?? savedCourse.lastWatched.timestampSeconds ?? 0;
+        }
+      }
+
       if (!resumeLesson && catalogData.modules.length > 0 && catalogData.modules[0].lessons.length > 0) {
         resumeLesson = catalogData.modules[0].lessons[0];
       }
@@ -1126,6 +1150,22 @@ export const useStore = create<StoreState>((set, get) => ({
     // Resume this specific video where it was left, rather than always at 0.
     const { activeCourseId, userData } = get();
     const resumeAt = userData?.courses?.[activeCourseId]?.resumePositions?.[ytLesson.id] || 0;
+
+    // A video played straight from the explorer belongs to no catalog, so the
+    // boot-time resume lookup cannot find it. Persist the lesson itself.
+    fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        youtubeLesson: {
+          id: ytLesson.id,
+          title: ytLesson.title,
+          youtubeVideoId: video.id,
+          durationSeconds: video.durationSeconds,
+          thumbnailUrl: video.thumbnailUrl
+        }
+      })
+    }).catch(() => {});
 
     set({
       activeLesson: ytLesson,
