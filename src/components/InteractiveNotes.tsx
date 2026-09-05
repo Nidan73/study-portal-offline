@@ -245,6 +245,17 @@ export const InteractiveNotes: React.FC<InteractiveNotesProps> = ({ variant = 'p
           >
             Save
           </button>
+          <button
+            type="button"
+            id="dock-download-notes-btn"
+            onClick={downloadNotes}
+            disabled={notes.length === 0}
+            aria-label="Save these notes to a file on this machine"
+            title="Save these notes as a .md file on this machine"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-200 disabled:opacity-30 flex-shrink-0 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" strokeWidth={1.5} />
+          </button>
         </form>
 
         <div className="flex-1 overflow-y-auto px-2.5 py-2 space-y-1" role="region" aria-live="polite" aria-label="Notes on this lecture">

@@ -110,6 +110,17 @@ export const Scratchpad: React.FC<ScratchpadProps> = ({ variant = 'modal' }) => 
       >
         {editingId ? 'Update' : 'Save'}
       </button>
+      <button
+        type="button"
+        id="dock-download-scratch-btn"
+        onClick={download}
+        disabled={notes.length === 0}
+        aria-label="Save the notepad to a file on this machine"
+        title="Save the notepad as a .md file on this machine"
+        className="w-9 h-9 rounded-full flex items-center justify-center bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-200 disabled:opacity-30 flex-shrink-0 transition-colors"
+      >
+        <Download className="w-3.5 h-3.5" strokeWidth={1.5} />
+      </button>
     </form>
   );
 
