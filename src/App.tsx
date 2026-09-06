@@ -14,11 +14,49 @@ import { YouTubeExplorer } from './components/YouTubeExplorer';
 import { Toaster } from './components/Toaster';
 import { Scratchpad } from './components/Scratchpad';
 import { AboutModal } from './components/AboutModal';
-import { 
-  PanelRightOpen, 
+import { SplitPdfViewer } from './components/SplitPdfViewer';
+import { PaneSwitcher, PaneOption } from './components/PaneSwitcher';
+import {
+  PanelRightOpen,
   Maximize2,
-  Layers
+  Layers,
+  Video as VideoIcon,
+  BookOpen,
+  FileText,
+  Code2
 } from 'lucide-react';
+
+/** What each of the two left-hand panes can be switched to. */
+type LeftTopPane = 'video' | 'slides' | 'notes' | 'code';
+type LeftBottomPane = 'notes' | 'slides' | 'code' | 'curriculum';
+
+const LEFT_TOP_OPTIONS: ReadonlyArray<PaneOption<LeftTopPane>> = [
+  { id: 'video', label: 'Video', icon: VideoIcon },
+  { id: 'slides', label: 'Slides', icon: BookOpen },
+  { id: 'notes', label: 'Notes', icon: FileText },
+  { id: 'code', label: 'Code', icon: Code2 }
+];
+
+const LEFT_BOTTOM_OPTIONS: ReadonlyArray<PaneOption<LeftBottomPane>> = [
+  { id: 'notes', label: 'Notes', icon: FileText },
+  { id: 'slides', label: 'Slides', icon: BookOpen },
+  { id: 'code', label: 'Code', icon: Code2 },
+  { id: 'curriculum', label: 'Curriculum', icon: Layers }
+];
+
+/** Remembered like the dock height is, so a chosen layout survives a restart. */
+function useRememberedPane<T extends string>(key: string, allowed: ReadonlyArray<T>, fallback: T) {
+  const [value, setValue] = React.useState<T>(() => {
+    if (typeof window === 'undefined') return fallback;
+    const saved = localStorage.getItem(key) as T | null;
+    return saved && allowed.includes(saved) ? saved : fallback;
+  });
+  const set = React.useCallback((next: T) => {
+    setValue(next);
+    try { localStorage.setItem(key, next); } catch (e) { /* private window */ }
+  }, [key]);
+  return [value, set] as const;
+}
 
 
 /** "Now Playing" strip under the video. Was pasted twice with small drifts
@@ -135,6 +173,11 @@ export const App: React.FC = () => {
     return !isNaN(saved) && saved >= 120 && saved <= 900 ? saved : 260;
   });
   const [isResizingDock, setIsResizingDock] = React.useState(false);
+
+  const [leftTopPane, setLeftTopPane] = useRememberedPane<LeftTopPane>(
+    'study_hub_left_top_pane', ['video', 'slides', 'notes', 'code'], 'video');
+  const [leftBottomPane, setLeftBottomPane] = useRememberedPane<LeftBottomPane>(
+    'study_hub_left_bottom_pane', ['notes', 'slides', 'code', 'curriculum'], 'notes');
 
   const startDockResize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -292,8 +335,33 @@ export const App: React.FC = () => {
                   : showRightPane ? 'xl:pr-3' : 'max-w-[1680px] mx-auto'
               }`}
             >
-              <CinemaPlayer />
-              {activeLesson && (
+              <PaneSwitcher
+                idPrefix="left-top-pane"
+                label="Choose what to show above"
+                options={LEFT_TOP_OPTIONS}
+                value={leftTopPane}
+                onChange={setLeftTopPane}
+              />
+
+              {/* The player is hidden, never unmounted. Swapping it out by
+                  conditional rendering tears down the <video> and the YouTube
+                  iframe, which restarts playback on every switch — the exact
+                  bug this one-layout structure exists to prevent. */}
+              <div className={leftTopPane === 'video' ? '' : 'hidden'}>
+                <CinemaPlayer />
+              </div>
+
+              {leftTopPane !== 'video' && (
+                <div className="h-[52vh] min-h-[320px]">
+                  {leftTopPane === 'slides' && <SplitPdfViewer />}
+                  {leftTopPane === 'notes' && (activeLesson
+                    ? <InteractiveNotes variant="dock" />
+                    : <Scratchpad variant="dock" />)}
+                  {leftTopPane === 'code' && <IntegratedIDE isSplit onCloseSplit={() => setLeftTopPane('video')} />}
+                </div>
+              )}
+
+              {activeLesson && leftTopPane === 'video' && (
                 activeTab === 'player'
                   ? <LessonStrip lesson={activeLesson} isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />
                   : <SplitTitleBar
@@ -322,10 +390,20 @@ export const App: React.FC = () => {
                   >
                     <span className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700 group-hover:bg-indigo-500 transition-colors" />
                   </div>
-                  <div className="flex-1 min-h-0">
-                    {activeLesson
+                  <PaneSwitcher
+                    idPrefix="left-bottom-pane"
+                    label="Choose what to show below"
+                    options={LEFT_BOTTOM_OPTIONS}
+                    value={leftBottomPane}
+                    onChange={setLeftBottomPane}
+                  />
+                  <div className="flex-1 min-h-0 mt-2">
+                    {leftBottomPane === 'notes' && (activeLesson
                       ? <InteractiveNotes variant="dock" />
-                      : <Scratchpad variant="dock" />}
+                      : <Scratchpad variant="dock" />)}
+                    {leftBottomPane === 'slides' && <SplitPdfViewer />}
+                    {leftBottomPane === 'code' && <IntegratedIDE isSplit onCloseSplit={() => setLeftBottomPane('notes')} />}
+                    {leftBottomPane === 'curriculum' && <SyllabusDrawer />}
                   </div>
                 </div>
               )}

@@ -444,6 +444,72 @@ try {
     }
   }
 
+  section('Left pane switchers');
+  {
+    // Both left sections are switchable now. The load-bearing part is that
+    // switching the top one must not unmount the player: conditional rendering
+    // there tears down the <video> and restarts playback.
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 950 } });
+    const page = await ctx.newPage();
+    await page.goto(srv.base, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+
+    check('the top pane has a switcher', !!(await page.$('#left-top-pane-video')));
+    for (const id of ['slides', 'notes', 'code']) {
+      check(`the top pane offers ${id}`, !!(await page.$(`#left-top-pane-${id}`)));
+    }
+
+    // Mark the mounted media element, then switch away and back.
+    await page.evaluate(() => {
+      const v = document.querySelector('video');
+      if (v) v.dataset.probe = 'original';
+    });
+    const hadVideo = await page.evaluate(() => !!document.querySelector('video'));
+
+    await page.click('#left-top-pane-slides');
+    await page.waitForTimeout(900);
+    const whileAway = await page.evaluate(() => {
+      const v = document.querySelector('video');
+      return { stillMounted: !!v, sameElement: v?.dataset.probe === 'original' };
+    });
+    if (hadVideo) {
+      check('switching the top pane keeps the player mounted', whileAway.stillMounted);
+      check('it is the same element, so playback is not restarted', whileAway.sameElement,
+        `sameElement=${whileAway.sameElement}`);
+    } else {
+      check('skipped: no video element in this fixture', true);
+    }
+
+    await page.click('#left-top-pane-video');
+    await page.waitForTimeout(600);
+    const back = await page.evaluate(() => {
+      const btn = document.querySelector('#left-top-pane-video');
+      const v = document.querySelector('video');
+      return {
+        selected: btn?.getAttribute('aria-selected'),
+        // Hidden, not unmounted — so it is still the element we marked.
+        visible: v ? !!(v.offsetParent || v.getClientRects().length) : null,
+        sameElement: v ? v.dataset.probe === 'original' : null
+      };
+    });
+    check('choosing Video selects it again', back.selected === 'true', String(back.selected));
+    if (hadVideo) {
+      check('the same player is shown again, not a fresh one',
+        back.sameElement === true && back.visible === true,
+        `same=${back.sameElement} visible=${back.visible}`);
+    }
+
+    // The choice survives a reload.
+    await page.click('#left-top-pane-notes');
+    await page.waitForTimeout(500);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
+    const remembered = await page.evaluate(() =>
+      document.querySelector('#left-top-pane-notes')?.getAttribute('aria-selected'));
+    check('the chosen pane is remembered across a reload', remembered === 'true', String(remembered));
+    await ctx.close();
+  }
+
   section('Accessibility semantics');
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
