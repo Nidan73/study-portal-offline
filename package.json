@@ -10,6 +10,7 @@
     "build": "tsc && vite build",
     "start": "tsx server.ts",
     "test": "node tests/api.test.mjs && node tests/ui.test.mjs",
+    "test:media": "node tests/media.test.mjs",
     "test:api": "node tests/api.test.mjs",
     "test:ui": "node tests/ui.test.mjs"
   },

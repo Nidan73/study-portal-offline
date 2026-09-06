@@ -39,3 +39,22 @@ jobs:
       - name: Drive detection on a real Windows filesystem
         shell: pwsh
         run: node tests/windows-roots.mjs
+
+      # ffmpeg and ffprobe are the app's only external binaries. The runner
+      # image does not ship them, and the media suite skips itself when they
+      # are absent — so install them, or the step would pass by doing nothing.
+      - name: Install ffmpeg
+        shell: pwsh
+        run: choco install ffmpeg --yes --no-progress
+
+      - name: Verify ffmpeg is actually on PATH
+        shell: pwsh
+        run: |
+          ffmpeg -version
+          ffprobe -version
+
+      - name: Media pipeline
+        run: npm run test:media
+        env:
+          # Refuse to skip: a silent skip here is a green tick over no coverage.
+          STUDYHUB_REQUIRE_FFMPEG: '1'
