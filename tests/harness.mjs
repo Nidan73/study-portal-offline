@@ -60,7 +60,11 @@ export async function startServer({ coursesRoot } = {}) {
   // never collides with a test run.
   const port = 48000 + Math.floor(Math.random() * 900);
 
-  const child = spawn('npx', ['tsx', 'server.ts', '--port', String(port)], {
+  // npx is npx.cmd on Windows and CreateProcess only ever appends .exe, so a
+  // bare 'npx' is ENOENT there. Naming the .cmd beats shell:true, which would
+  // put argument quoting back in play.
+  const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const child = spawn(npx, ['tsx', 'server.ts', '--port', String(port)], {
     env: {
       ...process.env,
       STUDYHUB_DATA_DIR: dataDir,
