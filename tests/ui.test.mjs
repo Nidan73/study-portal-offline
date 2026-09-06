@@ -586,6 +586,53 @@ try {
     await ctx.close();
   }
 
+  section('Left pane sizing');
+  {
+    // A tool in the left pane had a hardcoded 52vh, so it left dead space below
+    // it; and with a long list inside, it grew the page instead of scrolling in
+    // its own box. Separately, the player reserved a flat 220px for everything
+    // beneath it, which pushed the note composer off screen once the dock was
+    // open.
+    const ctx = await browser.newContext({ viewport: { width: 1700, height: 980 } });
+    const page = await ctx.newPage();
+    await page.goto(srv.base, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1300);
+    await page.click('#nav-tab-player').catch(() => {});
+    await page.waitForTimeout(700);
+
+    await page.click('#left-top-pane-slides').catch(() => {});
+    await page.waitForTimeout(1500);
+    const slides = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollHeight - window.innerHeight,
+      // Something inside the pane has to be doing the scrolling.
+      internalScroller: [...document.querySelectorAll('*')].some(e =>
+        e.scrollHeight > e.clientHeight + 20 && e.clientHeight > 300 &&
+        getComputedStyle(e).overflowY !== 'visible')
+    }));
+    check('a long deck list scrolls inside the pane, not down the page',
+      slides.overflow < 200, `${slides.overflow}px of page overflow`);
+    check('the pane itself carries the scroll', slides.internalScroller);
+
+    // Video with the notes dock open: the composer must be reachable.
+    await page.click('#toggle-notes-under-video-btn').catch(() => {});
+    await page.waitForTimeout(900);
+    await page.click('#left-top-pane-video').catch(() => {});
+    await page.waitForTimeout(1500);
+    const composer = await page.evaluate(() => {
+      const el = document.querySelector('[id$="-note-input"]');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { top: Math.round(r.top), onScreen: r.top >= 0 && r.bottom <= window.innerHeight };
+    });
+    if (composer) {
+      check('the note composer is on screen while a video is playing',
+        composer.onScreen, `top=${composer.top}`);
+    } else {
+      check('skipped: no notes dock in this fixture', true);
+    }
+    await ctx.close();
+  }
+
   section('Accessibility semantics');
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });

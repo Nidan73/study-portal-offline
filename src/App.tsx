@@ -326,12 +326,30 @@ export const App: React.FC = () => {
           >
             {/* Left / top: the lecture. The same element in every mode. */}
             <div
-              style={!isBottomDock && isWideEnoughToSplit
-                ? { width: showRightPane ? `calc(${leftRatio}% - 6px)` : '100%' }
-                : undefined}
-              className={`w-full space-y-4 transition-[width,max-width] duration-150 ease-out ${
+              // The player caps its height at 100vh minus this reservation.
+              // A flat 220px was fine when the video was the only thing in this
+              // column; with the notes dock open it pushed the composer below
+              // the fold, so the space the dock actually takes is reserved too.
+              style={{
+                ...(!isBottomDock && isWideEnoughToSplit
+                  ? { width: showRightPane ? `calc(${leftRatio}% - 6px)` : '100%' }
+                  : {}),
+                ['--player-reserve' as string]: showNotesUnderVideo
+                  ? `${notesDockHeight + 300}px`
+                  : '220px',
+                // Same idea for a tool in this pane, minus the Now Playing
+                // strip the video needs room for.
+                ['--pane-reserve' as string]: showNotesUnderVideo
+                  ? `${notesDockHeight + 210}px`
+                  : '150px'
+              } as React.CSSProperties}
+              className={`w-full space-y-4 flex flex-col min-h-0 transition-[width,max-width] duration-150 ease-out ${
                 isBottomDock
                   ? 'max-w-[1680px] mx-auto'
+                  : 'xl:self-stretch'
+              } ${
+                isBottomDock
+                  ? ''
                   : showRightPane ? 'xl:pr-3' : 'max-w-[1680px] mx-auto'
               }`}
             >
@@ -352,7 +370,7 @@ export const App: React.FC = () => {
               </div>
 
               {leftTopPane !== 'video' && (
-                <div className="h-[52vh] min-h-[320px]">
+                <div className="flex-1 min-h-[320px] max-h-[calc(100vh-var(--pane-reserve,150px))] overflow-hidden">
                   {leftTopPane === 'slides' && <SplitPdfViewer paneId="deck-left-top" />}
                   {leftTopPane === 'notes' && (activeLesson
                     ? <InteractiveNotes variant="dock" paneId="dock-left-top" />

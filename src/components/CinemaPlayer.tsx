@@ -769,7 +769,7 @@ export const CinemaPlayer: React.FC = () => {
         className="relative group rounded-[calc(2rem-0.375rem)] sm:rounded-[calc(2rem-0.5rem)] overflow-hidden bg-black border border-black/[0.1] dark:border-white/[0.08] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] select-none"
       >
         {/* HTML5 Video or YouTube IFrame Element */}
-        <div className="relative aspect-video w-full max-h-[calc(100vh-220px)] bg-black flex items-center justify-center">
+        <div className="relative aspect-video w-full max-h-[calc(100vh-var(--player-reserve,220px))] bg-black flex items-center justify-center">
           {isYouTube ? (
             <>
               <div ref={ytMountRef} id="youtube-player-element" className="w-full h-full pointer-events-none" />
