@@ -602,16 +602,26 @@ try {
 
     await page.click('#left-top-pane-slides').catch(() => {});
     await page.waitForTimeout(1500);
-    const slides = await page.evaluate(() => ({
-      overflow: document.documentElement.scrollHeight - window.innerHeight,
-      // Something inside the pane has to be doing the scrolling.
-      internalScroller: [...document.querySelectorAll('*')].some(e =>
-        e.scrollHeight > e.clientHeight + 20 && e.clientHeight > 300 &&
-        getComputedStyle(e).overflowY !== 'visible')
-    }));
+    const slides = await page.evaluate(() => {
+      const pane = document.querySelector('[id$="-selector-dropdown-btn"]')
+        ?.closest('.flex-1, [class*="max-h-"]');
+      const h = pane ? pane.getBoundingClientRect().height : 0;
+      return {
+        overflow: document.documentElement.scrollHeight - window.innerHeight,
+        paneHeight: Math.round(h),
+        viewport: window.innerHeight,
+        // The property that matters: the pane never grows past the viewport,
+        // whatever it holds.
+        paneBounded: h > 0 && h <= window.innerHeight
+      };
+    });
     check('a long deck list scrolls inside the pane, not down the page',
       slides.overflow < 200, `${slides.overflow}px of page overflow`);
-    check('the pane itself carries the scroll', slides.internalScroller);
+    // Only meaningful when there is enough content to overflow. The fixture
+    // library is small, so asserting a scroller exists made this test pass or
+    // fail on how many decks happened to be present rather than on the layout.
+    check('the pane is bounded, so long content scrolls inside it',
+      slides.paneBounded, `paneHeight=${slides.paneHeight} viewport=${slides.viewport}`);
 
     // Video with the notes dock open: the composer must be reachable.
     await page.click('#toggle-notes-under-video-btn').catch(() => {});

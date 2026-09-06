@@ -16,9 +16,11 @@ interface ScratchpadProps {
    *  strip under the video — which is also where you land when the material is
    *  a PDF and there is no lecture to attach a timestamp to. */
   variant?: 'modal' | 'dock';
+  /** Prefix for element ids, so two docks on screen do not collide. */
+  paneId?: string;
 }
 
-export const Scratchpad: React.FC<ScratchpadProps> = ({ variant = 'modal' }) => {
+export const Scratchpad: React.FC<ScratchpadProps> = ({ variant = 'modal', paneId = 'dock' }) => {
   const isOpen = useStore(s => s.isScratchpadOpen);
   const setOpen = useStore(s => s.setScratchpadOpen);
   const notes = useStore(s => s.scratchNotes);
@@ -96,7 +98,7 @@ export const Scratchpad: React.FC<ScratchpadProps> = ({ variant = 'modal' }) => 
         Notepad
       </span>
       <input
-        id="dock-scratch-input"
+        id={`${paneId}-scratch-input`}
         value={draft}
         onChange={e => setDraft(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
@@ -112,7 +114,7 @@ export const Scratchpad: React.FC<ScratchpadProps> = ({ variant = 'modal' }) => 
       </button>
       <button
         type="button"
-        id="dock-download-scratch-btn"
+        id={`${paneId}-download-scratch-btn`}
         onClick={download}
         disabled={notes.length === 0}
         aria-label="Save the notepad to a file on this machine"

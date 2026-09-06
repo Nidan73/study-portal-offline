@@ -403,7 +403,7 @@ export const App: React.FC = () => {
                     <div className={`h-full ${leftTopPane === 'notes' ? '' : 'hidden'}`}>
                       {activeLesson
                         ? <InteractiveNotes variant="dock" paneId="dock-left-top" />
-                        : <Scratchpad variant="dock" />}
+                        : <Scratchpad variant="dock" paneId="scratch-left-top" />}
                     </div>
                   )}
                   {visitedTop.has('code') && (
@@ -453,7 +453,7 @@ export const App: React.FC = () => {
                   <div className="flex-1 min-h-0 mt-2">
                     {leftBottomPane === 'notes' && (activeLesson
                       ? <InteractiveNotes variant="dock" paneId="dock-left-bottom" />
-                      : <Scratchpad variant="dock" />)}
+                      : <Scratchpad variant="dock" paneId="scratch-left-bottom" />)}
                     {leftBottomPane === 'slides' && <SplitPdfViewer paneId="deck-left-bottom" />}
                     {leftBottomPane === 'code' && <IntegratedIDE isSplit paneId="ide-left-bottom" onCloseSplit={() => setLeftBottomPane('notes')} />}
                     {leftBottomPane === 'curriculum' && <SyllabusDrawer />}
