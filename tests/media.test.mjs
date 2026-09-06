@@ -130,4 +130,98 @@ try {
 } finally {
   srv.stop();
 }
+// ---------------------------------------------------------------------------
+// The background warmer. Opening a course pre-transcodes everything the
+// browser cannot play, so the fan noise has an explanation and the second
+// lesson starts instantly. Nothing streams in this block: the only thing that
+// can produce a cache file here is the warmer itself.
+// ---------------------------------------------------------------------------
+const warmLib = mkdtempSync(path.join(tmpdir(), 'studyhub-warm-'));
+const warmWeek = path.join(warmLib, 'Warm Course', 'Week 1');
+mkdirSync(warmWeek, { recursive: true });
+const makeIn = (dir, file, codec) => execFileSync('ffmpeg', [
+  '-y', '-loglevel', 'error',
+  '-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=30',
+  '-f', 'lavfi', '-i', 'sine=frequency=440',
+  '-t', '6', ...codec, path.join(dir, file)
+], { timeout: 180000 });
+
+console.log('building warmer fixtures...');
+makeIn(warmWeek, 'a.mkv', H264);
+makeIn(warmWeek, 'b.avi', ['-c:v', 'mpeg4', '-b:v', '3M', '-c:a', 'libmp3lame']);
+makeIn(warmWeek, 'c.mp4', H264);   // already playable — must be left alone
+
+const warm = await startServer({ coursesRoot: warmLib });
+try {
+  section('Background transcode warmer');
+
+  const status = () => fetch(`${warm.base}/api/transcode/status`).then(r => r.json());
+  const cache = path.join(warm.dataDir, 'video-cache');
+  const mp4s = () => (existsSync(cache) ? readdirSync(cache).filter(f => f.endsWith('.mp4')) : []);
+
+  const idle = await status();
+  check('the warmer reports idle before any course is opened',
+    idle.active === false && idle.total === 0, JSON.stringify(idle));
+  check('nothing is cached yet', mp4s().length === 0, mp4s().join(','));
+
+  // Opening the course is the only trigger.
+  const cat = await get(warm.base, '/api/catalog/warm-course');
+  check('the course opens', (cat.body?.modules || []).length > 0,
+    `${(cat.body?.modules || []).length} modules`);
+
+  // Poll tightly so the active window cannot be missed.
+  let sawActive = false, sawCourseName = '', sawTitle = '';
+  const deadline = Date.now() + 180000;
+  let last = idle;
+  while (Date.now() < deadline) {
+    last = await status();
+    if (last.active) {
+      sawActive = true;
+      sawCourseName = sawCourseName || last.courseName;
+      sawTitle = sawTitle || last.currentTitle;
+    } else if (sawActive) {
+      break;                              // ran, and has now finished
+    }
+    await new Promise(r => setTimeout(r, 25));
+  }
+
+  check('opening a course starts the warmer on its own', sawActive);
+  check('it names the course it is working on', sawCourseName === 'Warm Course', sawCourseName);
+  check('it names the file it is working on', sawTitle.length > 0, sawTitle);
+  check('it counts only what the browser cannot play, skipping the .mp4',
+    last.total === 2, `total=${last.total}`);
+  check('it finishes everything it queued', last.done === last.total,
+    `${last.done}/${last.total}`);
+  check('it goes idle when done', last.active === false, JSON.stringify(last));
+
+  const produced = mp4s();
+  check('the warmer produced a cached copy per unplayable file',
+    produced.length === 2, produced.join(','));
+  check('the already-playable .mp4 was not transcoded',
+    !produced.some(f => f.startsWith('c_')), produced.join(','));
+
+  for (const f of produced) {
+    const probe = JSON.parse(execFileSync('ffprobe', [
+      '-v', 'error', '-show_entries', 'stream=codec_name,codec_type',
+      '-show_format', '-of', 'json', path.join(cache, f)
+    ], { encoding: 'utf-8', timeout: 30000 }));
+    const codecs = (probe.streams || []).map(x => `${x.codec_type}:${x.codec_name}`);
+    check(`the warmed file ${f.slice(0, 12)}… is a playable MP4`,
+      /mp4/.test(probe.format?.format_name || '') && codecs.includes('video:h264'),
+      `${probe.format?.format_name} ${codecs.join(',')}`);
+  }
+
+  // Reopening must not redo the work — this is what the pending check is for.
+  const before = produced.map(f => `${f}:${statSync(path.join(cache, f)).mtimeMs}`).sort();
+  await get(warm.base, '/api/catalog/warm-course');
+  await new Promise(r => setTimeout(r, 2500));
+  const after = mp4s().map(f => `${f}:${statSync(path.join(cache, f)).mtimeMs}`).sort();
+  check('reopening the course re-transcodes nothing',
+    JSON.stringify(before) === JSON.stringify(after), `${before.length} -> ${after.length} files`);
+  check('and it does not spin the warmer back up',
+    (await status()).active === false);
+} finally {
+  warm.stop();
+}
+
 process.exit(summary('Media') === 0 ? 0 : 1);
