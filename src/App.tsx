@@ -180,6 +180,20 @@ export const App: React.FC = () => {
   // Unmounting threw away whatever was open in it, so a deck you were reading
   // was gone the moment you glanced at another tab and came back — the same
   // reason the player is hidden rather than unmounted.
+  // Opening a document from the curriculum should show it, not leave you on
+  // the player wondering where it went.
+  const activePdf = useStore(state => state.activePdf);
+  const seenPdfRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const id = activePdf?.id ?? null;
+    // Only react to a document being opened *now*. Firing on mount as well
+    // overrode the pane you had chosen last time, every reload.
+    if (id && seenPdfRef.current !== null && id !== seenPdfRef.current) {
+      setLeftTopPane('slides');
+    }
+    seenPdfRef.current = id;
+  }, [activePdf?.id]);
+
   const [visitedTop, setVisitedTop] = React.useState<Set<LeftTopPane>>(
     () => new Set<LeftTopPane>([leftTopPane]));
   React.useEffect(() => {

@@ -219,12 +219,14 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
   // pick to itself — otherwise choosing a deck in one pane rewrote the shared
   // value and every other pane followed it, which is the mirroring you get
   // when two viewers are open at once.
-  const isPrimaryPane = paneId === 'deck';
+  // A pane's own pick never leaves the pane. It used to write the shared
+  // activePdf, which the other pane then picked up — so choosing in the side
+  // panel changed the left one too. activePdf now means only "something
+  // outside asked for this document", which is what the panes listen for.
   const pinToThisPane = useCallback((deck: SupplementaryFile | null) => {
     pinnedRef.current = true;
     setCurrentDeck(deck);
-    if (isPrimaryPane && deck) selectPdf(deck);
-  }, [isPrimaryPane, selectPdf]);
+  }, []);
 
   useEffect(() => {
     // Only the preferred pane catches a document opened from elsewhere, so
@@ -429,9 +431,8 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
                         <button
                           key={deck.id}
                           onClick={() => {
-                            pinToThisPane(deck);
                             setLocalBlobUrl(null);
-                            selectPdf(deck);
+                            pinToThisPane(deck);
                             setIsDeckDropdownOpen(false);
                           }}
                           className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left text-[12px] transition-all ${
@@ -716,7 +717,7 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
                 {/* Drop / Browse Action */}
                 <div className="mt-4 flex items-center justify-center gap-2">
                   <button
-                    id="btn-browse-presentation-file"
+                    id={`${paneId}-browse-presentation-file`}
                     onClick={() => fileInputRef.current?.click()}
                     className="px-4 py-2 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-sm"
                   >
@@ -806,7 +807,7 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
                               </button>
                             )}
                             <button
-                              id={`btn-study-deck-${deck.id}`}
+                              id={`${paneId}-study-deck-${deck.id}`}
                               onClick={() => {
                                 pinToThisPane(deck);
                               }}

@@ -108,9 +108,11 @@ export const SyllabusDrawer: React.FC = () => {
   // Selecting a document used to set activePdf and stop there, leaving you on
   // the player with nothing visibly different. Open the viewer too.
   const openDocument = (doc: SupplementaryFile) => {
+    // The document lands in the left-hand pane, which switches itself to
+    // Slides. Replacing this panel with the viewer as well would close the
+    // curriculum you are picking from, and show the same file twice.
     selectPdf(doc);
-    if (activeTab === 'player') setSidePanelTab('slides');
-    else setActiveTab('split-slides');
+    if (activeTab !== 'player') setActiveTab('split-slides');
   };
 
   const handleToggleComplete = (e: React.MouseEvent, lessonId: string) => {
