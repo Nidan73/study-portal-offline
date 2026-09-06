@@ -15,6 +15,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
+for /f %%v in ('node -p "process.versions.node.split('.')[0]"') do set NODE_MAJOR=%%v
+if %NODE_MAJOR% LSS 18 (
+  echo [X] Node is too old. Node 18 or newer is required.
+  node -v
+  pause
+  exit /b 1
+)
+
 where npm >nul 2>nul
 if errorlevel 1 (
   echo [X] npm is not installed ^(it normally ships with Node.js^).
@@ -47,7 +55,7 @@ if not exist "data\study-hub-data.json" (
 set NEEDS_BUILD=0
 if not exist "dist\index.html" set NEEDS_BUILD=1
 if "%NEEDS_BUILD%"=="0" (
-  for /f %%i in ('node -e "const fs=require('fs'),p=require('path');const d=fs.statSync('dist/index.html').mtimeMs;let s=0;const w=x=>{for(const e of fs.readdirSync(x,{withFileTypes:true})){const f=p.join(x,e.name);if(e.isDirectory())w(f);else if(fs.statSync(f).mtimeMs>d)s=1}};w('src');for(const f of ['server.ts','index.html','package.json'])if(fs.existsSync(f)&&fs.statSync(f).mtimeMs>d)s=1;console.log(s)"') do set NEEDS_BUILD=%%i
+  for /f %%i in ('node -e "const fs=require('fs'),p=require('path');const d=fs.statSync('dist/index.html').mtimeMs;let s=0;const w=x=>{for(const e of fs.readdirSync(x,{withFileTypes:true})){const f=p.join(x,e.name);if(e.isDirectory())w(f);else if(fs.statSync(f).mtimeMs>d)s=1}};w('src');for(const f of ['server.ts','index.html','package.json','vite.config.ts','tailwind.config.js'])if(fs.existsSync(f)&&fs.statSync(f).mtimeMs>d)s=1;console.log(s)"') do set NEEDS_BUILD=%%i
 )
 
 if "%NEEDS_BUILD%"=="1" (
@@ -61,9 +69,9 @@ if "%NEEDS_BUILD%"=="1" (
 )
 
 echo.
-echo [*] Starting on http://localhost:47285
-echo     To stop it: press Ctrl+C here, or click "Stop the server"
-echo     at the bottom of the page in your browser.
+echo [*] Starting Study Hub - your browser will open when it is ready.
+echo     To stop it: press Ctrl+C here, or click the red X at the
+echo     top-right of the page in your browser.
 echo ==================================================
-start "" "http://localhost:47285"
+set STUDYHUB_OPEN=1
 call npx tsx server.ts

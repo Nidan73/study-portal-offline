@@ -8,7 +8,10 @@ SELF="$DIR/$(basename "${BASH_SOURCE[0]}")"
 # Double-clicking a .sh in a file manager runs it with no terminal attached, so
 # there is nothing to see and nothing to press Ctrl+C in — the server ends up
 # running invisibly. Re-launch inside a real terminal window when that happens.
-if [ ! -t 1 ] && [ -z "${STUDYHUB_IN_TERMINAL:-}" ] && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+# Testing stdout alone also fires on `./launch.sh > log.txt`, which is a
+# deliberate redirect from a terminal that already exists. A double-click has
+# no terminal on either stream.
+if [ ! -t 0 ] && [ ! -t 1 ] && [ -z "${STUDYHUB_IN_TERMINAL:-}" ] && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
   INNER="STUDYHUB_IN_TERMINAL=1 \"$SELF\"; echo; echo \"Study Hub has stopped. You can close this window.\"; exec bash"
   for TERM_APP in x-terminal-emulator gnome-terminal ptyxis tilix konsole xfce4-terminal alacritty kitty foot xterm; do
     command -v "$TERM_APP" >/dev/null 2>&1 || continue
@@ -79,37 +82,12 @@ if [ "$NEEDS_BUILD" = "1" ]; then
   npm run build
 fi
 
-LOG="$(mktemp -t studyhub-XXXXXX.log)"
+# The server opens the browser once it is listening, because only it knows the
+# port after the hunter walks past an occupied one.
+export STUDYHUB_OPEN=1
 
-# The server starts at 47285 and walks upward if that is taken, so wait for it
-# to report the port it actually bound rather than assuming one.
-open_when_ready() {
-  local url=""
-  for _ in $(seq 1 60); do
-    url="$(grep -oE 'http://localhost:[0-9]+' "$LOG" 2>/dev/null | head -1 || true)"
-    [ -n "$url" ] && break
-    sleep 0.5
-  done
-
-  if [ -z "$url" ]; then
-    echo "⚠️  The server did not report a port within 30s. Log: $LOG"
-    return
-  fi
-
-  echo ""
-  echo "🚀 Live at: $url"
-  echo ""
-  if command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$url" >/dev/null 2>&1 || true
-  elif command -v open >/dev/null 2>&1; then
-    open "$url" >/dev/null 2>&1 || true
-  fi
-}
-
-open_when_ready &
-
-echo "To stop it: press Ctrl+C here, or click \"Stop the server\" at the"
-echo "bottom of the page in your browser."
+echo "To stop it: press Ctrl+C here, or click the red X at the top-right"
+echo "of the page in your browser."
 echo "=================================================="
 
-npx tsx server.ts 2>&1 | tee "$LOG"
+npx tsx server.ts

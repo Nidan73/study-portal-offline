@@ -1,0 +1,58 @@
+# The Windows job proves the app works where it is shipped; this one proves it
+# still works where it is developed, and runs launch.sh — which nothing had
+# ever executed end to end.
+name: Linux
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npm run build
+
+      - name: API suite
+        run: npm run test:api
+
+      - name: UI suite
+        run: npm run test:ui
+
+      - name: Media pipeline
+        run: npm run test:media
+        env:
+          STUDYHUB_REQUIRE_FFMPEG: '1'
+
+      - name: launch.sh brings the app up
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          ./launch.sh > /tmp/launch.log 2>&1 &
+          LAUNCHER=$!
+          ok=0
+          for _ in $(seq 1 60); do
+            if curl -fsS -m 3 http://127.0.0.1:47285/api/health >/dev/null 2>&1; then ok=1; break; fi
+            sleep 2
+          done
+          if [ "$ok" = "1" ]; then
+            curl -fsS -m 5 http://127.0.0.1:47285/ | grep -q '<div id="root"' \
+              || { echo "served something, but not the app shell"; ok=0; }
+          fi
+          # The launcher is the parent; the server is its child.
+          pkill -P "$LAUNCHER" 2>/dev/null || true
+          kill "$LAUNCHER" 2>/dev/null || true
+          if [ "$ok" != "1" ]; then echo "--- launcher log ---"; cat /tmp/launch.log; exit 1; fi
+          echo "launch.sh brought the app up and served the interface"

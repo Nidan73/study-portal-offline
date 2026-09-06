@@ -44,9 +44,21 @@ Opening a deck in your desktop presentation app is routed through `cmd.exe /c
 start` on Windows, because `start` is a shell builtin rather than an
 executable and cannot be launched directly.
 
-Open your browser to: **`http://localhost:47285`**
+The launcher opens your browser for you once the server is listening. If you
+started the server by hand, go to **`http://127.0.0.1:47285`**.
 
 The port is deliberately unusual so it will not collide with Vite, Apache, Django, Jupyter or anything else you may be running. Override it with `--port 1234` or `PORT=1234` if you need to.
+
+**It listens on loopback only.** Your notes, your course paths and the folder
+scanner are reachable from this machine and nowhere else — an app that keeps
+personal notes has no business answering the coffee-shop Wi-Fi. If you do want
+to reach it from a phone on the same network, ask for it explicitly:
+
+```bash
+STUDYHUB_HOST=0.0.0.0 ./launch.sh
+```
+
+Note that this puts your notes on the network, so only do it on one you trust.
 
 ### How your library is organised
 

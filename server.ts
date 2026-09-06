@@ -2902,10 +2902,52 @@ try {
   console.warn('Backup rotation note:', e.message);
 }
 
+/**
+ * Which interface to listen on.
+ *
+ * app.listen(port) with no host binds 0.0.0.0 — every interface. For an app
+ * whose banner says "100% Local" and whose /api/progress hands back your notes
+ * to anyone who asks, that meant a café network could read them: the Origin
+ * guard above only inspects requests that *carry* an Origin, and a plain HTTP
+ * client sends none. Loopback by default; set STUDYHUB_HOST=0.0.0.0 to opt in
+ * to reaching it from your phone on the same network.
+ */
+const HOST = process.env.STUDYHUB_HOST || '127.0.0.1';
+
+/**
+ * Open the app in the default browser once it is actually listening.
+ *
+ * The launchers used to do this themselves and both got it wrong: the .bat
+ * opened a hardcoded 47285 before the server had bound anything, and neither
+ * could know the real port after the hunter below walks past an occupied one.
+ * The server is the only thing that knows both when it is up and where.
+ */
+function openInBrowser(url: string) {
+  let cmd: string;
+  let args: string[];
+  if (process.platform === 'win32') {
+    // `start` is a cmd builtin, and the empty "" is the window-title slot it
+    // expects before a quoted argument.
+    cmd = process.env.COMSPEC || 'cmd.exe';
+    args = ['/c', 'start', '', url];
+  } else if (process.platform === 'darwin') {
+    cmd = 'open';
+    args = [url];
+  } else {
+    cmd = 'xdg-open';
+    args = [url];
+  }
+  execFile(cmd, args, (err) => {
+    if (err) console.warn(`[Study Hub Backend] Could not open a browser. Go to ${url}`);
+  });
+}
+
 // Dynamic Port Hunter
 function startServer(port: number) {
-  const server = app.listen(port, () => {
-    console.log(`[Study Hub Backend] TypeScript server listening on http://localhost:${port}`);
+  const server = app.listen(port, HOST, () => {
+    // 127.0.0.1 rather than localhost: when only IPv4 loopback is bound, a
+    // client that resolves localhost to ::1 first has to fail before retrying.
+    console.log(`[Study Hub Backend] TypeScript server listening on http://127.0.0.1:${port}`);
     const found = discoverCourses().length;
     console.log(`[Study Hub Backend] Scanning for courses in: ${COURSES_ROOT}`);
     if (found === 0) {
@@ -2914,6 +2956,8 @@ function startServer(port: number) {
     } else {
       console.log(`[Study Hub Backend] ${found} course(s) available.`);
     }
+    // Set by the launchers. Running the server by hand should not hijack a tab.
+    if (process.env.STUDYHUB_OPEN) openInBrowser(`http://127.0.0.1:${port}`);
   });
 
   server.on('error', (err: any) => {

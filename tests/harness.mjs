@@ -51,7 +51,7 @@ export function summary(label) {
 }
 
 /** Start a server on its own port with a throwaway data directory. */
-export async function startServer({ coursesRoot } = {}) {
+export async function startServer({ coursesRoot, env: extraEnv } = {}) {
   const dataDir = mkdtempSync(path.join(tmpdir(), 'studyhub-test-'));
   mkdirSync(path.join(dataDir, 'backups'), { recursive: true });
   writeFileSync(path.join(dataDir, 'study-hub-data.json'), JSON.stringify(SEED, null, 2));
@@ -69,7 +69,8 @@ export async function startServer({ coursesRoot } = {}) {
     env: {
       ...process.env,
       STUDYHUB_DATA_DIR: dataDir,
-      ...(coursesRoot ? { STUDYHUB_COURSES_ROOT: coursesRoot } : {})
+      ...(coursesRoot ? { STUDYHUB_COURSES_ROOT: coursesRoot } : {}),
+      ...(extraEnv || {})
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -78,7 +79,9 @@ export async function startServer({ coursesRoot } = {}) {
   child.stdout.on('data', d => logs.push(String(d)));
   child.stderr.on('data', d => logs.push(String(d)));
 
-  const base = `http://localhost:${port}`;
+  // The server binds IPv4 loopback, so address it directly rather than
+  // letting localhost resolve to ::1 and fail first.
+  const base = `http://127.0.0.1:${port}`;
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
     try {

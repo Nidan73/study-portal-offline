@@ -459,6 +459,42 @@ try {
     }
   }
 
+  section('The server is not on the network');
+  {
+    // app.listen(port) with no host binds every interface, so /api/progress --
+    // your notes -- answered anyone on the same Wi-Fi. The Origin guard does
+    // not help: it only inspects requests that carry an Origin, and a plain
+    // HTTP client sends none.
+    const os = await import('os');
+    const lan = Object.values(os.networkInterfaces()).flat()
+      .find(i => i && i.family === 'IPv4' && !i.internal);
+
+    if (!lan) {
+      check('skipped: this machine has no non-loopback address', true);
+    } else {
+      const reach = async (base) => {
+        try {
+          const r = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(4000) });
+          return r.ok;
+        } catch (e) { return false; }
+      };
+
+      check('the app answers on loopback', await reach(B));
+      check('but not on this machine\'s network address',
+        !(await reach(`http://${lan.address}:${new URL(B).port}`)), lan.address);
+
+      // Reaching it from a phone on the same network is a real thing to want;
+      // it just has to be asked for rather than being the default.
+      const open = await startServer({ env: { STUDYHUB_HOST: '0.0.0.0' } });
+      try {
+        check('STUDYHUB_HOST can opt back in to the network',
+          await reach(`http://${lan.address}:${open.port}`), lan.address);
+      } finally {
+        open.stop();
+      }
+    }
+  }
+
   section('Liveness');
   {
     const { status, body } = await get(srv.base, '/api/health');
