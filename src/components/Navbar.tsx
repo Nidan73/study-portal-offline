@@ -66,6 +66,8 @@ export const Navbar: React.FC = () => {
   const pushToast = useStore(state => state.pushToast);
   const [openingCompanion, setOpeningCompanion] = React.useState(false);
   const [confirmStop, setConfirmStop] = React.useState(false);
+  const [confirmRemoveId, setConfirmRemoveId] = React.useState<string | null>(null);
+  const removeCourse = useStore(state => state.removeCourse);
   const theme = useStore(state => state.theme);
   const toggleTheme = useStore(state => state.toggleTheme);
 
@@ -158,8 +160,8 @@ export const Navbar: React.FC = () => {
                     {courses.map((course) => {
                       const isCurrent = course.id === activeCourseId;
                       return (
+                        <div key={course.id} className="relative group/course">
                         <button
-                          key={course.id}
                           onClick={() => {
                             selectCourse(course.id);
                             setIsCourseDropdownOpen(false);
@@ -176,8 +178,40 @@ export const Navbar: React.FC = () => {
                               {course.badge || 'Local Repository'}
                             </div>
                           </div>
-                          {isCurrent && <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={1.5} />}
+                          {isCurrent && <Check className="w-3.5 h-3.5 flex-shrink-0 mr-6" strokeWidth={1.5} />}
                         </button>
+
+                        {/* Only folders you added can be taken away. A course
+                            found by scanning would just come back next time.
+                            Two-step, because losing a course is annoying and a
+                            stray click on a small target is easy. */}
+                        {course.removable && (
+                          <button
+                            id={`remove-course-${course.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirmRemoveId !== course.id) {
+                                setConfirmRemoveId(course.id);
+                                setTimeout(() => setConfirmRemoveId(null), 4000);
+                                return;
+                              }
+                              setConfirmRemoveId(null);
+                              removeCourse(course.id);
+                            }}
+                            title={confirmRemoveId === course.id
+                              ? `Click again to remove "${course.name}"`
+                              : `Remove "${course.name}" from your courses (the files stay on disk)`}
+                            aria-label={`Remove ${course.name}`}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                              confirmRemoveId === course.id
+                                ? 'bg-red-500 text-white opacity-100'
+                                : 'opacity-0 group-hover/course:opacity-100 text-zinc-500 hover:text-red-500 hover:bg-red-500/10'
+                            }`}
+                          >
+                            <X className="w-3 h-3" strokeWidth={2} />
+                          </button>
+                        )}
+                        </div>
                       );
                     })}
                   </div>

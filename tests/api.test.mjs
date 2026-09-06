@@ -571,6 +571,52 @@ try {
     }
   }
 
+  section('Removing a course you added');
+  {
+    // Deleting a course only forgot custom entries, so one made from a
+    // registered folder came straight back on the next listing.
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const pathMod = (await import('path')).default;
+
+    const lib = mkdtempSync(pathMod.join(tmpdir(), 'studyhub-rm-lib-'));
+    const vids = pathMod.join(lib, 'Scanned Course', 'Week 1');
+    mkdirSync(vids, { recursive: true });
+    for (const n of [1, 2, 3]) writeFileSync(pathMod.join(vids, `l${n}.mp4`), Buffer.alloc(2 * 1024 * 1024));
+
+    const extra = mkdtempSync(pathMod.join(tmpdir(), 'Added Folder-'));
+    writeFileSync(pathMod.join(extra, 'one.pdf'), '%PDF-1.4\n');
+    writeFileSync(pathMod.join(extra, 'two.pdf'), '%PDF-1.4\n');
+
+    const fresh = await startServer({ coursesRoot: lib });
+    try {
+      await post(fresh.base, '/api/slides/folders', { folderPath: extra });
+      const listed = (await get(fresh.base, '/api/courses')).body?.courses || [];
+      const added = listed.find(c => c.rootPath === extra);
+      const scanned = listed.find(c => c.id === 'scanned-course');
+
+      check('a folder you added is marked removable', added?.removable === true,
+        JSON.stringify(added?.removable));
+      check('a course found by scanning is not', !scanned?.removable,
+        JSON.stringify(scanned?.removable));
+
+      const del = await fetch(`${fresh.base}/api/courses/${added?.id}`,
+        { method: 'DELETE', headers: { Origin: fresh.base } });
+      check('removing it succeeds', del.status === 200, String(del.status));
+
+      const after = (await get(fresh.base, '/api/courses')).body?.courses || [];
+      check('it is gone from the course list',
+        !after.some(c => c.id === added?.id), after.map(c => c.id).join(','));
+      check('and it does not come back, because the folder was unregistered',
+        !((await get(fresh.base, '/api/slides/folders')).body?.folders || [])
+          .some(f => f.path === extra));
+      check('the scanned course is untouched',
+        after.some(c => c.id === 'scanned-course'), after.map(c => c.id).join(','));
+    } finally {
+      fresh.stop();
+    }
+  }
+
   section('Liveness');
   {
     const { status, body } = await get(srv.base, '/api/health');

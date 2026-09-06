@@ -46,6 +46,8 @@ export interface CourseSummary {
   gradient: string;
   description: string;
   isVirtual?: boolean;
+  /** True when the user added this folder, so the app may offer to remove it. */
+  removable?: boolean;
   modules?: CourseModule[];
 }
 
@@ -822,6 +824,10 @@ function discoverCourses(): CourseSummary[] {
       name: prettyCourseName(base),
       rootPath: resolved,
       badge: videos > 0 ? 'Local Course' : 'Reading Material',
+      // You added this folder, so you can take it away again. Courses found by
+      // scanning the library are not removable — deleting one would only make
+      // it reappear on the next scan.
+      removable: true,
       gradient: COURSE_GRADIENTS[discovered.length % COURSE_GRADIENTS.length],
       description: videos > 0
         ? `${videos} video${videos === 1 ? '' : 's'} and ${docs} document${docs === 1 ? '' : 's'} in a folder you added.`
@@ -833,7 +839,8 @@ function discoverCourses(): CourseSummary[] {
   if (Array.isArray(inMemoryData.customCourses)) {
     inMemoryData.customCourses.forEach(c => {
       const isValid = c.isVirtual || (c.rootPath && fs.existsSync(c.rootPath));
-      if (isValid && !discovered.some(d => d.id === c.id)) discovered.push(c);
+      // Added by hand, so removable by hand.
+      if (isValid && !discovered.some(d => d.id === c.id)) discovered.push({ ...c, removable: true });
     });
   }
 
@@ -1240,10 +1247,21 @@ app.delete('/api/courses/:courseId', (req: Request, res: Response) => {
   if (Array.isArray(inMemoryData.customCourses)) {
     inMemoryData.customCourses = inMemoryData.customCourses.filter(c => c.id !== courseId);
   }
+
+  // A course can also come from a registered slide folder, and removing it
+  // meant un-registering the folder — which this route did not do, so the
+  // course came straight back on the next listing.
+  const folder = (inMemoryData.slideFolders || [])
+    .find(dir => courseIdFor(path.basename(path.resolve(dir))) === courseId);
+  if (folder) {
+    inMemoryData.slideFolders = (inMemoryData.slideFolders || [])
+      .filter(dir => dir !== folder);
+  }
+
   catalogCache.delete(courseId);
   atomicWriteJson(PROGRESS_FILE, inMemoryData);
 
-  res.json({ success: true, courseId });
+  res.json({ success: true, courseId, unregisteredFolder: folder || null });
 });
 
 // --- YouTube Native Engine (Zero npm dependencies, 100% Free) ---

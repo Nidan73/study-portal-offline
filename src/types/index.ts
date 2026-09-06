@@ -3,6 +3,8 @@ export interface CourseSummary {
   name: string;
   rootPath: string;
   badge?: string;
+  /** Set when the user added this course, so it can be removed again. */
+  removable?: boolean;
   gradient?: string;
   description?: string;
   isVirtual?: boolean;
