@@ -60,11 +60,12 @@ export async function startServer({ coursesRoot } = {}) {
   // never collides with a test run.
   const port = 48000 + Math.floor(Math.random() * 900);
 
-  // npx is npx.cmd on Windows and CreateProcess only ever appends .exe, so a
-  // bare 'npx' is ENOENT there. Naming the .cmd beats shell:true, which would
-  // put argument quoting back in play.
-  const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const child = spawn(npx, ['tsx', 'server.ts', '--port', String(port)], {
+  // Start node directly rather than through npx. On Windows npx is npx.cmd,
+  // which a bare name never resolves to (CreateProcess only appends .exe) and
+  // which Node refuses to spawn without a shell since the CVE-2024-27980 fix
+  // — so npx is ENOENT there, then EINVAL. process.execPath sidesteps both,
+  // and skips a process on every platform.
+  const child = spawn(process.execPath, ['--import', 'tsx', 'server.ts', '--port', String(port)], {
     env: {
       ...process.env,
       STUDYHUB_DATA_DIR: dataDir,
