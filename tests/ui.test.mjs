@@ -257,6 +257,38 @@ try {
     await ctx.close();
   }
 
+  section('IDE sandbox');
+  {
+    // Run wrote "Live Web Sandbox rendered." into codeOutput, but the console
+    // is not rendered for html and the view stayed on the editor -- so the
+    // click had no observable effect at all.
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await ctx.newPage();
+    await page.goto(srv.base, { waitUntil: 'networkidle' });
+    await page.click('#nav-tab-ide');
+    await page.waitForSelector('#ide-run-code-btn', { timeout: 15000 });
+
+    const langs = await page.$$eval('select option', os => os.map(o => o.value));
+    check('PHP is offered as a language', langs.includes('php'), langs.join(','));
+
+    await page.selectOption('select', 'html');
+    await page.waitForTimeout(600);
+    check('the sandbox starts on the editor, with no preview',
+      !(await page.$('iframe[title="HTML Sandbox"]')));
+
+    await page.click('#ide-run-code-btn');
+    await page.waitForTimeout(1200);
+    check('clicking Run actually shows the rendered page',
+      !!(await page.$('iframe[title="HTML Sandbox"]')));
+
+    // A language with a console must still use it, not the preview.
+    await page.selectOption('select', 'javascript');
+    await page.waitForTimeout(600);
+    check('switching back to a console language drops the preview',
+      !(await page.$('iframe[title="HTML Sandbox"]')));
+    await ctx.close();
+  }
+
   section('Accessibility semantics');
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });

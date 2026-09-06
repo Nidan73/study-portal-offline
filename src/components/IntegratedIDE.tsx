@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
 import { cpp } from '@codemirror/lang-cpp';
 import { html } from '@codemirror/lang-html';
+import { php } from '@codemirror/lang-php';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { useStore } from '../store/useStore';
 import { 
@@ -84,17 +85,34 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
     }
   };
 
+  /**
+   * Run, and make sure something visibly happens.
+   *
+   * The HTML sandbox has no console -- its result is the preview iframe -- so
+   * pressing Run while looking at the editor changed nothing on screen at all.
+   * Show the result. Split keeps the code in view on a wide window; a narrow
+   * one cannot fit two columns, so it gets the preview alone.
+   */
+  const runCode = useCallback(() => {
+    if (activeCodeLanguage === 'html' && htmlViewMode === 'editor') {
+      const wide = typeof window !== 'undefined'
+        && window.matchMedia('(min-width: 768px)').matches;
+      setHtmlViewMode(wide ? 'split' : 'preview');
+    }
+    executeCode();
+  }, [activeCodeLanguage, htmlViewMode, executeCode]);
+
   // Keyboard shortcut: Cmd/Ctrl + Enter to run
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
-        executeCode();
+        runCode();
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [executeCode]);
+  }, [runCode]);
 
   const handleCopyCode = async () => {
     try {
@@ -115,6 +133,8 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
         return [cpp()];
       case 'html':
         return [html()];
+      case 'php':
+        return [php()];
       default:
         return [javascript()];
     }
@@ -125,6 +145,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
     { id: 'python', label: 'Python 3', ext: '.py' },
     { id: 'cpp', label: 'C++ (g++ -O2)', ext: '.cpp' },
     { id: 'c', label: 'C (gcc -O2)', ext: '.c' },
+    { id: 'php', label: 'PHP', ext: '.php' },
     { id: 'html', label: 'HTML / CSS / JS Sandbox', ext: '.html' }
   ] as const;
 
@@ -253,7 +274,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
             {/* Run Button */}
             <button
               id="ide-run-code-btn"
-              onClick={executeCode}
+              onClick={runCode}
               disabled={isExecutingCode}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12px] font-semibold transition-all duration-200 ease-fluid shadow-sm ${
                 isExecutingCode

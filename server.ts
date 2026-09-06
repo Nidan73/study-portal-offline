@@ -250,7 +250,15 @@ if (process.platform === 'win32') {
  * install elsewhere (nix, homebrew, /opt). Prefer the common absolute paths
  * when present, otherwise fall back to the bare name and let PATH resolve it.
  */
-function resolveTool(name: 'python3' | 'gcc' | 'g++'): string {
+/** What to call each toolchain when telling someone it is missing. */
+const TOOL_LABELS: Record<string, string> = {
+  php: 'PHP',
+  python: 'Python 3', py: 'Python 3',
+  cpp: 'g++ (a C++ compiler)', 'c++': 'g++ (a C++ compiler)',
+  c: 'gcc (a C compiler)'
+};
+
+function resolveTool(name: 'python3' | 'gcc' | 'g++' | 'php'): string {
   if (process.platform === 'win32') {
     // CreateProcess appends .exe and searches PATH for a bare name, so gcc/g++
     // resolve from a MinGW-w64 or MSYS2 install. Python is special: python.org
@@ -261,7 +269,8 @@ function resolveTool(name: 'python3' | 'gcc' | 'g++'): string {
   const candidates: Record<string, string[]> = {
     python3: ['/usr/bin/python3', '/usr/local/bin/python3', '/opt/homebrew/bin/python3'],
     gcc: ['/usr/bin/gcc', '/usr/local/bin/gcc', '/opt/homebrew/bin/gcc'],
-    'g++': ['/usr/bin/g++', '/usr/local/bin/g++', '/opt/homebrew/bin/g++']
+    'g++': ['/usr/bin/g++', '/usr/local/bin/g++', '/opt/homebrew/bin/g++'],
+    php: ['/usr/bin/php', '/usr/local/bin/php', '/opt/homebrew/bin/php']
   };
   for (const p of candidates[name] || []) {
     try { if (fs.existsSync(p)) return p; } catch (e) {}
@@ -2764,7 +2773,7 @@ app.post('/api/execute', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Code string required' });
   }
 
-  const validLangs = new Set(['javascript', 'js', 'python', 'py', 'cpp', 'c++', 'c']);
+  const validLangs = new Set(['javascript', 'js', 'python', 'py', 'cpp', 'c++', 'c', 'php']);
   const lang = (language || 'javascript').toLowerCase();
   if (!validLangs.has(lang)) {
     return res.status(400).json({ error: `Unsupported language: ${lang}` });
@@ -2787,6 +2796,14 @@ app.post('/api/execute', async (req: Request, res: Response) => {
       filesToCleanup.push(srcFile);
       binary = process.execPath;
       args = [srcFile];
+    } else if (lang === 'php') {
+      const srcFile = path.join(tmpDir, `${id}.php`);
+      fs.writeFileSync(srcFile, code);
+      filesToCleanup.push(srcFile);
+      binary = resolveTool('php');
+      // Errors go to stdout by default in some builds; force them to the
+      // console so a student sees the message instead of a blank run.
+      args = ['-d', 'display_errors=stderr', '-d', 'error_reporting=E_ALL', srcFile];
     } else if (lang === 'python' || lang === 'py') {
       const srcFile = path.join(tmpDir, `${id}.py`);
       fs.writeFileSync(srcFile, code);
@@ -2870,11 +2887,16 @@ app.post('/api/execute', async (req: Request, res: Response) => {
             executionTimeMs
           });
         }
+        // "spawn php ENOENT" means the toolchain is missing, not that the
+        // code is wrong. Say which one, since the fix is an install.
+        const missing = err && (err.code === 'ENOENT' || /ENOENT/.test(err.message || ''));
         resolve({
           success: !err,
           stdout: stdout || '',
-          stderr: stderr || (err ? err.message : ''),
-          exitCode: err ? (err.code || 1) : 0,
+          stderr: missing
+            ? `${TOOL_LABELS[lang] || lang} is not installed on this computer, so this code cannot run here. Install it, then restart Study Hub.`
+            : (stderr || (err ? err.message : '')),
+          exitCode: err ? (err.code === 'ENOENT' ? 127 : (err.code || 1)) : 0,
           executionTimeMs
         });
       });

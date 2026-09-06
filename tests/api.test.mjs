@@ -81,6 +81,29 @@ try {
   }
 
   // ------------------------------------------------------------------- notes
+  section('PHP');
+  {
+    const r = await post(B, '/api/execute', { language: 'php', code: '<?php echo 2 + 3;' });
+    check('php is an accepted language', r.status === 200, String(r.status));
+
+    // Meaningful on both kinds of machine: CI has PHP, a dev box may not.
+    if (r.body?.exitCode === 127) {
+      check('a missing PHP is explained rather than dumped as ENOENT',
+        /PHP is not installed/.test(r.body?.stderr || '') && !/ENOENT/.test(r.body?.stderr || ''),
+        r.body?.stderr);
+    } else {
+      check('php runs and returns its output', (r.body?.stdout || '').trim() === '5',
+        JSON.stringify(r.body?.stdout));
+      const err = await post(B, '/api/execute', { language: 'php', code: '<?php echo $x->y();' });
+      check('a php error reaches the student instead of a silent blank run',
+        (err.body?.stderr || '').length > 0, (err.body?.stderr || '').slice(0, 80));
+    }
+
+    const bad = await post(B, '/api/execute', { language: 'ruby', code: 'puts 1' });
+    check('adding php did not open the gate to other languages', bad.status === 400,
+      String(bad.status));
+  }
+
   section('Notes');
   {
     await post(B, '/api/progress', { courseId: CID, lessonId: 'L1', note: { timestamp: 42, content: 'first', slideNumber: 7 } });

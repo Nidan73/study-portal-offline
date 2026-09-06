@@ -85,7 +85,7 @@ export interface StoreState {
   };
 
   // IDE State
-  activeCodeLanguage: 'javascript' | 'python' | 'cpp' | 'c' | 'html';
+  activeCodeLanguage: 'javascript' | 'python' | 'cpp' | 'c' | 'php' | 'html';
   currentCode: string;
   codeOutput: {
     stdout: string;
@@ -169,7 +169,7 @@ export interface StoreState {
   goToPrevLesson: () => void;
 
   // IDE Actions
-  setActiveCodeLanguage: (lang: 'javascript' | 'python' | 'cpp' | 'c' | 'html') => void;
+  setActiveCodeLanguage: (lang: 'javascript' | 'python' | 'cpp' | 'c' | 'php' | 'html') => void;
   setCurrentCode: (code: string) => void;
   executeCode: () => Promise<void>;
   resetCodeTemplate: () => void;
@@ -262,6 +262,25 @@ function solve() {
 }
 
 solve();
+`,
+  php: `<?php
+// PHP Execution Playground
+// Shortcut: Press \u2318 + Enter or Ctrl + Enter to run
+
+function fizzbuzz(int $upTo): array {
+    $out = [];
+    for ($i = 1; $i <= $upTo; $i++) {
+        $out[] = match (true) {
+            $i % 15 === 0 => 'FizzBuzz',
+            $i % 3  === 0 => 'Fizz',
+            $i % 5  === 0 => 'Buzz',
+            default       => (string) $i,
+        };
+    }
+    return $out;
+}
+
+echo implode(' ', fizzbuzz(20)), PHP_EOL;
 `,
   python: `# Python 3 Execution Playground
 # Shortcut: Press ⌘ + Enter or Ctrl + Enter to run
@@ -1380,7 +1399,7 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  setActiveCodeLanguage: (lang: 'javascript' | 'python' | 'cpp' | 'c' | 'html') => {
+  setActiveCodeLanguage: (lang: 'javascript' | 'python' | 'cpp' | 'c' | 'php' | 'html') => {
     const currentCode = get().currentCode;
     const currentLang = get().activeCodeLanguage;
     const isCurrentDefault = currentCode.trim() === (DEFAULT_CODE_TEMPLATES[currentLang] || '').trim() || currentCode.trim() === '';
