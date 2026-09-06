@@ -302,6 +302,15 @@ export const SyllabusDrawer: React.FC = () => {
                         {mod.lessons.map(lesson => (
                           <div
                             key={lesson.id}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                selectLesson(lesson, 0);
+                                setSidePanelTab('curriculum');
+                              }
+                            }}
                             onClick={() => {
                               selectLesson(lesson, 0);
                               setSidePanelTab('curriculum');
@@ -442,6 +451,15 @@ export const SyllabusDrawer: React.FC = () => {
                             return (
                               <div
                                 key={lesson.id}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Play ${lesson.title}`}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    selectLesson(lesson);
+                                  }
+                                }}
                                 onClick={() => selectLesson(lesson)}
                                 className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-[12px] transition-all duration-200 cursor-pointer ${
                                   isActive
@@ -452,6 +470,9 @@ export const SyllabusDrawer: React.FC = () => {
                                 <div className="flex items-center gap-2.5 min-w-0 pr-2">
                                   <button
                                     onClick={(e) => handleToggleComplete(e, lesson.id)}
+                                    aria-pressed={isDone}
+                                    aria-label={isDone ? `Mark "${lesson.title}" as not watched` : `Mark "${lesson.title}" as watched`}
+                                    title={isDone ? 'Mark as not watched' : 'Mark as watched'}
                                     className={`transition-colors flex-shrink-0 ${isActive ? 'text-white dark:text-zinc-950' : 'text-zinc-600 dark:text-zinc-400 hover:text-indigo-600'}`}
                                   >
                                     {isDone ? (

@@ -510,6 +510,48 @@ try {
     await ctx.close();
   }
 
+  section('Two editors, one run');
+  {
+    // Every IDE registers its own window-level Ctrl+Enter handler, and the
+    // editor can now sit in a left pane and the right panel at once — so one
+    // keypress ran the code twice.
+    const ctx = await browser.newContext({ viewport: { width: 1700, height: 980 } });
+    const page = await ctx.newPage();
+    let execCalls = 0;
+    await page.route('**/api/execute', r => {
+      execCalls++;
+      return r.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ success: true, stdout: 'ok', stderr: '', exitCode: 0, executionTimeMs: 1 }) });
+    });
+    await page.goto(srv.base, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+
+    await page.click('#nav-tab-player').catch(() => {});
+    await page.waitForTimeout(800);
+    await page.click('#panel-tab-code').catch(() => {});
+    await page.waitForTimeout(900);
+    await page.click('#left-top-pane-code').catch(() => {});
+    await page.waitForTimeout(1300);
+
+    const editors = await page.$$eval('#ide-run-code-btn', e => e.length);
+    check('the editor really can be open in two places', editors >= 2, `${editors} mounted`);
+
+    execCalls = 0;
+    await page.keyboard.press('Control+Enter');
+    await page.waitForTimeout(1200);
+    check('one keypress runs the code once, not once per editor',
+      execCalls === 1, `${execCalls} calls`);
+
+    // Clicking the button twice in a row is two deliberate runs, not a bug —
+    // what must not happen is one action reaching the store twice. The button
+    // disables itself for the duration, which is the guard that matters there.
+    execCalls = 0;
+    await page.click('#ide-run-code-btn');
+    await page.waitForTimeout(1200);
+    check('clicking Run runs it exactly once', execCalls === 1, `${execCalls} calls`);
+    await ctx.close();
+  }
+
   section('Accessibility semantics');
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });

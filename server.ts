@@ -2432,63 +2432,6 @@ app.post('/api/companion/open', (req: Request, res: Response) => {
   res.json({ success: true, name: companion.name, appMode, launched: true });
 });
 
-// API: Extract PPTX Outline & Slides for In-App Presentation Companion
-app.post('/api/slides/extract-pptx', (req: Request, res: Response) => {
-  const { filePath } = req.body;
-  if (!filePath || typeof filePath !== 'string') {
-    return res.status(400).json({ error: 'File path required' });
-  }
-
-  const resolved = resolveServable(filePath);
-  if (!resolved) {
-    return res.status(403).json({ error: 'Access denied: path is outside the course library' });
-  }
-  if (!fs.existsSync(resolved)) {
-    return res.status(404).json({ error: 'File not found on disk' });
-  }
-
-  const pyScript = `
-import zipfile, re, sys, json, html
-try:
-    with zipfile.ZipFile(sys.argv[1], 'r') as z:
-        slides = sorted([n for n in z.namelist() if re.match(r'ppt/slides/slide\\d+\\.xml', n)], key=lambda x: int(re.search(r'\\d+', x).group()))
-        out = []
-        for idx, s in enumerate(slides, 1):
-            content = z.read(s).decode('utf-8', errors='ignore')
-            texts = re.findall(r'<a:t>(.*?)</a:t>', content)
-            raw_cleaned = [html.unescape(t.strip()) for t in texts if t.strip()]
-            # Filter out raw developer prompt artifacts like * [IMAGE: ...] or [IMAGE: ...]
-            cleaned = [t for t in raw_cleaned if not (t.startswith('* [IMAGE') or t.startswith('[IMAGE') or t.startswith('*(IMAGE'))]
-            title = ""
-            bullets = []
-            for item in cleaned:
-                if not title:
-                    title = item
-                else:
-                    bullets.append(item)
-            if not title:
-                title = f"Slide {idx}"
-            out.append({'slideNumber': idx, 'title': title, 'bullets': bullets})
-        print(json.dumps({'totalSlides': len(slides), 'slides': out}))
-except Exception as e:
-    print(json.dumps({'error': str(e)}))
-`;
-
-  const pyBin = resolveTool('python3');
-
-  execFile(pyBin, ['-c', pyScript, resolved], { timeout: 15000 }, (err, stdout) => {
-    if (err || !stdout) {
-      return res.status(500).json({ error: 'Failed to extract PPTX slides' });
-    }
-    try {
-      const data = JSON.parse(stdout);
-      res.json(data);
-    } catch (e) {
-      res.status(500).json({ error: 'Invalid PPTX data' });
-    }
-  });
-});
-
 const YT_HISTORY_LIMIT = 100;
 
 /** Record (or refresh) a video in the watch history, newest first. */
@@ -2567,51 +2510,6 @@ app.post('/api/youtube/history', async (req: Request, res: Response) => {
 
   scheduleProgressWrite();
   res.json({ success: true, history: inMemoryData.youtubeHistory || [] });
-});
-
-/**
- * Backfill history for videos that already carry notes, bookmarks or a saved
- * position but were watched before history existed — their titles were never
- * stored, so the notes were effectively orphaned. Titles come from oEmbed.
- */
-app.post('/api/youtube/history/backfill', async (req: Request, res: Response) => {
-  const known = new Set((inMemoryData.youtubeHistory || []).map(e => e.id));
-  const orphans = new Set<string>();
-  for (const c of Object.values(inMemoryData.courses)) {
-    for (const src of [c.notes, c.bookmarks, c.resumePositions]) {
-      for (const key of Object.keys(src || {})) {
-        if (key.startsWith('yt_') && !known.has(key)) orphans.add(key);
-      }
-    }
-  }
-
-  const resolved: string[] = [];
-  const failed: string[] = [];
-  for (const lessonId of orphans) {
-    const videoId = lessonId.replace(/^yt_/, '');
-    try {
-      const r = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
-      if (!r.ok) { failed.push(lessonId); continue; }
-      const info: any = await r.json();
-      let position = 0;
-      for (const c of Object.values(inMemoryData.courses)) {
-        position = c.resumePositions?.[lessonId] ?? position;
-      }
-      recordYouTubeWatch({
-        id: lessonId,
-        videoId,
-        title: info.title || videoId,
-        thumbnailUrl: info.thumbnail_url,
-        positionSeconds: position
-      });
-      resolved.push(info.title || videoId);
-    } catch (e) {
-      failed.push(lessonId);
-    }
-  }
-
-  if (resolved.length) flushProgressNow();
-  res.json({ resolved: resolved.length, failed: failed.length, titles: resolved });
 });
 
 // API: General notepad — notes not tied to any lesson or course.

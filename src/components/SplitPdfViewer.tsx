@@ -689,6 +689,16 @@ export const SplitPdfViewer: React.FC = () => {
                           className="p-3 rounded-2xl bg-black/[0.02] hover:bg-black/[0.04] dark:bg-white/[0.03] dark:hover:bg-white/[0.06] border border-black/[0.05] dark:border-white/[0.07] transition-all flex items-center justify-between gap-3 group"
                         >
                           <div 
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Open ${deck.title}`}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setCurrentDeck(deck);
+                                selectPdf(deck);
+                              }
+                            }}
                             onClick={() => {
                               setCurrentDeck(deck);
                               selectPdf(deck);

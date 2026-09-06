@@ -1456,6 +1456,13 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   executeCode: async () => {
+    // Every mounted IDE registers its own window-level Ctrl/Cmd+Enter handler,
+    // and the editor can now appear in a left pane and the right panel at the
+    // same time — so one keypress arrived here twice and ran the code twice.
+    // Guarding on the flag fixes that at the source, and stops an impatient
+    // double-click from compiling twice as well.
+    if (get().isExecutingCode) return;
+
     const { activeCodeLanguage, currentCode, activeLesson, saveLessonCode } = get();
     if (activeCodeLanguage === 'html') {
       set({

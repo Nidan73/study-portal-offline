@@ -589,6 +589,20 @@ export const YouTubeExplorer: React.FC = () => {
               return (
                 <div
                   key={video.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Play ${video.title}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      playYouTubeVideoImmediately({
+                        id: video.id,
+                        title: video.title,
+                        durationSeconds: video.durationSeconds,
+                        thumbnailUrl: video.thumbnail
+                      });
+                    }
+                  }}
                   onClick={() => playYouTubeVideoImmediately({
                     id: video.id,
                     title: video.title,
