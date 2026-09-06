@@ -688,6 +688,45 @@ try {
     }
   }
 
+  section('Two deck panes are independent');
+  {
+    // Both viewers read the shared activePdf, so choosing a deck in one pane
+    // swapped the other — two documents could never be read side by side.
+    const ctx = await browser.newContext({ viewport: { width: 1700, height: 980 } });
+    const page = await ctx.newPage();
+    let crashed = null;
+    page.on('pageerror', e => { crashed = String(e).slice(0, 120); });
+    await page.goto(srv.base, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1300);
+    await page.click('#nav-tab-player').catch(() => {});
+    await page.waitForTimeout(700);
+    await page.click('#panel-tab-slides').catch(() => {});
+    await page.waitForTimeout(900);
+    await page.click('#left-top-pane-slides').catch(() => {});
+    await page.waitForTimeout(1500);
+
+    const panes = await page.$$eval('[id$="-selector-dropdown-btn"]', e => e.length);
+    check('the deck viewer can be open in two panes', panes === 2, `${panes} panes`);
+
+    // Selecting used to blow the stack: a callback that called itself.
+    await page.click('#deck-left-top-selector-dropdown-btn').catch(() => {});
+    await page.waitForTimeout(600);
+    await page.evaluate(() => [...document.querySelectorAll('button')]
+      .find(x => /browse all/i.test(x.textContent || ''))?.click());
+    await page.waitForTimeout(1100);
+    const rows = await page.$$('[data-row]');
+    if (rows.length) { await rows[0].click(); await page.waitForTimeout(1600); }
+    check('choosing a deck does not throw', crashed === null, crashed || 'no error');
+
+    if (rows.length && panes === 2) {
+      const titles = await page.$$eval('[id$="-selector-dropdown-btn"]',
+        e => e.map(b => b.textContent.trim()));
+      check('choosing in one pane leaves the other alone',
+        titles[0] !== titles[1], titles.join(' | ').slice(0, 90));
+    }
+    await ctx.close();
+  }
+
   section('Accessibility semantics');
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });

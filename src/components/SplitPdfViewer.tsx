@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { DeckBrowser } from './DeckBrowser';
 import { SupplementaryFile } from '../types';
@@ -190,7 +190,27 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
   // 1. If user explicitly selected activePdf, use it.
   // 2. Otherwise if activeLesson has companionPdf, use that.
   // 3. Otherwise leave currentDeck as null (Hub mode), NEVER randomly load a foreign deck!
+  // Once you pick a deck *in this pane*, it stops following the shared one.
+  // The viewer can be open in two places at once now, and both mirrored the
+  // global activePdf — so choosing a deck on the right swapped the left as
+  // well, and you could never read two documents side by side. A pane that
+  // you have not chosen in still follows along, so opening a document from
+  // the curriculum lands somewhere sensible.
+  const pinnedRef = useRef(false);
+  // The default pane is the one the rest of the app talks to, so it keeps
+  // publishing its choice as the shared activePdf. A second pane keeps its
+  // pick to itself — otherwise choosing a deck in one pane rewrote the shared
+  // value and every other pane followed it, which is the mirroring you get
+  // when two viewers are open at once.
+  const isPrimaryPane = paneId === 'deck';
+  const pinToThisPane = useCallback((deck: SupplementaryFile | null) => {
+    pinnedRef.current = true;
+    setCurrentDeck(deck);
+    if (isPrimaryPane && deck) selectPdf(deck);
+  }, [isPrimaryPane, selectPdf]);
+
   useEffect(() => {
+    if (pinnedRef.current) return;
     if (activePdf) {
       setCurrentDeck(activePdf);
     } else if (activeLesson?.companionPdf) {
@@ -199,6 +219,9 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
       setCurrentDeck(null);
     }
   }, [activePdf, activeLesson?.id, activeLesson?.companionPdf]);
+
+  // A different lecture is a fresh context: let the pane follow again.
+  useEffect(() => { pinnedRef.current = false; }, [activeLesson?.id]);
 
   // Handle Native Desktop App Launch (OnlyOffice / PowerPoint)
   const handleLaunchDesktop = async (deckToLaunch = currentDeck) => {
@@ -241,13 +264,11 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
         isCustomLocal: true,
         localFile: file
       };
-      setCurrentDeck(customItem);
-      selectPdf(customItem);
+      pinToThisPane(customItem);
     } else if (ext === 'pptx' || ext === 'ppt' || ext === 'pptm' || ext === 'docx' || ext === 'doc') {
       const match = availableDecks.find(d => d.filename.toLowerCase() === file.name.toLowerCase());
       if (match) {
-        setCurrentDeck(match);
-        selectPdf(match);
+        pinToThisPane(match);
       } else {
         const customItem: SupplementaryFile = {
           id: `local-pptx-${Date.now()}`,
@@ -259,15 +280,13 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
           isCustomLocal: true,
           localFile: file
         };
-        setCurrentDeck(customItem);
-        selectPdf(customItem);
+        pinToThisPane(customItem);
       }
     } else {
       // Find if this file exists in availableDecks by filename
       const match = availableDecks.find(d => d.filename.toLowerCase() === file.name.toLowerCase());
       if (match) {
-        setCurrentDeck(match);
-        selectPdf(match);
+        pinToThisPane(match);
       } else {
         pushToast(`Loaded "${file.name}". Browse every discovered deck from the switcher above.`, 'success');
       }
@@ -381,7 +400,7 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
                         <button
                           key={deck.id}
                           onClick={() => {
-                            setCurrentDeck(deck);
+                            pinToThisPane(deck);
                             setLocalBlobUrl(null);
                             selectPdf(deck);
                             setIsDeckDropdownOpen(false);
@@ -718,13 +737,11 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
-                                setCurrentDeck(deck);
-                                selectPdf(deck);
+                                pinToThisPane(deck);
                               }
                             }}
                             onClick={() => {
-                              setCurrentDeck(deck);
-                              selectPdf(deck);
+                              pinToThisPane(deck);
                             }}
                             className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
                           >
@@ -762,8 +779,7 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
                             <button
                               id={`btn-study-deck-${deck.id}`}
                               onClick={() => {
-                                setCurrentDeck(deck);
-                                selectPdf(deck);
+                                pinToThisPane(deck);
                               }}
                               className="btn-study-deck px-3 py-1.5 rounded-xl bg-black/[0.04] hover:bg-zinc-900 dark:bg-white/[0.06] dark:hover:bg-white text-zinc-700 hover:text-white dark:text-zinc-300 dark:hover:text-zinc-950 text-[11px] font-medium transition-all"
                             >
@@ -786,9 +802,8 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
           decks={availableDecks}
           currentDeckId={currentDeck?.id}
           onSelect={(deck) => {
-            setCurrentDeck(deck);
             setLocalBlobUrl(null);
-            selectPdf(deck);
+            pinToThisPane(deck);
             setIsBrowserOpen(false);
           }}
           onClose={() => setIsBrowserOpen(false)}

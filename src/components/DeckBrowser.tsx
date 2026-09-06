@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useStore } from '../store/useStore';
 import type { SupplementaryFile } from '../types';
 import {
   X, Search, FileText, Presentation, Folder, ChevronRight,
-  ArrowUpDown, Check, CornerDownLeft, FileType2
+  ArrowUpDown, Check, CornerDownLeft, FileType2, FolderPlus
 } from 'lucide-react';
 
 /**
@@ -55,6 +56,27 @@ const deckPath = (d: SupplementaryFile): string[] => {
 };
 
 const SEP = ' › ';
+
+/**
+ * The directory a set of decks actually lives in.
+ *
+ * The rail is built from display names, which are not paths — so to register a
+ * folder as a course we ask the files where they are and take the deepest
+ * directory they all share. Nested files therefore resolve to the folder that
+ * contains them all rather than to whichever one happened to be first.
+ */
+const commonFolder = (paths: string[]): string => {
+  const real = paths.filter(Boolean);
+  if (!real.length) return '';
+  const sep = real[0].includes('\\') && !real[0].startsWith('/') ? '\\' : '/';
+  const parts = real.map(p => p.split(/[/\\]/).slice(0, -1));   // drop the filename
+  const out: string[] = [];
+  for (let i = 0; i < parts[0].length; i++) {
+    const seg = parts[0][i];
+    if (parts.every(x => x[i] === seg)) out.push(seg); else break;
+  }
+  return out.join(sep);
+};
 const splitGroup = (d: SupplementaryFile) => {
   const segs = deckPath(d);
   return { top: segs[0], sub: segs.slice(1).join(SEP) };
@@ -69,6 +91,10 @@ export const DeckBrowser: React.FC<Props> = ({ decks, currentDeckId, onSelect, o
 
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  const pushToast = useStore(state => state.pushToast);
+  const selectCourse = useStore(state => state.selectCourse);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => { searchRef.current?.focus(); }, []);
 
@@ -229,6 +255,57 @@ export const DeckBrowser: React.FC<Props> = ({ decks, currentDeckId, onSelect, o
                   )}
                 </React.Fragment>
               ))}
+
+              {/* Turn the selected folder into a course of its own. The server
+                  already builds a curriculum from a registered folder; this
+                  just hands it the directory the chosen files share. */}
+              {scope !== '__all__' && (
+                <div className="pt-2 mt-1 border-t border-black/[0.06] dark:border-white/[0.08]">
+                  <button
+                    id="add-folder-as-course-btn"
+                    disabled={adding}
+                    onClick={async () => {
+                      const inScope = decks.filter(d => {
+                        const full = deckPath(d).join(SEP);
+                        return full === scope || full.startsWith(scope + SEP);
+                      });
+                      const folderPath = commonFolder(inScope.map(d => (d as any).filePath || ''));
+                      if (!folderPath) {
+                        pushToast('Could not work out where that folder lives on disk.', 'error');
+                        return;
+                      }
+                      setAdding(true);
+                      try {
+                        const res = await fetch('/api/slides/folders', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ folderPath })
+                        });
+                        if (!res.ok) {
+                          const body = await res.json().catch(() => ({}));
+                          throw new Error(body.error || `HTTP ${res.status}`);
+                        }
+                        const courses = await (await fetch('/api/courses')).json();
+                        useStore.setState({ courses: courses.courses || [] });
+                        const added = (courses.courses || []).find((c: any) =>
+                          c.rootPath && c.rootPath.replace(/[/\\]+$/, '') === folderPath.replace(/[/\\]+$/, ''));
+                        pushToast(`Added "${scope.split(SEP).pop()}" as a course.`, 'success');
+                        onClose();
+                        if (added) await selectCourse(added.id);
+                      } catch (e: any) {
+                        pushToast(e.message || 'Could not add that folder as a course.', 'error');
+                      } finally {
+                        setAdding(false);
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-[11.5px] font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors disabled:opacity-50"
+                    title={`Add "${scope.split(SEP).pop()}" to your courses, with its own curriculum`}
+                  >
+                    <FolderPlus className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={1.5} />
+                    <span className="truncate text-left">Add "{scope.split(SEP).pop()}" as a course</span>
+                  </button>
+                </div>
+              )}
             </aside>
 
             <div className="flex-1 flex flex-col min-w-0">
