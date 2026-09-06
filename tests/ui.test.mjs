@@ -368,6 +368,82 @@ try {
     await ctx.close();
   }
 
+  section('Word documents render as documents');
+  {
+    // The panel used to say Word "can't be shown in the browser" and offer two
+    // buttons. It now lays the document out — pages, headings, styles — the way
+    // the PDF viewer shows a PDF.
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const pathMod = (await import('path')).default;
+    const JSZip = (await import('jszip')).default;
+
+    const docx = async (heading, body) => {
+      const zip = new JSZip();
+      zip.file('[Content_Types].xml',
+        '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+      zip.folder('_rels').file('.rels',
+        '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+      zip.folder('word').file('document.xml',
+        '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+        `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>${heading}</w:t></w:r></w:p>` +
+        `<w:p><w:r><w:t>${body}</w:t></w:r></w:p>` +
+        '</w:body></w:document>');
+      return zip.generateAsync({ type: 'nodebuffer' });
+    };
+
+    const lib = mkdtempSync(pathMod.join(tmpdir(), 'studyhub-docx-'));
+    const dir = pathMod.join(lib, 'Thesis Course', 'Drafts');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(pathMod.join(dir, 'proposal.docx'), await docx('Federated Vision Transformer', 'Remote sensing scene classification under non-IID clients.'));
+    writeFileSync(pathMod.join(dir, 'methodology.docx'), await docx('Methodology', 'CKKS-based secure aggregation.'));
+
+    const fresh = await startServer({ coursesRoot: lib });
+    const ctx = await browser.newContext({ viewport: { width: 1500, height: 950 } });
+    const page = await ctx.newPage();
+    try {
+      await page.goto(fresh.base, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1500);
+      await page.click('#nav-tab-slides');
+      await page.waitForTimeout(1800);
+
+      const opened = await page.evaluate(() => {
+        const b = [...document.querySelectorAll('button')].find(x => /proposal|methodology|\.docx/i.test(x.textContent || ''));
+        if (!b) return false;
+        b.click();
+        return true;
+      });
+      check('a Word document can be opened from the panel', opened);
+
+      if (opened) {
+        await page.waitForSelector('#docx-render-host', { timeout: 20000 }).catch(() => {});
+        await page.waitForTimeout(3500);
+        const r = await page.evaluate(() => {
+          const host = document.querySelector('#docx-render-host');
+          return {
+            host: !!host,
+            fallback: !!document.querySelector('#word-doc-panel'),
+            text: (host?.textContent || '').replace(/\s+/g, ' '),
+            paragraphs: host ? host.querySelectorAll('p, article, section').length : 0
+          };
+        });
+        check('it is laid out rather than refused', r.host && !r.fallback,
+          `host=${r.host} fallback=${r.fallback}`);
+        check('the document text is actually rendered',
+          /Federated Vision Transformer|Methodology/.test(r.text), r.text.slice(-90));
+        check('it produces document structure, not a blob of text',
+          r.paragraphs > 0, `${r.paragraphs} block elements`);
+      }
+    } finally {
+      await ctx.close();
+      fresh.stop();
+    }
+  }
+
   section('Accessibility semantics');
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });

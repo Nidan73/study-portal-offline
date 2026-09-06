@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore';
 import { DeckBrowser } from './DeckBrowser';
 import { SupplementaryFile } from '../types';
 import { PptxCanvasViewer } from './PptxCanvasViewer';
+import { DocxViewer } from './DocxViewer';
 import { 
   FileText, 
   ExternalLink, 
@@ -580,7 +581,14 @@ export const SplitPdfViewer: React.FC = () => {
               isLaunchingDesktop={isLaunchingDesktop}
             />
           ) : isCurrentWord && currentDeck ? (
-            /* Word: nothing to embed, so offer the two things that do work. */
+            /* Word, laid out as a document. Falls back to the buttons below if
+               the file cannot be rendered — a stub, or something not really a
+               .docx despite its name. */
+            <DocxViewer
+              key={currentDeck.id}
+              url={pdfUrl}
+              title={currentDeck.title}
+              fallback={
             <div id="word-doc-panel" className="h-full flex flex-col items-center justify-center gap-4 p-8 text-center">
               <div className="w-14 h-14 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
                 <FileType2 className="w-7 h-7" strokeWidth={1.5} />
@@ -588,7 +596,7 @@ export const SplitPdfViewer: React.FC = () => {
               <div>
                 <p className="text-[15px] font-semibold text-zinc-900 dark:text-white">{currentDeck.title}</p>
                 <p className="mt-1 text-[12px] text-zinc-600 dark:text-zinc-400 max-w-xs">
-                  Word documents can't be shown in the browser. Open it in your writing app, or save a copy.
+                  This document could not be laid out for reading. Open it in your writing app, or save a copy.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -618,6 +626,8 @@ export const SplitPdfViewer: React.FC = () => {
                 )}
               </div>
             </div>
+              }
+            />
           ) : currentDeck ? (
             /* Standard Embedded PDF Viewer */
             <iframe
