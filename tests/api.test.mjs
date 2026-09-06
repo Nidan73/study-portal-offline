@@ -8,9 +8,33 @@ import { startServer, post, get, check, section, summary } from './harness.mjs';
  * and the endpoints whose client/server contracts had drifted apart.
  */
 
+import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import path from 'path';
+
 const srv = await startServer();
 const B = srv.base;
 const CID = 'test-course';
+
+// Paths like /etc/hostname and /proc do not exist on Windows, so tests built on
+// them asserted "rejects a file" while actually exercising "rejects a missing
+// path" — and passed for the wrong reason, or failed for one. Build the shapes
+// instead of borrowing them from the host.
+const FIX = mkdtempSync(path.join(tmpdir(), 'studyhub-fixtures-'));
+const A_FILE = path.join(FIX, 'not-a-folder.txt');
+writeFileSync(A_FILE, 'plain file');
+const EMPTY_DIR = path.join(FIX, 'empty');
+mkdirSync(EMPTY_DIR);
+const MISSING = path.join(FIX, 'no', 'such', 'place');
+// A small library of documents, for the scan-shape checks.
+const DOC_TREE = path.join(FIX, 'library');
+for (const sub of ['Algorithms', 'Networks']) {
+  mkdirSync(path.join(DOC_TREE, sub), { recursive: true });
+  for (const f of ['one.pdf', 'two.pdf', 'three.pdf'])
+    writeFileSync(path.join(DOC_TREE, sub, f), '%PDF-1.4\n');
+}
+// The drive/volume this machine's temp dir lives on — '/' on Unix, 'C:\\' on Windows.
+const FS_ROOT = path.parse(FIX).root;
 
 try {
   // ---------------------------------------------------------------- security
@@ -213,12 +237,13 @@ try {
   {
     const bad = await post(B, '/api/slides/folders', {});
     check('adding a folder with no path is rejected', bad.status === 400);
-    const missing = await post(B, '/api/slides/folders', { folderPath: '/no/such/dir' });
-    check('adding a missing folder 404s', missing.status === 404);
-    const notDir = await post(B, '/api/slides/folders', { folderPath: '/etc/hostname' });
-    check('adding a file rather than a folder is rejected', notDir.status === 400);
-    const empty = await post(B, '/api/slides/folders', { folderPath: '/proc' });
-    check('a folder with no decks is rejected rather than silently added', empty.status === 400);
+    const missing = await post(B, '/api/slides/folders', { folderPath: MISSING });
+    check('adding a missing folder 404s', missing.status === 404, String(missing.status));
+    const notDir = await post(B, '/api/slides/folders', { folderPath: A_FILE });
+    check('adding a file rather than a folder is rejected', notDir.status === 400, String(notDir.status));
+    const empty = await post(B, '/api/slides/folders', { folderPath: EMPTY_DIR });
+    check('a folder with no decks is rejected rather than silently added', empty.status === 400,
+      String(empty.status));
 
     const listed = await get(B, '/api/slides/folders');
     check('the folder list is readable', Array.isArray(listed.body?.folders));
@@ -230,23 +255,24 @@ try {
     check('scan roots are discoverable', (await get(B, '/api/scan/roots')).body?.roots?.length >= 1);
     const bad = await post(B, '/api/scan', {});
     check('a scan with no path is rejected', bad.status === 400);
-    const missing = await post(B, '/api/scan', { rootPath: '/no/such/place' });
-    check('a scan of a missing folder 404s', missing.status === 404);
-    const file = await post(B, '/api/scan', { rootPath: '/etc/hostname' });
-    check('a scan of a file rather than a folder is rejected', file.status === 400);
-    const wide = await post(B, '/api/scan', { rootPath: '/', timeoutMs: 3000 });
+    const missing = await post(B, '/api/scan', { rootPath: MISSING });
+    check('a scan of a missing folder 404s', missing.status === 404, String(missing.status));
+    const file = await post(B, '/api/scan', { rootPath: A_FILE });
+    check('a scan of a file rather than a folder is rejected', file.status === 400, String(file.status));
+    const wide = await post(B, '/api/scan', { rootPath: FS_ROOT, timeoutMs: 3000 });
     check('a whole-filesystem scan stays inside its deadline',
       wide.status === 200 && wide.body.elapsedMs < 12000, `${wide.body?.elapsedMs}ms`);
 
     // A folder of slides with no video used to be invisible to the scanner.
-    const docs = await post(B, '/api/scan', { rootPath: '/usr/share/doc', timeoutMs: 8000 });
-    const kinds = new Set((docs.body?.candidates || []).map(c => c.kind));
+    const docs = await post(B, '/api/scan', { rootPath: DOC_TREE, timeoutMs: 8000 });
+    const found = docs.body?.candidates || [];
+    const kinds = new Set(found.map(c => c.kind));
+    check('a document library is actually found', found.length > 0, `${found.length} candidates`);
     check('every candidate says what it holds',
-      (docs.body?.candidates || []).every(c => ['videos', 'documents', 'mixed'].includes(c.kind)),
+      found.length > 0 && found.every(c => ['videos', 'documents', 'mixed'].includes(c.kind)),
       [...kinds].join(','));
     check('no candidate is nested inside another',
-      (docs.body?.candidates || []).every(a =>
-        !(docs.body.candidates || []).some(b => b !== a && a.path.startsWith(b.path + '/'))));
+      found.every(a => !found.some(b => b !== a && a.path.startsWith(b.path + path.sep))));
   }
 
   // ------------------------------------------------------- generic discovery
