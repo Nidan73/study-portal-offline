@@ -804,9 +804,11 @@ function discoverCourses(): CourseSummary[] {
   for (const dir of inMemoryData.slideFolders || []) {
     const resolved = path.resolve(dir);
     if (!fs.existsSync(resolved)) continue;
-    // Skip anything a scan already turned into a course, or that sits inside one.
-    if (discovered.some(d => d.rootPath &&
-        (path.resolve(d.rootPath) === resolved || isInside(d.rootPath, resolved)))) continue;
+    // Only skip a folder that IS already a course. Nesting used to disqualify
+    // it too, which meant a sub-folder of an indexed library — "Thesis" inside
+    // "Academics and Research" — could never be kept as a course of its own,
+    // even though asking for exactly that is the point of registering it.
+    if (discovered.some(d => d.rootPath && path.resolve(d.rootPath) === resolved)) continue;
 
     const { videos, docs } = looksLikeCourse(resolved);
     if (videos === 0 && docs === 0) continue;

@@ -176,6 +176,15 @@ export const App: React.FC = () => {
 
   const [leftTopPane, setLeftTopPane] = useRememberedPane<LeftTopPane>(
     'study_hub_left_top_pane', ['video', 'slides', 'notes', 'code'], 'video');
+  // A pane is mounted from the first time it is opened and then kept, hidden.
+  // Unmounting threw away whatever was open in it, so a deck you were reading
+  // was gone the moment you glanced at another tab and came back — the same
+  // reason the player is hidden rather than unmounted.
+  const [visitedTop, setVisitedTop] = React.useState<Set<LeftTopPane>>(
+    () => new Set<LeftTopPane>([leftTopPane]));
+  React.useEffect(() => {
+    setVisitedTop(prev => prev.has(leftTopPane) ? prev : new Set(prev).add(leftTopPane));
+  }, [leftTopPane]);
   const [leftBottomPane, setLeftBottomPane] = useRememberedPane<LeftBottomPane>(
     'study_hub_left_bottom_pane', ['notes', 'slides', 'code', 'curriculum'], 'notes');
 
@@ -371,11 +380,23 @@ export const App: React.FC = () => {
 
               {leftTopPane !== 'video' && (
                 <div className="flex-1 min-h-[320px] max-h-[calc(100vh-var(--pane-reserve,150px))] overflow-hidden">
-                  {leftTopPane === 'slides' && <SplitPdfViewer paneId="deck-left-top" />}
-                  {leftTopPane === 'notes' && (activeLesson
-                    ? <InteractiveNotes variant="dock" paneId="dock-left-top" />
-                    : <Scratchpad variant="dock" />)}
-                  {leftTopPane === 'code' && <IntegratedIDE isSplit paneId="ide-left-top" onCloseSplit={() => setLeftTopPane('video')} />}
+                  {visitedTop.has('slides') && (
+                    <div className={`h-full ${leftTopPane === 'slides' ? '' : 'hidden'}`}>
+                      <SplitPdfViewer paneId="deck-left-top" />
+                    </div>
+                  )}
+                  {visitedTop.has('notes') && (
+                    <div className={`h-full ${leftTopPane === 'notes' ? '' : 'hidden'}`}>
+                      {activeLesson
+                        ? <InteractiveNotes variant="dock" paneId="dock-left-top" />
+                        : <Scratchpad variant="dock" />}
+                    </div>
+                  )}
+                  {visitedTop.has('code') && (
+                    <div className={`h-full ${leftTopPane === 'code' ? '' : 'hidden'}`}>
+                      <IntegratedIDE isSplit paneId="ide-left-top" onCloseSplit={() => setLeftTopPane('video')} />
+                    </div>
+                  )}
                 </div>
               )}
 
