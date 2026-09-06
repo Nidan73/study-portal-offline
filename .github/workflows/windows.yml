@@ -1,0 +1,41 @@
+# The app is developed on Linux but shipped to people on Windows, where the
+# scanner meets drive letters, NTFS case-insensitivity and C:\Windows. Nothing
+# on a Linux box can prove that path works, so the suite runs on a real
+# Windows runner too.
+name: Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The UI suite drives a real browser.
+      - run: npx playwright install chromium
+
+      - run: npm run build
+
+      - name: API suite
+        run: npm run test:api
+
+      - name: UI suite
+        run: npm run test:ui
+
+      # What a Linux box cannot check: that the scanner actually enumerates
+      # this machine's drives instead of looking for /run/media.
+      - name: Drive detection on a real Windows filesystem
+        shell: pwsh
+        run: node tests/windows-roots.mjs

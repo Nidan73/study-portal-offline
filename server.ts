@@ -271,9 +271,27 @@ function resolveTool(name: 'python3' | 'gcc' | 'g++'): string {
 
 // Ignored folders for heuristic crawler
 const IGNORED_NAMES = new Set([
-  'node_modules', '.git', '.next', 'dist', 'build', 'vendor', 'target', 
-  'tmp', 'data', 'study-hub', '.portal-data', '.portal', 'Assignments'
+  'node_modules', '.git', '.next', 'dist', 'build', 'vendor', 'target',
+  'tmp', 'data', 'study-hub', '.portal-data', '.portal', 'assignments',
+  // Windows system trees. Pointing the scanner at C:\ is the natural thing to
+  // do on Windows, and these same names surface when an NTFS disk is mounted
+  // on Linux, so they are skipped everywhere rather than behind a platform
+  // check — none of them is ever coursework.
+  'windows', 'program files', 'program files (x86)', 'programdata',
+  '$recycle.bin', 'system volume information', 'appdata', 'msocache',
+  'perflogs', 'recovery', '$windows.~bt', '$windows.~ws', '$sysreset'
 ]);
+
+/**
+ * Folder names that are never study material.
+ *
+ * The comparison is case-insensitive because NTFS and APFS are: the same disk
+ * reads back as `Program Files` on one machine and `PROGRAM FILES` on another,
+ * and an exact-match Set would quietly skip only one of them.
+ */
+function isIgnoredDir(name: string): boolean {
+  return IGNORED_NAMES.has(name.toLowerCase());
+}
 
 // Video and doc extensions (expanded for universal container support)
 const VIDEO_EXTENSIONS = new Set([
@@ -491,7 +509,7 @@ function crawlCourseDirectory(courseRoot: string) {
     const subdirs: { name: string; fullPath: string; relPath: string }[] = [];
 
     for (const entry of entries) {
-      if (IGNORED_NAMES.has(entry.name) || entry.name.startsWith('.')) continue;
+      if (isIgnoredDir(entry.name) || entry.name.startsWith('.')) continue;
 
       const fullPath = path.join(currentDir, entry.name);
       const relPath = relativeDir ? path.join(relativeDir, entry.name) : entry.name;
@@ -653,7 +671,7 @@ function looksLikeCourse(dir: string, depth = 0): { videos: number; docs: number
     return { videos, docs };
   }
   for (const entry of entries) {
-    if (entry.name.startsWith('.') || IGNORED_NAMES.has(entry.name)) continue;
+    if (entry.name.startsWith('.') || isIgnoredDir(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       const inner = looksLikeCourse(full, depth + 1);
@@ -710,7 +728,7 @@ function discoverCourses(): CourseSummary[] {
   }
 
   for (const entry of topLevel) {
-    if (!entry.isDirectory() || entry.name.startsWith('.') || IGNORED_NAMES.has(entry.name)) continue;
+    if (!entry.isDirectory() || entry.name.startsWith('.') || isIgnoredDir(entry.name)) continue;
     // Presentations is the slide-library convention and is already indexed by
     // /api/slides/all; listing it as a course too would duplicate every deck.
     if (entry.name.toLowerCase() === 'presentations') continue;
@@ -792,6 +810,16 @@ app.get('/api/scan/roots', (req: Request, res: Response) => {
     roots.push({ path: resolved, label, kind });
   };
 
+  // Windows has no mount points: drives are letters. A: and B: are floppy
+  // slots that can stall for seconds when empty, so enumeration starts at C:.
+  // statSync inside add() is what filters the letters nothing is mounted on.
+  if (process.platform === 'win32') {
+    for (let c = 'C'.charCodeAt(0); c <= 'Z'.charCodeAt(0); c++) {
+      const letter = String.fromCharCode(c);
+      add(`${letter}:\\`, `${letter}:`, 'drive');
+    }
+  }
+
   // Removable and secondary drives, as mounted by the desktop environment.
   for (const base of ['/run/media', '/media', '/mnt']) {
     try {
@@ -815,7 +843,9 @@ app.get('/api/scan/roots', (req: Request, res: Response) => {
   const home = process.env.HOME || process.env.USERPROFILE;
   if (home) add(home, 'Home folder', 'home');
 
-  res.json({ roots });
+  // The client shows a path example, and "/absolute/path/to/scan" is useless
+  // advice on Windows. Report the platform rather than sniffing the UA.
+  res.json({ roots, platform: process.platform, sep: path.sep });
 });
 
 /**
@@ -900,7 +930,7 @@ function scanForCourses(root: string, deadlineMs: number) {
     const fileNames: string[] = [];
 
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || IGNORED_NAMES.has(entry.name)) continue;
+      if (entry.name.startsWith('.') || isIgnoredDir(entry.name)) continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         subdirs.push(full);
@@ -1508,7 +1538,7 @@ function courseRootMtimeMs(course: CourseSummary): number {
   try {
     newest = fs.statSync(course.rootPath).mtimeMs;
     for (const entry of fs.readdirSync(course.rootPath, { withFileTypes: true })) {
-      if (!entry.isDirectory() || IGNORED_NAMES.has(entry.name) || entry.name.startsWith('.')) continue;
+      if (!entry.isDirectory() || isIgnoredDir(entry.name) || entry.name.startsWith('.')) continue;
       try {
         newest = Math.max(newest, fs.statSync(path.join(course.rootPath, entry.name)).mtimeMs);
       } catch (e) {}
@@ -2102,7 +2132,7 @@ function walkForDecks(dir: string, seen: Set<string>, out: any[], label: string,
     return;
   }
   for (const entry of entries) {
-    if (entry.name.startsWith('.') || IGNORED_NAMES.has(entry.name)) continue;
+    if (entry.name.startsWith('.') || isIgnoredDir(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       walkForDecks(full, seen, out, label, depth + 1, groupRoot);

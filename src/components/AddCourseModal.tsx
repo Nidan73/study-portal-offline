@@ -56,6 +56,7 @@ export const AddCourseModal: React.FC = () => {
 
   // Scan
   const [roots, setRoots] = useState<ScanRoot[]>([]);
+  const [isWindows, setIsWindows] = useState(false);
   const [scanPath, setScanPath] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
@@ -79,6 +80,7 @@ export const AddCourseModal: React.FC = () => {
       .then(r => r.json())
       .then(d => {
         setRoots(d.roots || []);
+        setIsWindows(d.platform === 'win32');
         if (!scanPath && d.roots?.length) setScanPath(d.roots[0].path);
       })
       .catch(() => {});
@@ -262,7 +264,7 @@ export const AddCourseModal: React.FC = () => {
                     value={scanPath}
                     onChange={(e) => setScanPath(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); runScan(); } }}
-                    placeholder="/absolute/path/to/scan"
+                    placeholder={isWindows ? "D:\\Courses" : "/absolute/path/to/scan"}
                     className="flex-1 min-w-0 bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/10 rounded-full px-4 py-2.5 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 font-mono transition-colors"
                   />
                   <button
@@ -431,7 +433,7 @@ export const AddCourseModal: React.FC = () => {
                   type="text"
                   value={folderPath}
                   onChange={(e) => setFolderPath(e.target.value)}
-                  placeholder="/absolute/path/to/Course_Directory"
+                  placeholder={isWindows ? "D:\\Courses\\Course_Directory" : "/absolute/path/to/Course_Directory"}
                   required
                   className="w-full bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/10 rounded-xl px-3.5 py-2.5 text-[12px] text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 font-mono transition-colors"
                 />

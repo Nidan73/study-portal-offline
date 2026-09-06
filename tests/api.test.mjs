@@ -383,6 +383,56 @@ try {
     }
   }
 
+  section('Windows layouts');
+  {
+    // The scanner only knew /run/media, /media and /mnt, and its ignore list
+    // only knew Unix build dirs. On Windows the natural thing to scan is C:\,
+    // which is mostly Windows itself.
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const pathMod = (await import('path')).default;
+
+    const fakeDrive = mkdtempSync(pathMod.join(tmpdir(), 'studyhub-cdrive-'));
+    const put = (dir, ...files) => {
+      mkdirSync(pathMod.join(fakeDrive, dir), { recursive: true });
+      for (const f of files) writeFileSync(pathMod.join(fakeDrive, dir, f), '%PDF-1.4\n');
+    };
+    // What a real C:\ looks like.
+    put('Windows/System32', 'a.pdf', 'b.pdf', 'c.pdf');
+    put('Program Files/Adobe', 'd.pdf', 'e.pdf', 'f.pdf');
+    put('PROGRAMDATA/Thing', 'g.pdf', 'h.pdf', 'i.pdf');
+    put('$Recycle.Bin', 'j.pdf', 'k.pdf', 'l.pdf');
+    put('System Volume Information', 'm.pdf', 'n.pdf');
+    // ...and the one folder that is actually coursework.
+    put('Courses/Databases', 'week1.pdf', 'week2.pdf', 'week3.pdf');
+
+    const fresh = await startServer({ coursesRoot: mkdtempSync(pathMod.join(tmpdir(), 'studyhub-empty-')) });
+    try {
+      const roots = await get(fresh.base, '/api/scan/roots');
+      check('the roots endpoint reports the platform for path examples',
+        roots.body?.platform === process.platform, String(roots.body?.platform));
+      check('it reports the path separator too',
+        roots.body?.sep === pathMod.sep, JSON.stringify(roots.body?.sep));
+
+      const scan = await post(fresh.base, '/api/scan', { rootPath: fakeDrive, timeoutMs: 20000 });
+      const names = (scan.body?.candidates || []).map(c => c.name);
+      check('coursework on the drive is still found',
+        names.some(n => /Databases|Courses/i.test(n)), names.join(','));
+      check('the Windows system tree is skipped',
+        !names.some(n => /Windows|System32/i.test(n)), names.join(','));
+      check('Program Files is skipped',
+        !names.some(n => /Program Files|Adobe/i.test(n)), names.join(','));
+      check('the ignore list is case-insensitive, as NTFS is',
+        !names.some(n => /PROGRAMDATA|Thing/i.test(n)), names.join(','));
+      check('the recycle bin is skipped',
+        !names.some(n => /Recycle/i.test(n)), names.join(','));
+      check('System Volume Information is skipped',
+        !names.some(n => /Volume Information/i.test(n)), names.join(','));
+    } finally {
+      fresh.stop();
+    }
+  }
+
   section('Liveness');
   {
     const { status, body } = await get(srv.base, '/api/health');
