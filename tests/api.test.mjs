@@ -526,9 +526,13 @@ try {
       const argv = (ok.body?.args || []).join(' ');
       check('the launched command points at DeepSeek',
         argv.includes('chat.deepseek.com'), argv.slice(0, 140));
+      // The resolved binary is printed so the CI record shows which browser each
+      // platform actually picks -- Edge is always present on Windows, but it is
+      // not always on PATH, so this is where the Program Files fallback proves
+      // itself rather than being assumed.
       check('a chromium browser gets a chromeless app window, otherwise a plain one',
         ok.body?.appMode ? argv.includes('--app=https://chat.deepseek.com/') : argv.includes('chat.deepseek.com'),
-        `appMode=${ok.body?.appMode} ${argv.slice(0, 140)}`);
+        `appMode=${ok.body?.appMode} via ${ok.body?.cmd}`);
       check('no private browser profile is forced, so the existing login is used',
         !argv.includes('--user-data-dir'), argv.slice(0, 140));
 
