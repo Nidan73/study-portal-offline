@@ -2285,6 +2285,108 @@ app.post('/api/slides/open-system', (req: Request, res: Response) => {
   });
 });
 
+// ---------------------------------------------------------------- companion
+/**
+ * Sites that can be opened beside the app, and their URLs.
+ *
+ * The URL lives here rather than arriving in the request. This endpoint runs a
+ * browser, and the server listens on loopback precisely so a page cannot reach
+ * it -- accepting a URL from the client would hand any page on this machine a
+ * way to launch arbitrary sites in a real profile.
+ */
+const COMPANIONS: Record<string, { name: string; url: string }> = {
+  deepseek: { name: 'DeepSeek', url: 'https://chat.deepseek.com/' }
+};
+
+/** First of `names` that exists on PATH, or null. */
+function resolveOnPath(names: string[]): string | null {
+  const exts = process.platform === 'win32' ? ['.exe', '.cmd'] : [''];
+  const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+  for (const name of names) {
+    for (const dir of dirs) {
+      for (const ext of exts) {
+        const full = path.join(dir, name + ext);
+        try {
+          if (fs.statSync(full).isFile()) return full;
+        } catch (e) { /* not here */ }
+      }
+    }
+  }
+  return null;
+}
+
+/** Edge and Chrome are normally installed but not on PATH on Windows. */
+function windowsBrowser(): string | null {
+  const pf = process.env['ProgramFiles'] || 'C:\\Program Files';
+  const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+  const candidates = [
+    path.join(pf86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    path.join(pf, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    path.join(pf, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(pf86, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(pf, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe')
+  ];
+  for (const c of candidates) {
+    try { if (fs.statSync(c).isFile()) return c; } catch (e) { /* not installed */ }
+  }
+  return null;
+}
+
+/**
+ * How to open `url` as a chromeless window next to Study Hub.
+ *
+ * Chromium's --app drops the tabs and address bar, and leaving --user-data-dir
+ * off means it runs in the person's normal profile: they are already signed in,
+ * and no credential of theirs ever passes through this app. Firefox has no
+ * equivalent, so anything else falls back to an ordinary browser window, which
+ * still works -- it just brings its own furniture.
+ */
+function companionCommand(url: string): { cmd: string; args: string[]; appMode: boolean } {
+  const appArgs = [`--app=${url}`, '--window-size=520,900'];
+
+  if (process.platform === 'darwin') {
+    const app = ['Brave Browser', 'Google Chrome', 'Microsoft Edge', 'Chromium']
+      .find(a => { try { return fs.statSync(`/Applications/${a}.app`).isDirectory(); } catch (e) { return false; } });
+    if (app) return { cmd: 'open', args: ['-na', app, '--args', ...appArgs], appMode: true };
+    return { cmd: 'open', args: [url], appMode: false };
+  }
+
+  const names = process.platform === 'win32'
+    ? ['msedge', 'chrome', 'brave']
+    : ['brave', 'brave-browser', 'google-chrome', 'google-chrome-stable',
+       'chromium', 'chromium-browser', 'microsoft-edge'];
+  const bin = resolveOnPath(names) || (process.platform === 'win32' ? windowsBrowser() : null);
+  if (bin) return { cmd: bin, args: appArgs, appMode: true };
+
+  if (process.platform === 'win32') {
+    return { cmd: process.env.COMSPEC || 'cmd.exe', args: ['/c', 'start', '', url], appMode: false };
+  }
+  return { cmd: 'xdg-open', args: [url], appMode: false };
+}
+
+// API: Open a companion site in a window beside the app
+app.post('/api/companion/open', (req: Request, res: Response) => {
+  const key = String((req.body || {}).app || '');
+  const companion = COMPANIONS[key];
+  if (!companion) {
+    return res.status(400).json({
+      error: 'Unknown companion. The address is fixed on the server and cannot be sent by the page.'
+    });
+  }
+
+  const { cmd, args, appMode } = companionCommand(companion.url);
+
+  // Tests need to see the command without a browser window appearing.
+  if (process.env.STUDYHUB_COMPANION_DRY_RUN) {
+    return res.json({ success: true, name: companion.name, appMode, cmd, args, launched: false });
+  }
+
+  execFile(cmd, args, (err) => {
+    if (err) console.warn(`[Companion] Could not open ${companion.name}: ${err.message}`);
+  });
+  res.json({ success: true, name: companion.name, appMode, launched: true });
+});
+
 // API: Extract PPTX Outline & Slides for In-App Presentation Companion
 app.post('/api/slides/extract-pptx', (req: Request, res: Response) => {
   const { filePath } = req.body;

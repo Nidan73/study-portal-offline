@@ -495,6 +495,52 @@ try {
     }
   }
 
+  section('Companion window');
+  {
+    // Opens DeepSeek in a chromeless browser window beside the app. Chromium's
+    // --app uses the person's normal profile, so they are already signed in --
+    // the app never sees a credential. The URL is fixed server-side: this runs
+    // a browser, and a loopback-only app must not become a launcher for
+    // whatever a page asks for.
+    const dry = await startServer({ env: { STUDYHUB_COMPANION_DRY_RUN: '1' } });
+    try {
+      const no = await post(dry.base, '/api/companion/open', {});
+      check('opening with no app named is rejected', no.status === 400, String(no.status));
+
+      const unknown = await post(dry.base, '/api/companion/open', { app: 'nope' });
+      check('an unknown companion is rejected', unknown.status === 400, String(unknown.status));
+
+      // The important one: a URL from the client must never be launched.
+      const evil = await post(dry.base, '/api/companion/open', { url: 'https://evil.example/x' });
+      check('a client-supplied URL alone is refused', evil.status === 400, String(evil.status));
+
+      const smuggled = await post(dry.base, '/api/companion/open',
+        { app: 'deepseek', url: 'https://evil.example/x' });
+      const args = (smuggled.body?.args || []).join(' ');
+      check('a URL smuggled alongside a known app is ignored',
+        smuggled.status === 200 && !args.includes('evil.example'), args.slice(0, 120));
+
+      const ok = await post(dry.base, '/api/companion/open', { app: 'deepseek' });
+      check('DeepSeek opens', ok.status === 200, String(ok.status));
+      check('it is named for the person, not the key', ok.body?.name === 'DeepSeek', ok.body?.name);
+      const argv = (ok.body?.args || []).join(' ');
+      check('the launched command points at DeepSeek',
+        argv.includes('chat.deepseek.com'), argv.slice(0, 140));
+      check('a chromium browser gets a chromeless app window, otherwise a plain one',
+        ok.body?.appMode ? argv.includes('--app=https://chat.deepseek.com/') : argv.includes('chat.deepseek.com'),
+        `appMode=${ok.body?.appMode} ${argv.slice(0, 140)}`);
+      check('no private browser profile is forced, so the existing login is used',
+        !argv.includes('--user-data-dir'), argv.slice(0, 140));
+
+      const cross = await post(dry.base, '/api/companion/open', { app: 'deepseek' },
+        { origin: 'https://evil.example' });
+      check('a cross-origin page cannot open windows on this machine',
+        cross.status === 403, String(cross.status));
+    } finally {
+      dry.stop();
+    }
+  }
+
   section('Liveness');
   {
     const { status, body } = await get(srv.base, '/api/health');

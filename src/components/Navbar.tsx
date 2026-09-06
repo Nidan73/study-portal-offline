@@ -21,6 +21,7 @@ import {
   Loader2,
   NotebookPen,
   Info,
+  Bot,
   LucideIcon
 } from 'lucide-react';
 
@@ -62,6 +63,8 @@ export const Navbar: React.FC = () => {
   const setScratchpadOpen = useStore(state => state.setScratchpadOpen);
   const setAboutOpen = useStore(state => state.setAboutOpen);
   const setStopped = useStore(state => state.setStopped);
+  const pushToast = useStore(state => state.pushToast);
+  const [openingCompanion, setOpeningCompanion] = React.useState(false);
   const [confirmStop, setConfirmStop] = React.useState(false);
   const theme = useStore(state => state.theme);
   const toggleTheme = useStore(state => state.toggleTheme);
@@ -310,6 +313,44 @@ export const Navbar: React.FC = () => {
             aria-label="About this app"
           >
             <Info className="w-3.5 h-3.5" strokeWidth={1.5} />
+          </button>
+
+          {/* Ask DeepSeek beside the lecture.
+
+              This opens a chromeless browser window rather than embedding the
+              site: DeepSeek's session cookie is SameSite=Strict, so inside an
+              iframe it is never sent and you could not stay logged in. Running
+              it in the normal browser profile means it is already your account,
+              and no credential of yours passes through this app. */}
+          <button
+            id="navbar-deepseek-btn"
+            disabled={openingCompanion}
+            onClick={async () => {
+              setOpeningCompanion(true);
+              try {
+                const res = await fetch('/api/companion/open', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ app: 'deepseek' })
+                });
+                if (!res.ok) throw new Error(String(res.status));
+                const body = await res.json();
+                if (!body.appMode) {
+                  pushToast('Opened DeepSeek in your browser. Install Chrome, Edge or Brave for a tidier side window.', 'info');
+                }
+              } catch (e) {
+                pushToast('Could not open DeepSeek. Is Study Hub still running?', 'error');
+              } finally {
+                setOpeningCompanion(false);
+              }
+            }}
+            className="w-8 h-8 rounded-full hidden sm:flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/10 border border-black/[0.05] dark:border-white/[0.08] transition-all duration-200 ease-fluid disabled:opacity-50"
+            title="Ask DeepSeek — opens in a window beside Study Hub, signed in with your own account"
+            aria-label="Open DeepSeek beside Study Hub"
+          >
+            {openingCompanion
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />
+              : <Bot className="w-3.5 h-3.5" strokeWidth={1.5} />}
           </button>
 
           {/* General notepad — works with no lecture selected */}

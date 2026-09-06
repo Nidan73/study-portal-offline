@@ -223,6 +223,40 @@ try {
   }
 
   // -------------------------------------------------------- dialog semantics
+  section('DeepSeek companion');
+  {
+    // The request is intercepted rather than let through: a real one would
+    // spawn a browser window on whatever machine is running the suite.
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    let sent = null;
+    await page.route('**/api/companion/open', async route => {
+      try { sent = route.request().postDataJSON(); } catch (e) { sent = null; }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, name: 'DeepSeek', appMode: true, launched: true })
+      });
+    });
+    await page.goto(srv.base, { waitUntil: 'networkidle' });
+
+    const btn = await page.$('#navbar-deepseek-btn');
+    check('there is a way to reach DeepSeek from the navbar', !!btn);
+    check('it says what it does, including whose account it uses',
+      /own account/i.test(await page.getAttribute('#navbar-deepseek-btn', 'title') || ''),
+      await page.getAttribute('#navbar-deepseek-btn', 'title'));
+
+    if (btn) {
+      await btn.click();
+      await page.waitForTimeout(1200);
+      check('clicking it asks the server to open the companion', !!sent, JSON.stringify(sent));
+      check('the page names the app, never the address',
+        sent?.app === 'deepseek' && !('url' in (sent || {})), JSON.stringify(sent));
+      check('the button becomes usable again', await page.isEnabled('#navbar-deepseek-btn'));
+    }
+    await ctx.close();
+  }
+
   section('Accessibility semantics');
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
