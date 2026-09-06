@@ -19,6 +19,7 @@ import {
   LayoutGrid,
   Search,
   Loader2,
+  FileType2,
   Trash2
 } from 'lucide-react';
 
@@ -234,7 +235,7 @@ export const SplitPdfViewer: React.FC = () => {
       };
       setCurrentDeck(customItem);
       selectPdf(customItem);
-    } else if (ext === 'pptx' || ext === 'ppt' || ext === 'pptm') {
+    } else if (ext === 'pptx' || ext === 'ppt' || ext === 'pptm' || ext === 'docx' || ext === 'doc') {
       const match = availableDecks.find(d => d.filename.toLowerCase() === file.name.toLowerCase());
       if (match) {
         setCurrentDeck(match);
@@ -281,6 +282,9 @@ export const SplitPdfViewer: React.FC = () => {
   };
 
   const isCurrentPptx = currentDeck && (currentDeck.type === 'pptx' || currentDeck.type === 'ppt' || currentDeck.type === 'pptm');
+  // No browser renders Word. Rather than drop a .docx into the PDF iframe and
+  // show a blank page, hand it to the desktop app or let the user save it.
+  const isCurrentWord = currentDeck && (currentDeck.type === 'docx' || currentDeck.type === 'doc');
   const pdfUrl = localBlobUrl || (currentDeck ? `/api/pdf/${currentDeck.courseId || activeCourseId}/${currentDeck.id}` : '');
 
   return (
@@ -488,7 +492,7 @@ export const SplitPdfViewer: React.FC = () => {
           <input 
             ref={fileInputRef} 
             type="file" 
-            accept=".pdf,.pptx,.ppt,.pptm" 
+            accept=".pdf,.pptx,.ppt,.pptm,.docx,.doc" 
             className="hidden" 
             onChange={(e) => {
               if (e.target.files && e.target.files[0]) {
@@ -518,7 +522,7 @@ export const SplitPdfViewer: React.FC = () => {
             )}
 
             {/* Smart Dark Mode Inverter for PDFs */}
-            {!isCurrentPptx && (
+            {!isCurrentPptx && !isCurrentWord && (
               <button
                 onClick={toggleDarkPdf}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full border text-[11px] font-medium transition-all ${
@@ -533,7 +537,7 @@ export const SplitPdfViewer: React.FC = () => {
             )}
 
             {/* Open in Separate Tab / Window */}
-            {!isCurrentPptx && pdfUrl && (
+            {!isCurrentPptx && !isCurrentWord && pdfUrl && (
               <a
                 href={pdfUrl}
                 target="_blank"
@@ -575,6 +579,45 @@ export const SplitPdfViewer: React.FC = () => {
               onLaunchDesktop={handleLaunchDesktop}
               isLaunchingDesktop={isLaunchingDesktop}
             />
+          ) : isCurrentWord && currentDeck ? (
+            /* Word: nothing to embed, so offer the two things that do work. */
+            <div id="word-doc-panel" className="h-full flex flex-col items-center justify-center gap-4 p-8 text-center">
+              <div className="w-14 h-14 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                <FileType2 className="w-7 h-7" strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-[15px] font-semibold text-zinc-900 dark:text-white">{currentDeck.title}</p>
+                <p className="mt-1 text-[12px] text-zinc-600 dark:text-zinc-400 max-w-xs">
+                  Word documents can't be shown in the browser. Open it in your writing app, or save a copy.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {currentDeck.filePath && (
+                  <button
+                    id="btn-open-word-desktop"
+                    onClick={() => handleLaunchDesktop(currentDeck)}
+                    disabled={isLaunchingDesktop}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-sky-500/10 hover:bg-sky-500/15 border border-sky-500/20 text-sky-700 dark:text-sky-400 text-[12px] font-semibold transition-all active:scale-95"
+                  >
+                    {isLaunchingDesktop
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />
+                      : <Monitor className="w-3.5 h-3.5" strokeWidth={1.5} />}
+                    Open in App
+                  </button>
+                )}
+                {pdfUrl && (
+                  <a
+                    id="btn-download-word"
+                    href={pdfUrl}
+                    download={currentDeck.filename}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/[0.06] dark:border-white/[0.08] text-zinc-800 dark:text-zinc-200 text-[12px] font-semibold transition-all active:scale-95"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    Save a copy
+                  </a>
+                )}
+              </div>
+            </div>
           ) : currentDeck ? (
             /* Standard Embedded PDF Viewer */
             <iframe

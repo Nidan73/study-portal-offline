@@ -9,6 +9,7 @@ import {
   ChevronDown, 
   ChevronRight, 
   FileText,
+  FileType2,
   Presentation, 
   Search, 
   Layers,
@@ -405,6 +406,7 @@ export const SyllabusDrawer: React.FC = () => {
                           {mod.supplementaryFiles.map((doc) => {
                             const kind = (doc.type || doc.filename?.split('.').pop() || 'pdf').toLowerCase();
                             const isDeck = kind.startsWith('ppt');
+                            const isWord = kind.startsWith('doc');
                             const isOpen = activePdf?.id === doc.id;
                             return (
                               <button
@@ -420,7 +422,9 @@ export const SyllabusDrawer: React.FC = () => {
                                 <div className="flex items-center gap-2 truncate pr-2">
                                   {isDeck
                                     ? <Presentation className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" strokeWidth={1.5} />
-                                    : <FileText className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" strokeWidth={1.5} />}
+                                    : isWord
+                                      ? <FileType2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 flex-shrink-0" strokeWidth={1.5} />
+                                      : <FileText className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" strokeWidth={1.5} />}
                                   <span className="truncate font-medium">{doc.title}</span>
                                 </div>
                                 <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 flex-shrink-0">

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { SupplementaryFile } from '../types';
 import {
   X, Search, FileText, Presentation, Folder, ChevronRight,
-  ArrowUpDown, Check, CornerDownLeft
+  ArrowUpDown, Check, CornerDownLeft, FileType2
 } from 'lucide-react';
 
 /**
@@ -26,7 +26,9 @@ interface Props {
 type SortKey = 'name' | 'size' | 'type';
 
 const PPTX = new Set(['pptx', 'ppt', 'pptm']);
+const WORD = new Set(['docx', 'doc']);
 const isSlides = (d: SupplementaryFile) => PPTX.has(String(d.type).toLowerCase());
+const isWord = (d: SupplementaryFile) => WORD.has(String(d.type).toLowerCase());
 
 const sizeOf = (d: any): number => d.fileSizeBytes ?? d.sizeBytes ?? 0;
 
@@ -60,7 +62,7 @@ const splitGroup = (d: SupplementaryFile) => {
 export const DeckBrowser: React.FC<Props> = ({ decks, currentDeckId, onSelect, onClose }) => {
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<string>('__all__');
-  const [kind, setKind] = useState<'all' | 'pdf' | 'slides'>('all');
+  const [kind, setKind] = useState<'all' | 'pdf' | 'slides' | 'word'>('all');
   const [sort, setSort] = useState<SortKey>('name');
   const [cursor, setCursor] = useState(0);
 
@@ -86,8 +88,9 @@ export const DeckBrowser: React.FC<Props> = ({ decks, currentDeckId, onSelect, o
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     let out = decks.filter(d => {
-      if (kind === 'pdf' && isSlides(d)) return false;
+      if (kind === 'pdf' && (isSlides(d) || isWord(d))) return false;
       if (kind === 'slides' && !isSlides(d)) return false;
+      if (kind === 'word' && !isWord(d)) return false;
       if (scope !== '__all__') {
         // A parent scope keeps everything nested under it.
         const full = deckPath(d).join(SEP);
@@ -188,7 +191,7 @@ export const DeckBrowser: React.FC<Props> = ({ decks, currentDeckId, onSelect, o
                 id="deck-browser-search"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder={`Search ${decks.length} slides and PDFs by name or folder...`}
+                placeholder={`Search ${decks.length} documents by name or folder...`}
                 className="w-full bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.06] dark:border-white/10 rounded-full pl-9 pr-3 py-2.5 text-[13px] text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40"
               />
             </div>
@@ -220,7 +223,7 @@ export const DeckBrowser: React.FC<Props> = ({ decks, currentDeckId, onSelect, o
 
             <div className="flex-1 flex flex-col min-w-0">
               <div className="flex items-center gap-2 px-4 py-2.5 border-b border-black/[0.06] dark:border-white/[0.08] flex-shrink-0 flex-wrap">
-                {([['all', 'All'], ['pdf', 'PDF'], ['slides', 'Slides']] as const).map(([v, label]) => (
+                {([['all', 'All'], ['pdf', 'PDF'], ['slides', 'Slides'], ['word', 'Word']] as const).map(([v, label]) => (
                   <button
                     key={v}
                     id={`deck-filter-${v}`}
@@ -258,6 +261,7 @@ export const DeckBrowser: React.FC<Props> = ({ decks, currentDeckId, onSelect, o
                   const selected = currentDeckId === deck.id;
                   const onCursor = i === cursor;
                   const slides = isSlides(deck);
+                  const word = isWord(deck);
                   const [top, ...rest] = deckPath(deck);
                   const sub = rest.join(SEP);
                   return (
@@ -276,6 +280,8 @@ export const DeckBrowser: React.FC<Props> = ({ decks, currentDeckId, onSelect, o
                     >
                       {slides ? (
                         <Presentation className={`w-4 h-4 flex-shrink-0 ${selected ? '' : 'text-amber-600 dark:text-amber-500'}`} strokeWidth={1.5} />
+                      ) : word ? (
+                        <FileType2 className={`w-4 h-4 flex-shrink-0 ${selected ? '' : 'text-sky-600 dark:text-sky-400'}`} strokeWidth={1.5} />
                       ) : (
                         <FileText className={`w-4 h-4 flex-shrink-0 ${selected ? '' : 'text-indigo-600 dark:text-indigo-400'}`} strokeWidth={1.5} />
                       )}

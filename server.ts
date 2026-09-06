@@ -280,7 +280,16 @@ const VIDEO_EXTENSIONS = new Set([
   '.mp4', '.mkv', '.webm', '.mov', '.m4v', '.avi', '.ts', '.m2ts', 
   '.flv', '.wmv', '.vob', '.ogv', '.3gp', '.f4v', '.asf'
 ]);
-const DOC_EXTENSIONS = new Set(['.pdf', '.pptx', '.ppt', '.pptm']);
+const DOC_EXTENSIONS = new Set(['.pdf', '.pptx', '.ppt', '.pptm', '.docx', '.doc']);
+
+/**
+ * Word and PowerPoint drop a "~$name.docx" lock file beside any document that is
+ * currently open. It carries a real extension but is a few hundred bytes of
+ * bookkeeping, so it must never be indexed as study material.
+ */
+function isDocFile(name: string): boolean {
+  return DOC_EXTENSIONS.has(path.extname(name).toLowerCase()) && !name.startsWith('~$');
+}
 
 // Default Initial Data
 function getInitialData(): HubProgressData {
@@ -509,7 +518,7 @@ function crawlCourseDirectory(courseRoot: string) {
               });
               totalVideos++;
             }
-          } else if (DOC_EXTENSIONS.has(ext)) {
+          } else if (isDocFile(entry.name)) {
             pdfs.push({
               id: Buffer.from(relPath).toString('base64url'),
               title: cleanTitle(entry.name),
@@ -653,7 +662,7 @@ function looksLikeCourse(dir: string, depth = 0): { videos: number; docs: number
     } else if (entry.isFile()) {
       const ext = path.extname(entry.name).toLowerCase();
       if (VIDEO_EXTENSIONS.has(ext)) videos++;
-      else if (DOC_EXTENSIONS.has(ext)) docs++;
+      else if (isDocFile(entry.name)) docs++;
     }
     if (videos > 40) break;   // enough to decide; stop counting
   }
@@ -902,7 +911,7 @@ function scanForCourses(root: string, deadlineMs: number) {
             const st = fs.statSync(full);
             if (st.size > 1024 * 1024) { videoCount++; totalBytes += st.size; fileNames.push(entry.name); }
           } catch (e) {}
-        } else if (DOC_EXTENSIONS.has(ext)) {
+        } else if (isDocFile(entry.name)) {
           docCount++;
         }
       }
@@ -1945,6 +1954,13 @@ app.get('/api/pdf/:courseId/:pdfId', (req: Request, res: Response) => {
   } else if (ext === '.ppt') {
     res.setHeader('Content-Type', 'application/vnd.ms-powerpoint');
     res.setHeader('Content-Disposition', `inline; filename="${path.basename(targetPath)}"`);
+  } else if (ext === '.docx' || ext === '.doc') {
+    // No browser renders Word, so send it as a download instead of letting the
+    // viewer iframe sit on a blank page.
+    res.setHeader('Content-Type', ext === '.doc'
+      ? 'application/msword'
+      : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${path.basename(targetPath)}"`);
   } else {
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Disposition', `inline; filename="${path.basename(targetPath)}"`);
@@ -1998,6 +2014,13 @@ app.get('/api/slides/raw', (req: Request, res: Response) => {
   } else if (ext === '.ppt') {
     res.setHeader('Content-Type', 'application/vnd.ms-powerpoint');
     res.setHeader('Content-Disposition', `inline; filename="${path.basename(targetPath)}"`);
+  } else if (ext === '.docx' || ext === '.doc') {
+    // No browser renders Word, so send it as a download instead of letting the
+    // viewer iframe sit on a blank page.
+    res.setHeader('Content-Type', ext === '.doc'
+      ? 'application/msword'
+      : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${path.basename(targetPath)}"`);
   } else {
     res.setHeader('Content-Type', 'application/octet-stream');
   }
@@ -2085,7 +2108,7 @@ function walkForDecks(dir: string, seen: Set<string>, out: any[], label: string,
       walkForDecks(full, seen, out, label, depth + 1, groupRoot);
     } else if (entry.isFile()) {
       const ext = path.extname(entry.name).toLowerCase();
-      if (!DOC_EXTENSIONS.has(ext) || seen.has(full)) continue;
+      if (!isDocFile(entry.name) || seen.has(full)) continue;
       seen.add(full);
       let size = 0;
       try { size = fs.statSync(full).size; } catch (e) {}
@@ -2180,7 +2203,7 @@ app.post('/api/slides/open-system', (req: Request, res: Response) => {
 
   const ext = path.extname(resolved).toLowerCase();
   if (!DOC_EXTENSIONS.has(ext)) {
-    return res.status(400).json({ error: 'Only presentation decks (.pdf, .pptx, .ppt) can be launched' });
+    return res.status(400).json({ error: 'Only documents (.pdf, .pptx, .ppt, .docx, .doc) can be launched' });
   }
 
   const env = {
@@ -2207,7 +2230,7 @@ app.post('/api/slides/open-system', (req: Request, res: Response) => {
     args = [resolved];
   }
 
-  if (process.platform === 'linux' && fs.existsSync('/usr/bin/onlyoffice-desktopeditors') && (ext === '.pptx' || ext === '.ppt')) {
+  if (process.platform === 'linux' && fs.existsSync('/usr/bin/onlyoffice-desktopeditors') && (ext === '.pptx' || ext === '.ppt' || ext === '.docx' || ext === '.doc')) {
     cmd = '/usr/bin/onlyoffice-desktopeditors';
     args = [resolved];
   }

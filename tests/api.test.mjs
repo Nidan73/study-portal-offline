@@ -332,6 +332,57 @@ try {
   }
 
   // ---------------------------------------------------------------- liveness
+  section('Word documents are study material');
+  {
+    // .docx was missing from DOC_EXTENSIONS, so thesis drafts and methodology
+    // notes were invisible to the scanner, the curriculum and the browser.
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const pathMod = (await import('path')).default;
+
+    const lib = mkdtempSync(pathMod.join(tmpdir(), 'studyhub-empty-'));
+    const docs = mkdtempSync(pathMod.join(tmpdir(), 'Thesis-'));
+    mkdirSync(pathMod.join(docs, 'Drafts'), { recursive: true });
+    writeFileSync(pathMod.join(docs, 'Drafts', 'thesis.docx'), 'PK\x03\x04');
+    writeFileSync(pathMod.join(docs, 'Drafts', 'methodology.docx'), 'PK\x03\x04');
+    writeFileSync(pathMod.join(docs, 'Drafts', 'proposal.doc'), '\xd0\xcf');
+    // Word leaves this behind whenever a document is open. It is not content.
+    writeFileSync(pathMod.join(docs, 'Drafts', '~$thesis.docx'), 'lock');
+
+    const fresh = await startServer({ coursesRoot: lib });
+    try {
+      await post(fresh.base, '/api/slides/folders', { folderPath: docs });
+
+      const after = await get(fresh.base, '/api/courses');
+      const course = (after.body?.courses || [])[0];
+      check('a folder of Word documents becomes a course', !!course,
+        (after.body?.courses || []).length + ' courses');
+
+      const cat = await get(fresh.base, `/api/catalog/${course?.id}`);
+      check('Word documents are indexed', cat.body?.totalPdfs === 3,
+        String(cat.body?.totalPdfs));
+
+      const files = (cat.body?.modules || []).flatMap(m => m.supplementaryFiles || []);
+      check('the Word lock file is not indexed',
+        !files.some(f => f.filename.startsWith('~$')),
+        files.map(f => f.filename).join(','));
+      check('a .docx keeps its type so the viewer can branch on it',
+        files.some(f => f.type === 'docx'), files.map(f => f.type).join(','));
+
+      const doc = files.find(f => f.type === 'docx');
+      const raw = await fetch(`${fresh.base}/api/pdf/${course?.id}/${doc?.id}`);
+      check('a Word document is served, not refused', raw.status === 200, String(raw.status));
+      check('it is served as Word, not as a generic blob',
+        (raw.headers.get('content-type') || '').includes('wordprocessingml'),
+        raw.headers.get('content-type'));
+      check('it is sent as a download, since no browser renders it',
+        (raw.headers.get('content-disposition') || '').startsWith('attachment'),
+        raw.headers.get('content-disposition'));
+    } finally {
+      fresh.stop();
+    }
+  }
+
   section('Liveness');
   {
     const { status, body } = await get(srv.base, '/api/health');
