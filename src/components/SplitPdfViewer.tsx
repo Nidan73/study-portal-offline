@@ -29,6 +29,18 @@ interface SplitPdfViewerProps {
   paneId?: string;
 }
 
+/**
+ * Which deck panes are on screen, and which should catch a document opened
+ * from somewhere else (the curriculum, say).
+ *
+ * A module-level registry rather than store state: it changes on mount and
+ * unmount only, and nothing outside this file needs to read it.
+ */
+const livePanes = new Set<string>();
+/** Left-hand panes win, so an opened document lands beside the lecture. */
+const paneRank = (id: string) => (id.includes('left-top') ? 0 : id.includes('left-bottom') ? 1 : 2);
+const preferredPane = () => [...livePanes].sort((a, b) => paneRank(a) - paneRank(b))[0];
+
 export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' }) => {
   // Per-field selectors: a whole-store destructure re-renders this on every
   // change, including the ~4/sec currentTime tick during playback.
@@ -197,6 +209,11 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
   // you have not chosen in still follows along, so opening a document from
   // the curriculum lands somewhere sensible.
   const pinnedRef = useRef(false);
+
+  useEffect(() => {
+    livePanes.add(paneId);
+    return () => { livePanes.delete(paneId); };
+  }, [paneId]);
   // The default pane is the one the rest of the app talks to, so it keeps
   // publishing its choice as the shared activePdf. A second pane keeps its
   // pick to itself — otherwise choosing a deck in one pane rewrote the shared
@@ -210,6 +227,10 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
   }, [isPrimaryPane, selectPdf]);
 
   useEffect(() => {
+    // Only the preferred pane catches a document opened from elsewhere, so
+    // clicking a deck in the curriculum fills the pane next to the lecture
+    // rather than every open viewer at once.
+    if (livePanes.size > 1 && preferredPane() !== paneId) return;
     if (pinnedRef.current) return;
     if (activePdf) {
       setCurrentDeck(activePdf);
@@ -220,8 +241,16 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
     }
   }, [activePdf, activeLesson?.id, activeLesson?.companionPdf]);
 
-  // A different lecture is a fresh context: let the pane follow again.
+  // A different lecture is a fresh context: let the pane follow again. So is a
+  // document opened from outside — the curriculum asking for something is a
+  // deliberate act, and should not be ignored because this pane was pinned.
   useEffect(() => { pinnedRef.current = false; }, [activeLesson?.id]);
+  useEffect(() => {
+    if (activePdf && preferredPane() === paneId) {
+      pinnedRef.current = false;
+      setCurrentDeck(activePdf);
+    }
+  }, [activePdf, paneId]);
 
   // Handle Native Desktop App Launch (OnlyOffice / PowerPoint)
   const handleLaunchDesktop = async (deckToLaunch = currentDeck) => {
