@@ -324,6 +324,50 @@ try {
     await ctx.close();
   }
 
+  section('Deck browser stacking');
+  {
+    // The dialog sits inside <main class="relative z-10"> and inside a sticky
+    // container, and position:sticky makes a stacking context even at z-auto.
+    // So z-[60] only competed with siblings in that container, and the video
+    // player painted over the dialog in the split layout.
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+    const page = await ctx.newPage();
+    await page.goto(srv.base, { waitUntil: 'networkidle' });
+    await page.click('#nav-tab-slides');
+    await page.waitForTimeout(1500);
+    await page.click('#deck-selector-dropdown-btn').catch(() => {});
+    await page.waitForTimeout(500);
+    const opened = await page.evaluate(() => {
+      const b = [...document.querySelectorAll('button')].find(x => /browse all/i.test(x.textContent || ''));
+      if (!b) return false;
+      b.click();
+      return true;
+    });
+
+    if (!opened) {
+      check('skipped: no decks in this fixture to browse', true);
+    } else {
+      await page.waitForTimeout(1200);
+      const r = await page.evaluate(() => {
+        const dialog = document.querySelector('[aria-label="Browse slides and PDFs"]');
+        if (!dialog) return { found: false };
+        // A portal puts it directly under body, outside every stacking context
+        // the panel layout creates.
+        const parentIsBody = dialog.parentElement === document.body;
+        // And nothing from the page behind may win a hit test over the backdrop.
+        const pts = [[60, 60], [200, 700], [1500, 800], [800, 60]];
+        const covered = pts.every(([x, y]) => {
+          const el = document.elementFromPoint(x, y);
+          return !!el && dialog.contains(el);
+        });
+        return { found: true, parentIsBody, covered };
+      });
+      check('the dialog is portalled out of the panel layout', r.parentIsBody === true);
+      check('nothing from the page behind paints through it', r.covered === true);
+    }
+    await ctx.close();
+  }
+
   section('Accessibility semantics');
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });

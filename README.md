@@ -39,6 +39,7 @@ execution in the IDE.
 | C / C++ in the IDE | `gcc` / `g++` | Install [MinGW-w64](https://www.mingw-w64.org/) or [MSYS2](https://www.msys2.org/). Bare names resolve because CreateProcess appends `.exe` and searches PATH. |
 | `.mkv`, `.avi`, `.ts` playback | `ffmpeg` | Only needed for containers the browser cannot play natively; `.mp4` and `.webm` stream directly. |
 | PPTX slide outlines | Python 3 | Same as above. |
+| PHP in the IDE | `php`, or nothing | Uses system PHP when present. Without it, `npm run php:enable` adds a WebAssembly build that needs no install — about 460MB, works offline afterwards, and is left out of the default install because that is more than twice the size of everything else here. |
 
 Opening a deck in your desktop presentation app is routed through `cmd.exe /c
 start` on Windows, because `start` is a shell builtin rather than an

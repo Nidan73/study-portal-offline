@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { SupplementaryFile } from '../types';
 import {
   X, Search, FileText, Presentation, Folder, ChevronRight,
@@ -171,7 +172,16 @@ export const DeckBrowser: React.FC<Props> = ({ decks, currentDeckId, onSelect, o
     );
   };
 
-  return (
+  /**
+   * Rendered into document.body rather than in place.
+   *
+   * This sits inside <main class="relative z-10">, and inside a sticky
+   * container -- and position:sticky creates a stacking context even at
+   * z-index:auto. So z-[60] only ever competed with siblings inside that
+   * container, and in the split-with-video layout the player painted straight
+   * over the dialog. A portal takes it out of every one of those contexts.
+   */
+  return createPortal((
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       role="dialog"
@@ -324,5 +334,5 @@ export const DeckBrowser: React.FC<Props> = ({ decks, currentDeckId, onSelect, o
         </div>
       </div>
     </div>
-  );
+  ), document.body);
 };

@@ -92,8 +92,11 @@ try {
         /PHP is not installed/.test(r.body?.stderr || '') && !/ENOENT/.test(r.body?.stderr || ''),
         r.body?.stderr);
     } else {
+      // Either engine is a pass: system PHP where it exists, the WebAssembly
+      // build where `npm run php:enable` has added it. The detail line records
+      // which one actually ran, so a silent switch is visible in the log.
       check('php runs and returns its output', (r.body?.stdout || '').trim() === '5',
-        JSON.stringify(r.body?.stdout));
+        `${JSON.stringify(r.body?.stdout)} via ${r.body?.engine || 'system php'}`);
       const err = await post(B, '/api/execute', { language: 'php', code: '<?php echo $x->y();' });
       check('a php error reaches the student instead of a silent blank run',
         (err.body?.stderr || '').length > 0, (err.body?.stderr || '').slice(0, 80));

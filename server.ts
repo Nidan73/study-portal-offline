@@ -250,6 +250,42 @@ if (process.platform === 'win32') {
  * install elsewhere (nix, homebrew, /opt). Prefer the common absolute paths
  * when present, otherwise fall back to the bare name and let PATH resolve it.
  */
+/**
+ * Run PHP without PHP: the WordPress Playground project publishes the language
+ * built to WebAssembly, so it runs inside this Node process.
+ *
+ * It is deliberately NOT a dependency. The package hard-depends on every PHP
+ * from 5.2 to 8.5 and lands at ~460MB, against ~190MB for the whole rest of
+ * this app, so `npm run php:enable` installs it for people who want it and
+ * everybody else pays nothing. Returns null when it is not installed, which is
+ * the normal case, not an error.
+ */
+async function runPhpWasm(code: string): Promise<any | null> {
+  try {
+    // Built from variables so TypeScript does not try to resolve a package
+    // that is usually absent, and tsx does not try to pre-bundle it.
+    const universal = await import(/* @vite-ignore */ ('@php-wasm/' + 'universal'));
+    const nodeRt = await import(/* @vite-ignore */ ('@php-wasm/' + 'node'));
+    const started = performance.now();
+    const runtime = await nodeRt.loadNodeRuntime('8.3', { emscriptenOptions: { processId: 1 } });
+    const php = new universal.PHP(runtime);
+    const out: any = await Promise.race([
+      php.run({ code }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
+    ]);
+    return {
+      success: out.exitCode === 0,
+      stdout: out.text || '',
+      stderr: out.errors || '',
+      exitCode: out.exitCode ?? 0,
+      executionTimeMs: Math.round(performance.now() - started),
+      engine: 'php-wasm'
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 /** What to call each toolchain when telling someone it is missing. */
 const TOOL_LABELS: Record<string, string> = {
   php: 'PHP',
@@ -2894,7 +2930,9 @@ app.post('/api/execute', async (req: Request, res: Response) => {
           success: !err,
           stdout: stdout || '',
           stderr: missing
-            ? `${TOOL_LABELS[lang] || lang} is not installed on this computer, so this code cannot run here. Install it, then restart Study Hub.`
+            ? (lang === 'php'
+                ? 'PHP is not installed on this computer. Either install PHP, or run "npm run php:enable" in the Study Hub folder to add a bundled copy that needs no install, then restart Study Hub.'
+                : `${TOOL_LABELS[lang] || lang} is not installed on this computer, so this code cannot run here. Install it, then restart Study Hub.`)
             : (stderr || (err ? err.message : '')),
           exitCode: err ? (err.code === 'ENOENT' ? 127 : (err.code || 1)) : 0,
           executionTimeMs
@@ -2908,6 +2946,12 @@ app.post('/api/execute', async (req: Request, res: Response) => {
         } catch (e) {}
       }
     });
+
+    // No system PHP? Fall back to the WebAssembly build if it has been added.
+    if (lang === 'php' && (execRes as any).exitCode === 127) {
+      const viaWasm = await runPhpWasm(code);
+      if (viaWasm) return res.json(viaWasm);
+    }
 
     res.json(execRes);
   } catch (err: any) {

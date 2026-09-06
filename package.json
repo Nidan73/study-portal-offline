@@ -13,7 +13,8 @@
     "test:offline": "node tests/offline.test.mjs",
     "test:media": "node tests/media.test.mjs",
     "test:api": "node tests/api.test.mjs",
-    "test:ui": "node tests/ui.test.mjs"
+    "test:ui": "node tests/ui.test.mjs",
+    "php:enable": "npm install --no-save --no-audit --no-fund @php-wasm/node @php-wasm/universal"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",
