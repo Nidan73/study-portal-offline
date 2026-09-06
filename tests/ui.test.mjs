@@ -533,7 +533,7 @@ try {
     await page.click('#left-top-pane-code').catch(() => {});
     await page.waitForTimeout(1300);
 
-    const editors = await page.$$eval('#ide-run-code-btn', e => e.length);
+    const editors = await page.$$eval('[id$="-run-code-btn"]', e => e.length);
     check('the editor really can be open in two places', editors >= 2, `${editors} mounted`);
 
     execCalls = 0;
@@ -549,6 +549,40 @@ try {
     await page.click('#ide-run-code-btn');
     await page.waitForTimeout(1200);
     check('clicking Run runs it exactly once', execCalls === 1, `${execCalls} calls`);
+    await ctx.close();
+  }
+
+  section('No duplicate element ids');
+  {
+    // The editor, the deck viewer and the notes dock can each be open in more
+    // than one pane at once, and every copy used to stamp out the same ids.
+    // Duplicate ids are invalid, and make any lookup by id silently return
+    // whichever instance happened to render first.
+    const ctx = await browser.newContext({ viewport: { width: 1700, height: 980 } });
+    const page = await ctx.newPage();
+    await page.goto(srv.base, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+    await page.click('#nav-tab-player').catch(() => {});
+    await page.waitForTimeout(700);
+    await page.click('#toggle-notes-under-video-btn').catch(() => {});
+    await page.waitForTimeout(800);
+
+    const findDupes = () => page.evaluate(() => {
+      const ids = [...document.querySelectorAll('[id]')].map(e => e.id);
+      return [...new Set(ids.filter((v, i) => ids.indexOf(v) !== i))];
+    });
+
+    for (const tool of ['code', 'slides', 'notes']) {
+      await page.click(`#panel-tab-${tool}`).catch(() => {});
+      await page.waitForTimeout(400);
+      await page.click(`#left-top-pane-${tool}`).catch(() => {});
+      await page.waitForTimeout(400);
+      await page.click(`#left-bottom-pane-${tool}`).catch(() => {});
+      await page.waitForTimeout(1000);
+      const dupes = await findDupes();
+      check(`${tool} in all three panes produces no duplicate ids`,
+        dupes.length === 0, dupes.join(', '));
+    }
     await ctx.close();
   }
 

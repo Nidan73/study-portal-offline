@@ -353,11 +353,11 @@ export const App: React.FC = () => {
 
               {leftTopPane !== 'video' && (
                 <div className="h-[52vh] min-h-[320px]">
-                  {leftTopPane === 'slides' && <SplitPdfViewer />}
+                  {leftTopPane === 'slides' && <SplitPdfViewer paneId="deck-left-top" />}
                   {leftTopPane === 'notes' && (activeLesson
-                    ? <InteractiveNotes variant="dock" />
+                    ? <InteractiveNotes variant="dock" paneId="dock-left-top" />
                     : <Scratchpad variant="dock" />)}
-                  {leftTopPane === 'code' && <IntegratedIDE isSplit onCloseSplit={() => setLeftTopPane('video')} />}
+                  {leftTopPane === 'code' && <IntegratedIDE isSplit paneId="ide-left-top" onCloseSplit={() => setLeftTopPane('video')} />}
                 </div>
               )}
 
@@ -399,10 +399,10 @@ export const App: React.FC = () => {
                   />
                   <div className="flex-1 min-h-0 mt-2">
                     {leftBottomPane === 'notes' && (activeLesson
-                      ? <InteractiveNotes variant="dock" />
+                      ? <InteractiveNotes variant="dock" paneId="dock-left-bottom" />
                       : <Scratchpad variant="dock" />)}
-                    {leftBottomPane === 'slides' && <SplitPdfViewer />}
-                    {leftBottomPane === 'code' && <IntegratedIDE isSplit onCloseSplit={() => setLeftBottomPane('notes')} />}
+                    {leftBottomPane === 'slides' && <SplitPdfViewer paneId="deck-left-bottom" />}
+                    {leftBottomPane === 'code' && <IntegratedIDE isSplit paneId="ide-left-bottom" onCloseSplit={() => setLeftBottomPane('notes')} />}
                     {leftBottomPane === 'curriculum' && <SyllabusDrawer />}
                   </div>
                 </div>

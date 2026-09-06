@@ -24,7 +24,12 @@ import {
   Trash2
 } from 'lucide-react';
 
-export const SplitPdfViewer: React.FC = () => {
+interface SplitPdfViewerProps {
+  /** Prefix for element ids, so two deck viewers on screen do not collide. */
+  paneId?: string;
+}
+
+export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' }) => {
   // Per-field selectors: a whole-store destructure re-renders this on every
   // change, including the ~4/sec currentTime tick during playback.
   const activeCourseId = useStore(state => state.activeCourseId);
@@ -309,7 +314,7 @@ export const SplitPdfViewer: React.FC = () => {
           {/* Deck Selector Dropdown */}
           <div className="relative min-w-0 flex-1">
             <button
-              id="deck-selector-dropdown-btn"
+              id={`${paneId}-selector-dropdown-btn`}
               onClick={() => setIsDeckDropdownOpen(!isDeckDropdownOpen)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] border border-black/[0.05] dark:border-white/[0.07] text-[12px] font-semibold text-zinc-900 dark:text-white transition-all w-full min-w-0 max-w-full"
             >
@@ -552,7 +557,7 @@ export const SplitPdfViewer: React.FC = () => {
 
             {/* Close Slide View */}
             <button
-              id="close-slide-view-btn"
+              id={`${paneId}-close-slide-view-btn`}
               onClick={handleClose}
               className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-400 bg-black/[0.03] hover:bg-red-500/10 dark:bg-white/[0.05] dark:hover:bg-red-500/20 border border-black/[0.05] dark:border-white/[0.08] transition-colors"
               title="Close Slides"

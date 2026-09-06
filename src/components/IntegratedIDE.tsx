@@ -31,9 +31,18 @@ import {
 interface IntegratedIDEProps {
   isSplit?: boolean;
   onCloseSplit?: () => void;
+  /**
+   * Prefix for this instance's element ids.
+   *
+   * The editor can be open in more than one pane at once, and every copy used
+   * to stamp out the same ids -- which is invalid, and makes any lookup by id
+   * silently pick whichever happened to render first. The default keeps the
+   * primary instance exactly as it was.
+   */
+  paneId?: string;
 }
 
-export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, onCloseSplit }) => {
+export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, onCloseSplit, paneId = 'ide' }) => {
   // Per-field selectors: a whole-store destructure re-renders this on every
   // change, including the ~4/sec currentTime tick during playback.
   const theme = useStore(state => state.theme);
@@ -231,7 +240,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
             {/* Maximize to full page IDE or Split with Video toggle */}
             {isSplit ? (
               <button
-                id="ide-expand-fullscreen-btn"
+                id={`${paneId}-expand-fullscreen-btn`}
                 onClick={() => setActiveTab('ide')}
                 className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors"
                 title="Expand to Dedicated Full Page IDE (/ide)"
@@ -273,7 +282,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
 
             {/* Run Button */}
             <button
-              id="ide-run-code-btn"
+              id={`${paneId}-run-code-btn`}
               onClick={runCode}
               disabled={isExecutingCode}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12px] font-semibold transition-all duration-200 ease-fluid shadow-sm ${
@@ -292,7 +301,7 @@ export const IntegratedIDE: React.FC<IntegratedIDEProps> = ({ isSplit = false, o
 
             {isSplit && onCloseSplit && (
               <button
-                id="ide-close-split-btn"
+                id={`${paneId}-close-split-btn`}
                 onClick={onCloseSplit}
                 className="p-1.5 ml-1 rounded-full text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-black/[0.02] hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors"
                 title="Close Split View"

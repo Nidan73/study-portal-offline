@@ -19,9 +19,11 @@ interface InteractiveNotesProps {
   /** 'dock' is the compact strip under the video: composer first, one row per
    *  note, no wasted empty state. 'panel' is the full side-panel layout. */
   variant?: 'panel' | 'dock';
+  /** Prefix for element ids, so two docks on screen do not collide. */
+  paneId?: string;
 }
 
-export const InteractiveNotes: React.FC<InteractiveNotesProps> = ({ variant = 'panel' }) => {
+export const InteractiveNotes: React.FC<InteractiveNotesProps> = ({ variant = 'panel', paneId = 'dock' }) => {
   // Per-field selectors: a whole-store destructure re-renders this on every
   // change, including the ~4/sec currentTime tick during playback.
   const activeCourseId = useStore(state => state.activeCourseId);
@@ -217,7 +219,7 @@ export const InteractiveNotes: React.FC<InteractiveNotesProps> = ({ variant = 'p
             {activeSlideNumber ? ` · S${activeSlideNumber}` : ''}
           </span>
           <input
-            id="dock-note-input"
+            id={`${paneId}-note-input`}
             value={noteContent}
             onChange={(e) => setNoteContent(e.target.value)}
             onFocus={handleFocusNote}
@@ -247,7 +249,7 @@ export const InteractiveNotes: React.FC<InteractiveNotesProps> = ({ variant = 'p
           </button>
           <button
             type="button"
-            id="dock-download-notes-btn"
+            id={`${paneId}-download-notes-btn`}
             onClick={downloadNotes}
             disabled={notes.length === 0}
             aria-label="Save these notes to a file on this machine"
