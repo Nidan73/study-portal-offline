@@ -633,6 +633,61 @@ try {
     await ctx.close();
   }
 
+  section('Slides belong to their course');
+  {
+    // Opening Slides on a course with no decks of its own listed every deck in
+    // the library — 175 files from a different course, presented as this
+    // course's material. Showing none is better than showing someone else's.
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const pathMod = (await import('path')).default;
+
+    const lib = mkdtempSync(pathMod.join(tmpdir(), 'studyhub-scope-'));
+    // One course of videos only...
+    const vids = pathMod.join(lib, 'Video Only Course', 'Week 1');
+    mkdirSync(vids, { recursive: true });
+    for (const n of [1, 2, 3]) writeFileSync(pathMod.join(vids, `lesson${n}.mp4`), Buffer.alloc(2 * 1024 * 1024));
+    // ...and one that owns the slides.
+    const docs = pathMod.join(lib, 'Slide Course', 'Decks');
+    mkdirSync(docs, { recursive: true });
+    for (const n of ['alpha', 'beta', 'gamma']) writeFileSync(pathMod.join(docs, `${n}.pdf`), '%PDF-1.4\n');
+
+    const fresh = await startServer({ coursesRoot: lib });
+    const ctx = await browser.newContext({ viewport: { width: 1500, height: 950 } });
+    const page = await ctx.newPage();
+    try {
+      await page.goto(fresh.base, { waitUntil: 'networkidle' });
+      await page.evaluate(() => fetch('/api/progress', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activeCourseId: 'video-only-course' })
+      }));
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForTimeout(1600);
+      await page.click('#nav-tab-slides').catch(() => {});
+      await page.waitForTimeout(1800);
+
+      const r = await page.evaluate(() => ({
+        text: document.body.innerText,
+        hasBrowse: !!document.querySelector('#browse-other-materials-btn')
+      }));
+      check("another course's decks are not listed as this one's",
+        !/alpha|beta|gamma/i.test(r.text), r.text.match(/alpha|beta|gamma/i)?.[0] || 'none listed');
+      check('it says the course has none of its own',
+        /no slides or PDFs of its own/i.test(r.text));
+      check('and offers to open a folder from the rest of the library', r.hasBrowse);
+
+      if (r.hasBrowse) {
+        await page.click('#browse-other-materials-btn');
+        await page.waitForTimeout(1200);
+        const rows = await page.$$eval('[data-row]', e => e.length).catch(() => 0);
+        check('the folder browser reaches the wider library when asked', rows >= 3, `${rows} rows`);
+      }
+    } finally {
+      await ctx.close();
+      fresh.stop();
+    }
+  }
+
   section('Accessibility semantics');
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });

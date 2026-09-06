@@ -74,8 +74,10 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
   // it unusable.
   const courseDecks = React.useMemo(() => {
     if (!activeCourseId) return availableDecks;
-    const mine = availableDecks.filter(d => d.courseId === activeCourseId);
-    return mine.length > 0 ? mine : availableDecks;
+    // No fallback to the whole library. A course with no slides of its own used
+    // to show every other course's, which is worse than showing none: you
+    // cannot tell what belongs to what. The folder browser is the way out.
+    return availableDecks.filter(d => d.courseId === activeCourseId);
   }, [availableDecks, activeCourseId]);
 
   const groupedDecks = React.useMemo(() => {
@@ -677,15 +679,31 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
               </div>
 
               {/* Available Decks Grid */}
-              {availableDecks.length > 0 && (
+              {courseDecks.length === 0 && availableDecks.length > 0 && (
+                <div className="pt-4 mt-3 border-t border-black/[0.06] dark:border-white/[0.08] text-center">
+                  <p className="text-[12px] text-zinc-600 dark:text-zinc-400">
+                    This course has no slides or PDFs of its own.
+                  </p>
+                  <button
+                    id="browse-other-materials-btn"
+                    onClick={() => setIsBrowserOpen(true)}
+                    className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-black/[0.04] hover:bg-black/[0.08] dark:bg-white/[0.06] dark:hover:bg-white/10 border border-black/[0.06] dark:border-white/[0.08] text-[12px] font-medium text-zinc-800 dark:text-zinc-200 transition-colors"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    Open a folder from your other material ({availableDecks.length})
+                  </button>
+                </div>
+              )}
+
+              {courseDecks.length > 0 && (
                 <div className="space-y-2.5 pt-3 border-t border-black/[0.06] dark:border-white/[0.08]">
                   <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 px-1">
-                    <span>Discovered Materials ({availableDecks.length})</span>
+                    <span>In this course ({courseDecks.length})</span>
                     <span>Ready to Study</span>
                   </div>
 
                   <div className="grid grid-cols-1 gap-2">
-                    {availableDecks.map((deck) => {
+                    {courseDecks.map((deck) => {
                       const isDeckPptx = deck.type === 'pptx' || deck.type === 'ppt' || deck.type === 'pptm';
                       const sizeKb = ((deck.fileSizeBytes || (deck as any).sizeBytes || 0) / 1024).toFixed(0);
                       return (
