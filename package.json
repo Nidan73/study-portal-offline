@@ -9,7 +9,8 @@
     "dev": "concurrently -n \"SERVER,CLIENT\" -c \"magenta,cyan\" \"npm run dev:server\" \"npm run dev:client\"",
     "build": "tsc && vite build",
     "start": "tsx server.ts",
-    "test": "node tests/api.test.mjs && node tests/ui.test.mjs",
+    "test": "node tests/api.test.mjs && node tests/ui.test.mjs && node tests/offline.test.mjs",
+    "test:offline": "node tests/offline.test.mjs",
     "test:media": "node tests/media.test.mjs",
     "test:api": "node tests/api.test.mjs",
     "test:ui": "node tests/ui.test.mjs"

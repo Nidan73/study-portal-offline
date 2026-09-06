@@ -123,6 +123,8 @@ export const App: React.FC = () => {
     const id = setInterval(tick, 10000);
     return () => { cancelled = true; clearInterval(id); };
   }, [setStopped]);
+  const [reconnecting, setReconnecting] = React.useState(false);
+  const [reconnectFailed, setReconnectFailed] = React.useState(false);
   const [isDragging, setIsDragging] = React.useState(false);
 
   // Height of the notes dock under the video, dragged from its top edge and
@@ -388,16 +390,36 @@ export const App: React.FC = () => {
             </p>
             <button
               id="reconnect-btn"
+              disabled={reconnecting}
               onClick={async () => {
+                setReconnecting(true);
+                setReconnectFailed(false);
                 try {
                   const res = await fetch('/api/health', { signal: AbortSignal.timeout(4000) });
-                  if (res.ok) { setStopped(false); window.location.reload(); }
-                } catch (e) { /* still down; the heartbeat keeps trying */ }
+                  if (res.ok) { setStopped(false); window.location.reload(); return; }
+                  setReconnectFailed(true);
+                } catch (e) {
+                  // Swallowing this left the click doing nothing at all: no
+                  // spinner, no message, for up to the four second timeout.
+                  // A button that answers silence reads as a broken button.
+                  setReconnectFailed(true);
+                }
+                setReconnecting(false);
               }}
-              className="mt-5 px-5 py-2.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[12px] font-bold hover:opacity-90 transition-opacity"
+              className="mt-5 px-5 py-2.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[12px] font-bold hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              Reconnect
+              {reconnecting ? 'Checking…' : 'Reconnect'}
             </button>
+
+            {reconnectFailed && !reconnecting && (
+              <p
+                id="reconnect-failed"
+                role="status"
+                className="mt-3 text-[12px] leading-relaxed text-red-600 dark:text-red-400"
+              >
+                Still not running. Start it with the launcher, then try again.
+              </p>
+            )}
           </div>
         </div>
       )}

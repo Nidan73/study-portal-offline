@@ -31,6 +31,9 @@ jobs:
       - name: UI suite
         run: npm run test:ui
 
+      - name: Offline and reconnect
+        run: npm run test:offline
+
       - name: Media pipeline
         run: npm run test:media
         env:
@@ -56,3 +59,41 @@ jobs:
           kill "$LAUNCHER" 2>/dev/null || true
           if [ "$ok" != "1" ]; then echo "--- launcher log ---"; cat /tmp/launch.log; exit 1; fi
           echo "launch.sh brought the app up and served the interface"
+
+  # A separate job means a genuinely clean tree: no node_modules, no dist and
+  # no seeded data file — the one path a new user actually walks.
+  first-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22       # deliberately no npm cache: this is a cold start
+
+      - name: A fresh clone comes up from launch.sh alone
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          for p in node_modules dist data/study-hub-data.json; do
+            [ -e "$p" ] && { echo "$p already exists - not a fresh clone"; exit 1; }
+          done
+          ./launch.sh > /tmp/firstrun.log 2>&1 &
+          LAUNCHER=$!
+          ok=0
+          for _ in $(seq 1 120); do
+            if curl -fsS -m 3 http://127.0.0.1:47285/api/health >/dev/null 2>&1; then ok=1; break; fi
+            sleep 5
+          done
+          if [ "$ok" = "1" ]; then
+            curl -fsS -m 5 http://127.0.0.1:47285/ | grep -q '<div id="root"' \
+              || { echo "no app shell"; ok=0; }
+          fi
+          pkill -P "$LAUNCHER" 2>/dev/null || true
+          kill "$LAUNCHER" 2>/dev/null || true
+          if [ "$ok" != "1" ]; then echo "--- launcher log ---"; cat /tmp/firstrun.log; exit 1; fi
+          for p in node_modules dist/index.html data/study-hub-data.json; do
+            [ -e "$p" ] || { echo "first run did not create $p"; exit 1; }
+          done
+          node -e "JSON.parse(require('fs').readFileSync('data/study-hub-data.json','utf8'))"
+          echo "a fresh clone installed, seeded, built and served itself"
