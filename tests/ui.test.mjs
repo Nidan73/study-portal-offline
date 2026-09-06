@@ -289,6 +289,41 @@ try {
     await ctx.close();
   }
 
+  section('IDE when the server misbehaves');
+  {
+    // A restarted server answers with an empty body. res.json() then throws,
+    // and the browser's own message -- "Failed to execute 'json' on
+    // 'Response'" -- was shown as if the student's code had produced it.
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await ctx.newPage();
+    await page.goto(srv.base, { waitUntil: 'networkidle' });
+    await page.click('#nav-tab-ide');
+    await page.waitForSelector('#ide-run-code-btn', { timeout: 15000 });
+
+    const consoleText = () => page.evaluate(() => {
+      const el = [...document.querySelectorAll('pre, div')]
+        .filter(e => e.children.length === 0)
+        .find(e => /server|Failed to execute|json/i.test(e.textContent || ''));
+      return (el?.textContent || '').trim();
+    });
+
+    await page.route('**/api/execute', r => r.fulfill({ status: 200, body: '' }));
+    await page.click('#ide-run-code-btn');
+    await page.waitForTimeout(1500);
+    let msg = await consoleText();
+    check('an empty reply is explained in words a student can act on',
+      /restarted|reload/i.test(msg) && !/Failed to execute 'json'/.test(msg), msg.slice(0, 90));
+
+    await page.unroute('**/api/execute');
+    await page.route('**/api/execute', r => r.abort());
+    await page.click('#ide-run-code-btn');
+    await page.waitForTimeout(1500);
+    msg = await consoleText();
+    check('an unreachable server says so, rather than blaming the code',
+      /could not reach/i.test(msg), msg.slice(0, 90));
+    await ctx.close();
+  }
+
   section('Accessibility semantics');
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });

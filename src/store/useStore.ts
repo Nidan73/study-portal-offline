@@ -1483,7 +1483,32 @@ export const useStore = create<StoreState>((set, get) => ({
           code: currentCode
         })
       });
-      const data = await res.json();
+
+      // A restarted server answers with an empty body, and res.json() then
+      // throws "Failed to execute 'json' on 'Response'" -- a browser internal
+      // that was being shown to the student as if their code had produced it.
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = null;
+      }
+
+      if (!data) {
+        set({
+          codeOutput: {
+            stdout: '',
+            stderr: res.ok
+              ? 'Study Hub\'s server sent an empty reply. It was probably restarted — reload the page and run this again.'
+              : `Study Hub's server could not run this (HTTP ${res.status}). Reload the page and try again.`,
+            exitCode: 1,
+            executionTimeMs: 0
+          },
+          isExecutingCode: false
+        });
+        return;
+      }
+
       set({
         codeOutput: data,
         isExecutingCode: false
@@ -1493,10 +1518,11 @@ export const useStore = create<StoreState>((set, get) => ({
         saveLessonCode(activeLesson.id, activeCodeLanguage, currentCode);
       }
     } catch (err: any) {
+      // Network-level failure: the server is gone, not the code is wrong.
       set({
         codeOutput: {
           stdout: '',
-          stderr: err.message || 'Execution failed',
+          stderr: 'Could not reach Study Hub\'s server, so this code did not run. Check it is still running, then try again.',
           exitCode: 1,
           executionTimeMs: 0
         },
