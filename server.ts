@@ -2114,8 +2114,15 @@ app.get('/api/slides/all', (req: Request, res: Response) => {
   const decks: any[] = [];
   const visitedPaths = new Set<string>();
 
-  // 1. Gather all slide decks from registered courses
-  const courses = discoverCourses();
+  // 1. Gather all slide decks from registered courses.
+  //
+  // Deepest root first. A file is claimed once, by whichever course is walked
+  // first — so with the parent ahead of it, a course made from a sub-folder
+  // ("multi person" inside "Academics and Research") found every one of its
+  // files already taken and showed an empty slide list. The most specific
+  // course owning its own files is the answer people expect.
+  const courses = [...discoverCourses()].sort((a, b) =>
+    (b.rootPath || '').length - (a.rootPath || '').length);
   for (const c of courses) {
     if (c.isVirtual || !c.rootPath) continue;
     try {
