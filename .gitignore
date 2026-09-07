@@ -6,3 +6,7 @@ data/*
 !data/study-hub-data.example.json
 
 *.log
+
+# Optional WebAssembly PHP, added by `npm run php:enable`. Large, and not
+# everyone wants it, so it is installed beside the app rather than committed.
+.php-runtime/

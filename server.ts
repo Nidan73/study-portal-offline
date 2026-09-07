@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import { fileURLToPath } from 'url';
 import { execFile } from 'child_process';
 import crypto from 'crypto';
@@ -264,10 +265,14 @@ if (process.platform === 'win32') {
  */
 async function runPhpWasm(code: string): Promise<any | null> {
   try {
-    // Built from variables so TypeScript does not try to resolve a package
-    // that is usually absent, and tsx does not try to pre-bundle it.
-    const universal = await import(/* @vite-ignore */ ('@php-wasm/' + 'universal'));
-    const nodeRt = await import(/* @vite-ignore */ ('@php-wasm/' + 'node'));
+    // Loaded from .php-runtime, its own install prefix, rather than from
+    // node_modules. Kept there it survives `npm install`, `npm ci` and adding
+    // any other package — all of which quietly removed it when it lived in
+    // node_modules unsaved, taking PHP support with it.
+    const base = path.join(__dirname, '.php-runtime', 'node_modules', '@php-wasm');
+    const load = (pkg: string) =>
+      import(/* @vite-ignore */ pathToFileURL(path.join(base, pkg, 'index.js')).href);
+    const [universal, nodeRt] = await Promise.all([load('universal'), load('node')]);
     const started = performance.now();
     const runtime = await nodeRt.loadNodeRuntime('8.3', { emscriptenOptions: { processId: 1 } });
     const php = new universal.PHP(runtime);

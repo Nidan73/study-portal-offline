@@ -105,6 +105,22 @@ try {
     const bad = await post(B, '/api/execute', { language: 'ruby', code: 'puts 1' });
     check('adding php did not open the gate to other languages', bad.status === 400,
       String(bad.status));
+
+    // The WebAssembly PHP lives in its own install prefix precisely so a plain
+    // `npm install` cannot remove it, which is what happened when it sat in
+    // node_modules unsaved.
+    const { existsSync } = await import('fs');
+    const pathMod = (await import('path')).default;
+    const runtimeDir = pathMod.join(process.cwd(), '.php-runtime', 'node_modules', '@php-wasm');
+    if (existsSync(runtimeDir)) {
+      check('the bundled PHP is kept outside node_modules, where npm cannot clear it',
+        !existsSync(pathMod.join(process.cwd(), 'node_modules', '@php-wasm')),
+        'found a copy inside node_modules');
+      check('and it is what actually ran', r.body?.engine === 'php-wasm',
+        String(r.body?.engine));
+    } else {
+      check('skipped: bundled PHP not installed here', true);
+    }
   }
 
   section('Notes');
