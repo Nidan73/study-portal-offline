@@ -343,7 +343,16 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
   // No browser renders Word. Rather than drop a .docx into the PDF iframe and
   // show a blank page, hand it to the desktop app or let the user save it.
   const isCurrentWord = currentDeck && (currentDeck.type === 'docx' || currentDeck.type === 'doc');
-  const pdfUrl = localBlobUrl || (currentDeck ? `/api/pdf/${currentDeck.courseId || activeCourseId}/${currentDeck.id}` : '');
+  // A document opened from the curriculum comes out of the course catalog,
+  // which nests files under the course and so gives them no courseId of their
+  // own. The PDF url has always filled that in; the PPTX viewer had no such
+  // fallback and refused the deck outright ("No valid presentation source
+  // available"). Resolve it once here so every viewer below gets a deck it can
+  // actually fetch.
+  const viewerDeck = currentDeck
+    ? { ...currentDeck, courseId: currentDeck.courseId || activeCourseId }
+    : null;
+  const pdfUrl = localBlobUrl || (viewerDeck ? `/api/pdf/${viewerDeck.courseId}/${viewerDeck.id}` : '');
 
   return (
     <div 
@@ -630,7 +639,7 @@ export const SplitPdfViewer: React.FC<SplitPdfViewerProps> = ({ paneId = 'deck' 
           {/* PPTX Authentic Vector/Canvas Presentation Viewer */}
           {isCurrentPptx && currentDeck ? (
             <PptxCanvasViewer
-              deck={currentDeck}
+              deck={viewerDeck!}
               currentTime={currentTime}
               onPinSlide={handlePinSlide}
               onLaunchDesktop={handleLaunchDesktop}

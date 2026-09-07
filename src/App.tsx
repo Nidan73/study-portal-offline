@@ -182,17 +182,14 @@ export const App: React.FC = () => {
   // reason the player is hidden rather than unmounted.
   // Opening a document from the curriculum should show it, not leave you on
   // the player wondering where it went.
-  const activePdf = useStore(state => state.activePdf);
-  const seenPdfRef = React.useRef<string | null>(null);
+  // Count deliberate opens rather than watching activePdf: loading a course
+  // sets that too, so reacting to it overrode the pane you had chosen last
+  // time on every reload — and guarding against that by requiring a previous
+  // document meant the first one you opened never switched the pane at all.
+  const pdfOpenCount = useStore(state => state.pdfOpenCount);
   React.useEffect(() => {
-    const id = activePdf?.id ?? null;
-    // Only react to a document being opened *now*. Firing on mount as well
-    // overrode the pane you had chosen last time, every reload.
-    if (id && seenPdfRef.current !== null && id !== seenPdfRef.current) {
-      setLeftTopPane('slides');
-    }
-    seenPdfRef.current = id;
-  }, [activePdf?.id]);
+    if (pdfOpenCount > 0) setLeftTopPane('slides');
+  }, [pdfOpenCount]);
 
   const [visitedTop, setVisitedTop] = React.useState<Set<LeftTopPane>>(
     () => new Set<LeftTopPane>([leftTopPane]));

@@ -47,6 +47,13 @@ export interface StoreState {
   catalog: CourseCatalog | null;
   activeLesson: LessonItem | null;
   activePdf: SupplementaryFile | null;
+  /**
+   * Bumped every time someone deliberately opens a document — the curriculum,
+   * the command palette, a lesson's companion deck. Loading a course also sets
+   * activePdf, so watching that alone cannot tell "you opened this" apart from
+   * "the app restored this", and the pane would jump on every reload.
+   */
+  pdfOpenCount: number;
   
   // UI State
   theme: 'dark' | 'light';
@@ -460,6 +467,7 @@ export const useStore = create<StoreState>((set, get) => ({
   catalog: null,
   activeLesson: null,
   activePdf: null,
+  pdfOpenCount: 0,
   
   theme: getInitialTheme(),
   activeTab: getInitialTab(),
@@ -795,7 +803,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   selectPdf: (pdf: SupplementaryFile | null) => {
-    set({ activePdf: pdf });
+    set(state => ({ activePdf: pdf, pdfOpenCount: pdf ? state.pdfOpenCount + 1 : state.pdfOpenCount }));
   },
 
   closePdf: () => {

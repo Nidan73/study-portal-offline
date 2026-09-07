@@ -444,6 +444,89 @@ try {
     }
   }
 
+  section('A deck opened from the curriculum');
+  {
+    // The curriculum lists a course's own files, and the catalog nests them
+    // under the course rather than stamping a courseId on each one. The PPTX
+    // viewer demanded that courseId and refused everything the curriculum
+    // handed it — "No valid presentation source available", slide 0 of 0 —
+    // while PDFs in the same list opened fine because their url filled it in.
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const pathMod = (await import('path')).default;
+    const JSZip = (await import('jszip')).default;
+
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml',
+      '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/></Types>');
+    zip.folder('_rels').file('.rels',
+      '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>');
+    zip.folder('ppt').file('presentation.xml',
+      '<?xml version="1.0"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">' +
+      '<p:sldSz cx="12192000" cy="6858000"/></p:presentation>');
+
+    const lib = mkdtempSync(pathMod.join(tmpdir(), 'studyhub-deck-'));
+    const dir = pathMod.join(lib, 'Systems Course', 'Final Term Slides');
+    mkdirSync(dir, { recursive: true });
+    mkdirSync(pathMod.join(lib, 'Systems Course', 'Lectures'), { recursive: true });
+    // Two files, because a folder only counts as a course at two or more. The
+    // lecture matters too: with a video present the left pane opens on the
+    // player, which is the state the curriculum click has to change.
+    const deck = await zip.generateAsync({ type: 'nodebuffer' });
+    writeFileSync(pathMod.join(dir, 'Chapter 08.pptx'), deck);
+    writeFileSync(pathMod.join(dir, 'Chapter 09.pptx'), deck);
+    writeFileSync(pathMod.join(lib, 'Systems Course', 'Lectures', 'Lecture 1.mp4'), Buffer.alloc(2048));
+
+    const fresh = await startServer({ coursesRoot: lib });
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 950 } });
+    const page = await ctx.newPage();
+    const fetched = [];
+    page.on('request', r => fetched.push(r.url()));
+    try {
+      await page.goto(fresh.base, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1800);
+
+      // Expand every module, then pick the deck out of the curriculum list.
+      await page.evaluate(() => {
+        document.querySelectorAll('button').forEach(b => {
+          if (/file[s]?$/i.test((b.textContent || '').trim())) b.click();
+        });
+      });
+      await page.waitForTimeout(600);
+
+      const opened = await page.evaluate(() => {
+        const b = [...document.querySelectorAll('button')]
+          .find(x => /Chapter 08/i.test(x.textContent || '') && /pptx/i.test(x.textContent || ''));
+        if (!b) return false;
+        b.click();
+        return true;
+      });
+      check('the curriculum lists the deck', opened);
+
+      if (opened) {
+        await page.waitForTimeout(3000);
+        const deckId = Buffer.from('Final Term Slides/Chapter 08.pptx').toString('base64url');
+        check('it fetches the deck instead of giving up on it',
+          fetched.some(u => u.includes(deckId) && /\/api\/(pdf|slides\/raw)/.test(u)),
+          fetched.filter(u => /api\/(pdf|slides)/.test(u)).slice(-2).join(' ') || 'no deck request');
+        const refused = await page.evaluate(() =>
+          /No valid presentation source available/i.test(document.body.innerText));
+        check('it does not claim the deck has no source', !refused);
+        // The first document opened after a reload used to leave you on the
+        // player: the guard against firing on mount also swallowed it.
+        const onSlides = await page.getAttribute('#left-top-pane-slides', 'aria-selected');
+        check('and the left pane switches to Slides to show it', onSlides === 'true', String(onSlides));
+      }
+    } finally {
+      await ctx.close();
+      fresh.stop();
+    }
+  }
+
   section('Left pane switchers');
   {
     // Both left sections are switchable now. The load-bearing part is that
