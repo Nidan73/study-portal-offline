@@ -502,7 +502,7 @@ export const App: React.FC = () => {
 
       <footer className="relative z-10 py-6 text-center select-none">
         <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
-          Built with care &amp; love
+          Made with care &amp; love for Miss Mujtaba
         </p>
       </footer>
 
