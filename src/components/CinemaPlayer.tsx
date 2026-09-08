@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useStore, dataBucketFor } from '../store/useStore';
 import { 
   Play, 
@@ -20,8 +20,13 @@ import {
   HelpCircle,
   Trash2,
   Plus,
-  Sliders
+  Sliders,
+  AudioLines
 } from 'lucide-react';
+
+/** Bars in the audio card's waveform. Enough to read as a track, few enough to
+ *  stay crisp. */
+const WAVEFORM_BARS = 96;
 
 export const CinemaPlayer: React.FC = () => {
   // Per-field selectors: a whole-store destructure re-renders this on every
@@ -66,6 +71,11 @@ export const CinemaPlayer: React.FC = () => {
   // also the only source the Web Audio booster can legally read samples from.
   const isDirectUrl = activeLesson?.source === 'direct';
   const ytVideoId = activeLesson?.youtubeVideoId || (isYouTube ? activeLesson?.relativePath : '');
+  // An audio lesson streams from the same endpoint through the same <video>
+  // element — only what is painted over it changes, so nothing wired to that
+  // element (notes, pins, A-B loop, resume) has to know about it. A payload
+  // without mediaKind reads as video, which is the safe direction.
+  const isAudio = activeLesson?.mediaKind === 'audio' && !isYouTube;
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -73,7 +83,10 @@ export const CinemaPlayer: React.FC = () => {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const compressorNodeRef = useRef<DynamicsCompressorNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
+  const analyserNodeRef = useRef<AnalyserNode | null>(null);
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const barLevelsRef = useRef<number[]>([]);
   const ytPlayerRef = useRef<any>(null);
   const ytMountRef = useRef<HTMLDivElement | null>(null);
   const ytTimePollRef = useRef<any>(null);
@@ -124,14 +137,24 @@ export const CinemaPlayer: React.FC = () => {
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(audioBoost, ctx.currentTime);
 
-      // Pipeline: Video Source -> Vocal Dynamics Compressor -> Power Gain -> Destination
+      // The waveform on the audio card reads its bars from here. An analyser
+      // passes its input through untouched, and one element may only ever have
+      // one MediaElementSource — so it taps this graph rather than building a
+      // second context, which would silence playback outright.
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.75;
+
+      // Pipeline: Video Source -> Vocal Dynamics Compressor -> Power Gain -> Analyser -> Destination
       source.connect(compressor);
       compressor.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(analyser);
+      analyser.connect(ctx.destination);
 
       audioCtxRef.current = ctx;
       compressorNodeRef.current = compressor;
       gainNodeRef.current = gain;
+      analyserNodeRef.current = analyser;
       sourceNodeRef.current = source;
     } catch (e) {
       console.warn('Web Audio API notice:', e);
@@ -144,6 +167,7 @@ export const CinemaPlayer: React.FC = () => {
       if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
         audioCtxRef.current.close().catch(() => {});
         audioCtxRef.current = null;
+        analyserNodeRef.current = null;
       }
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
@@ -182,6 +206,122 @@ export const CinemaPlayer: React.FC = () => {
     }
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
+
+  // ------------------------------------------------------------ audio card
+
+  // A silhouette derived from the lesson id, so a track that has not been
+  // played yet still looks like a waveform rather than an empty strip — and
+  // looks like the SAME waveform every time you come back to it.
+  const idleBars = useMemo(() => {
+    let seed = 2166136261;
+    for (const ch of activeLesson?.id || 'untitled') {
+      seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619) >>> 0;
+    }
+    return Array.from({ length: WAVEFORM_BARS }, (_, i) => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const noise = (seed >>> 8) / 0xffffff;
+      // Taper the ends so it reads as a clip with a start and a finish.
+      const taper = 0.45 + 0.55 * Math.sin(((i + 0.5) / WAVEFORM_BARS) * Math.PI);
+      return 0.22 + noise * 0.6 * taper;
+    });
+  }, [activeLesson?.id]);
+
+  const drawWaveform = useCallback(() => {
+    const canvas = waveformCanvasRef.current;
+    if (!canvas) return;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    // Zero-sized while the player sits in a hidden pane; the ResizeObserver
+    // below redraws it the moment it is shown again.
+    if (width < 8 || height < 8) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const backingW = Math.round(width * dpr);
+    const backingH = Math.round(height * dpr);
+    if (canvas.width !== backingW || canvas.height !== backingH) {
+      canvas.width = backingW;
+      canvas.height = backingH;
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    // Live levels when the Web Audio graph is running, silhouette otherwise.
+    const analyser = analyserNodeRef.current;
+    let live: Uint8Array | null = null;
+    if (analyser) {
+      const bins = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(bins);
+      live = bins;
+    }
+
+    // The rAF loop below would close over a stale time, and the store ticks
+    // roughly four times a second anyway.
+    const { currentTime: nowTime, duration: totalTime } = useStore.getState();
+    const playedBars = totalTime > 0 ? (nowTime / totalTime) * WAVEFORM_BARS : 0;
+
+    const slot = width / WAVEFORM_BARS;
+    // Capped, or a wide player draws lozenges instead of a waveform.
+    const barWidth = Math.max(2, Math.min(slot - 2, 6));
+    const radius = barWidth / 2;
+    const mid = height / 2;
+
+    for (let i = 0; i < WAVEFORM_BARS; i++) {
+      let level = idleBars[i] * 0.8;
+      if (live) {
+        const from = Math.floor((i / WAVEFORM_BARS) * live.length);
+        const to = Math.max(from + 1, Math.floor(((i + 1) / WAVEFORM_BARS) * live.length));
+        let sum = 0;
+        for (let b = from; b < to; b++) sum += live[b];
+        const loudness = sum / (to - from) / 255;
+        // Smoothed against the previous frame so the bars sway instead of
+        // flickering. Loudness scales the silhouette rather than replacing it,
+        // so a quiet passage stays a waveform instead of collapsing to a line.
+        const previous = barLevelsRef.current[i] ?? 0;
+        const next = previous * 0.55 + loudness * 0.45;
+        barLevelsRef.current[i] = next;
+        level = Math.min(1, idleBars[i] * (0.62 + next * 1.1));
+      }
+
+      const barHeight = Math.max(2, level * (height - 4));
+      const x = i * slot + (slot - barWidth) / 2;
+      // Partly-played bars count as played, so the fill tracks the scrub bar.
+      ctx.fillStyle = i < playedBars ? 'rgb(99, 102, 241)' : 'rgba(255, 255, 255, 0.18)';
+      ctx.beginPath();
+      ctx.roundRect(x, mid - barHeight / 2, barWidth, barHeight, radius);
+      ctx.fill();
+    }
+  }, [idleBars]);
+
+  // Progress and resize redraws. These alone keep the card correct with
+  // prefers-reduced-motion, where the per-frame loop below never starts.
+  useEffect(() => {
+    if (!isAudio) return;
+    drawWaveform();
+  }, [isAudio, currentTime, duration, drawWaveform]);
+
+  useEffect(() => {
+    const canvas = waveformCanvasRef.current;
+    if (!isAudio || !canvas || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => drawWaveform());
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [isAudio, drawWaveform]);
+
+  useEffect(() => {
+    if (!isAudio || !isPlaying) return;
+    // Reduced motion gets the same waveform, redrawn only as the track
+    // progresses — no per-frame movement at all.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    let raf = 0;
+    const tick = () => {
+      drawWaveform();
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [isAudio, isPlaying, drawWaveform]);
 
   // A lesson is either a local file streamed by the server, a YouTube embed, or
   // a direct media URL pasted by the user — the last plays through the same
@@ -781,11 +921,16 @@ export const CinemaPlayer: React.FC = () => {
               />
             </>
           ) : (
+            // An audio lesson keeps this element mounted, loaded and playing, and
+            // hides it behind the card. display:none would risk the browser
+            // dropping the media entirely; transparent and click-through cannot.
             <video
               ref={videoRef}
               src={videoSrc}
               crossOrigin={isDirectUrl ? undefined : 'anonymous'}
-              className="w-full h-full object-contain cursor-pointer"
+              className={isAudio
+                ? 'absolute inset-0 w-full h-full opacity-0 pointer-events-none'
+                : 'w-full h-full object-contain cursor-pointer'}
               onClick={togglePlay}
               onTimeUpdate={handleTimeUpdate}
               onDurationChange={() => {
@@ -805,6 +950,41 @@ export const CinemaPlayer: React.FC = () => {
               onEnded={handleEnded}
               playsInline
             />
+          )}
+
+          {/* Audio title card. Sits under the centre play button and the HUD,
+              so the paused state and every control stay exactly where they are
+              on a video. */}
+          {isAudio && (
+            <div
+              id="audio-track-card"
+              onClick={togglePlay}
+              className="absolute inset-0 flex flex-col justify-between px-5 sm:px-8 pt-5 sm:pt-7 pb-24 bg-gradient-to-b from-indigo-950/50 via-zinc-950 to-black cursor-pointer"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/[0.06] border border-white/10 flex items-center justify-center flex-shrink-0">
+                  <AudioLines className="w-5 h-5 text-indigo-300" strokeWidth={1.5} />
+                </span>
+                <div className="min-w-0">
+                  <span className="block text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400">
+                    Audio Lecture
+                  </span>
+                  <h3 id="audio-track-title" className="text-[15px] sm:text-xl font-bold text-white tracking-tight truncate">
+                    {activeLesson.title}
+                  </h3>
+                  <p className="text-[11px] font-mono text-zinc-400 truncate">
+                    {activeLesson.filename}
+                  </p>
+                </div>
+              </div>
+
+              <canvas
+                id="audio-waveform-canvas"
+                ref={waveformCanvasRef}
+                aria-hidden="true"
+                className="w-full h-[26%] min-h-[56px]"
+              />
+            </div>
           )}
 
           {/* Minimal Subtle Play Button when Paused (Unified for Local and YouTube) */}

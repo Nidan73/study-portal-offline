@@ -527,6 +527,115 @@ try {
     }
   }
 
+  section('An audio lesson plays as an audio card');
+  {
+    // A lecture that is only sound used to open on a black video rectangle
+    // with nothing on it. The same <video> element still carries it — every
+    // HUD control and note timestamp is wired to that one element — but a
+    // title card and a waveform are painted over it.
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const pathMod = (await import('path')).default;
+
+    // Real MPEG-1 Layer III frames (128kbps, 44.1kHz, silent payload) rather
+    // than zero-filled bytes, and comfortably over the catalog's 1MB floor.
+    const frame = Buffer.alloc(417);
+    frame.set([0xff, 0xfb, 0x90, 0x64], 0);
+    const mp3 = Buffer.concat(Array.from({ length: 3200 }, () => frame));
+
+    const lib = mkdtempSync(pathMod.join(tmpdir(), 'studyhub-audio-'));
+    const week = pathMod.join(lib, 'Podcast Course', 'Week 1');
+    mkdirSync(week, { recursive: true });
+    // Three videos, because a folder only counts as a course at three of them;
+    // they are also what the regression half of this test opens.
+    for (const n of [1, 2, 3]) {
+      writeFileSync(pathMod.join(week, `Lecture ${n}.mp4`), Buffer.alloc(2 * 1024 * 1024));
+    }
+    writeFileSync(pathMod.join(week, 'Episode 4 Interview.mp3'), mp3);
+
+    const fresh = await startServer({ coursesRoot: lib });
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 950 } });
+    const page = await ctx.newPage();
+
+    /** Click a lesson in the curriculum by part of its title. */
+    const openLesson = (needle) => page.evaluate(text => {
+      const item = [...document.querySelectorAll('[aria-label^="Play "]')]
+        .find(el => (el.getAttribute('aria-label') || '').includes(text));
+      if (!item) return false;
+      item.click();
+      return true;
+    }, needle);
+
+    try {
+      await page.goto(fresh.base, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(2000);
+
+      check('the curriculum opens a video lesson', await openLesson('Lecture 1'));
+      await page.waitForTimeout(1200);
+      const asVideo = await page.evaluate(() => {
+        const v = document.querySelector('#cinema-player-container video');
+        const r = v?.getBoundingClientRect();
+        return {
+          video: !!v,
+          painted: !!r && r.width > 200 && r.height > 100,
+          opacity: v ? getComputedStyle(v).opacity : '',
+          card: !!document.querySelector('#audio-track-card')
+        };
+      });
+      check('a video lesson still renders the normal player',
+        asVideo.video && asVideo.painted && asVideo.opacity === '1' && !asVideo.card,
+        JSON.stringify(asVideo));
+
+      const picked = await openLesson('Episode 4');
+      check('the curriculum lists the audio lesson beside the videos', picked);
+      if (picked) {
+        await page.waitForTimeout(1500);
+        const asAudio = await page.evaluate(() => {
+          const card = document.querySelector('#audio-track-card');
+          const cr = card?.getBoundingClientRect();
+          const canvas = document.querySelector('#audio-waveform-canvas');
+          const cvr = canvas?.getBoundingClientRect();
+          const v = document.querySelector('#cinema-player-container video');
+          let bars = 0;
+          if (canvas?.width) {
+            const px = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+            for (let i = 3; i < px.length; i += 4) if (px[i] > 0) bars++;
+          }
+          return {
+            card: !!cr && cr.width > 300 && cr.height > 150,
+            title: (document.querySelector('#audio-track-title')?.textContent || '').trim(),
+            waveform: !!cvr && cvr.width > 100 && cvr.height > 30,
+            bars,
+            video: !!v,
+            videoHidden: !!v && getComputedStyle(v).opacity === '0',
+            hud: !!document.querySelector('#hud-play-btn') && !!document.querySelector('#hud-scrub-bar')
+          };
+        });
+        check('it shows the audio card instead of a bare black video', asAudio.card, JSON.stringify(asAudio));
+        check('the card names the track', /Episode 4/.test(asAudio.title), asAudio.title);
+        check('the waveform is drawn, not an empty canvas',
+          asAudio.waveform && asAudio.bars > 500, `${asAudio.bars} painted pixels`);
+        // The whole point of the card: the one media element everything else
+        // is wired to stays mounted, it is only hidden behind the card.
+        check('the single <video> element is kept, only hidden',
+          asAudio.video && asAudio.videoHidden);
+        check('the HUD controls are still on top of it', asAudio.hud);
+
+        // Panes multiply ids, and this card adds three of them.
+        await page.click('#toggle-notes-under-video-btn').catch(() => {});
+        await page.waitForTimeout(900);
+        const dupes = await page.evaluate(() => {
+          const ids = [...document.querySelectorAll('[id]')].map(e => e.id);
+          return [...new Set(ids.filter((v, i) => ids.indexOf(v) !== i))];
+        });
+        check('the audio card adds no duplicate element ids', dupes.length === 0, dupes.join(', '));
+      }
+    } finally {
+      await ctx.close();
+      fresh.stop();
+    }
+  }
+
   section('Left pane switchers');
   {
     // Both left sections are switchable now. The load-bearing part is that

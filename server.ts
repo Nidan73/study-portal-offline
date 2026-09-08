@@ -15,6 +15,9 @@ export interface VideoStreamInfo {
   codec_type?: string;
 }
 
+/** A lesson is either something you watch or something you listen to. */
+export type MediaKind = 'video' | 'audio';
+
 export interface CourseFile {
   id: string;
   title: string;
@@ -22,6 +25,7 @@ export interface CourseFile {
   relativePath: string;
   fileSizeBytes: number;
   extension?: string;
+  mediaKind?: MediaKind;
   type?: string;
   companionPdf?: CourseFile;
   duration?: string;
@@ -350,6 +354,29 @@ const VIDEO_EXTENSIONS = new Set([
   '.mp4', '.mkv', '.webm', '.mov', '.m4v', '.avi', '.ts', '.m2ts', 
   '.flv', '.wmv', '.vob', '.ogv', '.3gp', '.f4v', '.asf'
 ]);
+
+/**
+ * Audio lessons: recorded lectures, podcast-format courses, language drills.
+ *
+ * Deliberately a separate set from VIDEO_EXTENSIONS. Everything that reaches
+ * for the video set is about containers a browser cannot open, and answers by
+ * remuxing them into MP4 — which is the wrong answer for an MP3 that already
+ * plays as it sits on disk. The one exception is .wma, which no browser plays
+ * and which is served untouched rather than sent through the video path.
+ */
+const AUDIO_CONTENT_TYPES: Record<string, string> = {
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.oga': 'audio/ogg',
+  '.opus': 'audio/ogg',
+  '.flac': 'audio/flac',
+  '.wma': 'audio/x-ms-wma'
+};
+const AUDIO_EXTENSIONS = new Set(Object.keys(AUDIO_CONTENT_TYPES));
+
 const DOC_EXTENSIONS = new Set(['.pdf', '.pptx', '.ppt', '.pptm', '.docx', '.doc']);
 
 /**
@@ -532,7 +559,7 @@ function naturalSort(a: string, b: string): number {
 // Clean title formatter
 function cleanTitle(filename: string): string {
   return filename
-    .replace(/\.(mp4|mkv|webm|mov|m4v|avi|ts|m2ts|flv|wmv|vob|ogv|3gp|f4v|asf|pdf)$/i, '')
+    .replace(/\.(mp4|mkv|webm|mov|m4v|avi|ts|m2ts|flv|wmv|vob|ogv|3gp|f4v|asf|mp3|m4a|aac|wav|ogg|oga|opus|flac|wma|pdf)$/i, '')
     .replace(/^Week\s*[-_]?\s*/i, 'Week ')
     .replace(/_+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -543,6 +570,8 @@ function cleanTitle(filename: string): string {
 function crawlCourseDirectory(courseRoot: string) {
   const visitedInodes = new Set<number>();
   const modules: CourseModule[] = [];
+  // Every lesson, audio included: the client reads this as the course's lecture
+  // count and divides progress by it.
   let totalVideos = 0;
   let totalPdfs = 0;
 
@@ -556,7 +585,7 @@ function crawlCourseDirectory(courseRoot: string) {
       return;
     }
 
-    const videos: CourseFile[] = [];
+    const lessons: CourseFile[] = [];
     const pdfs: CourseFile[] = [];
     const subdirs: { name: string; fullPath: string; relPath: string }[] = [];
 
@@ -578,16 +607,31 @@ function crawlCourseDirectory(courseRoot: string) {
           if (VIDEO_EXTENSIONS.has(ext)) {
             // Filter out tiny clips under 1MB
             if (stat.size > 1024 * 1024) {
-              videos.push({
+              lessons.push({
                 id: Buffer.from(relPath).toString('base64url'),
                 title: cleanTitle(entry.name),
                 filename: entry.name,
                 relativePath: relPath,
                 fileSizeBytes: stat.size,
-                extension: ext
+                extension: ext,
+                mediaKind: 'video'
               });
               totalVideos++;
             }
+          } else if (AUDIO_EXTENSIONS.has(ext)) {
+            // No size floor here. The 1MB one exists to drop sample clips that
+            // ship beside video courses; a spoken-word MP3 is legitimately
+            // small, and a recorded lecture is still a lecture at 400KB.
+            lessons.push({
+              id: Buffer.from(relPath).toString('base64url'),
+              title: cleanTitle(entry.name),
+              filename: entry.name,
+              relativePath: relPath,
+              fileSizeBytes: stat.size,
+              extension: ext,
+              mediaKind: 'audio'
+            });
+            totalVideos++;
           } else if (isDocFile(entry.name)) {
             pdfs.push({
               id: Buffer.from(relPath).toString('base64url'),
@@ -605,17 +649,17 @@ function crawlCourseDirectory(courseRoot: string) {
       }
     }
 
-    // Sort videos and pdfs naturally
-    videos.sort((a, b) => naturalSort(a.filename, b.filename));
+    // Sort lessons and pdfs naturally
+    lessons.sort((a, b) => naturalSort(a.filename, b.filename));
     pdfs.sort((a, b) => naturalSort(a.filename, b.filename));
 
-    // If current directory contains videos or pdfs, make it a module
-    if (videos.length > 0 || pdfs.length > 0) {
+    // If current directory contains lessons or pdfs, make it a module
+    if (lessons.length > 0 || pdfs.length > 0) {
       const moduleTitle = relativeDir ? cleanTitle(path.basename(relativeDir)) : 'General Lectures';
       
-      // Auto-pair companion PDFs to videos if filenames match closely
+      // Auto-pair companion PDFs to lessons if filenames match closely
       const normalize = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-      videos.forEach(v => {
+      lessons.forEach(v => {
         const vn = normalize(v.title);
         // Exact normalized match first. A plain two-way includes() let "Week 1"
         // claim "Week 10"'s deck, and natural sort meant the wrong one won.
@@ -639,7 +683,7 @@ function crawlCourseDirectory(courseRoot: string) {
         title: moduleTitle,
         relativeDir,
         order: modules.length + 1,
-        lessons: videos,
+        lessons,
         supplementaryFiles: pdfs
       });
     }
@@ -712,15 +756,16 @@ const COURSE_GRADIENTS = [
 ];
 
 /** Does this folder hold enough media, at any depth, to be worth offering? */
-function looksLikeCourse(dir: string, depth = 0): { videos: number; docs: number } {
+function looksLikeCourse(dir: string, depth = 0): { videos: number; audio: number; docs: number } {
   let videos = 0;
+  let audio = 0;
   let docs = 0;
-  if (depth > 3) return { videos, docs };
+  if (depth > 3) return { videos, audio, docs };
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (e) {
-    return { videos, docs };
+    return { videos, audio, docs };
   }
   for (const entry of entries) {
     if (entry.name.startsWith('.') || isIgnoredDir(entry.name)) continue;
@@ -728,15 +773,25 @@ function looksLikeCourse(dir: string, depth = 0): { videos: number; docs: number
     if (entry.isDirectory()) {
       const inner = looksLikeCourse(full, depth + 1);
       videos += inner.videos;
+      audio += inner.audio;
       docs += inner.docs;
     } else if (entry.isFile()) {
       const ext = path.extname(entry.name).toLowerCase();
       if (VIDEO_EXTENSIONS.has(ext)) videos++;
+      else if (AUDIO_EXTENSIONS.has(ext)) audio++;
       else if (isDocFile(entry.name)) docs++;
     }
-    if (videos > 40) break;   // enough to decide; stop counting
+    if (videos + audio > 40) break;   // enough to decide; stop counting
   }
-  return { videos, docs };
+  return { videos, audio, docs };
+}
+
+/** "3 videos and 1 document", skipping whatever the folder does not hold. */
+function countedList(counts: [number, string][]): string {
+  const parts = counts
+    .filter(([n]) => n > 0)
+    .map(([n, noun]) => `${n} ${noun}${n === 1 ? '' : 's'}`);
+  return parts.join(', ').replace(/, ([^,]*)$/, ' and $1');
 }
 
 /**
@@ -752,8 +807,11 @@ function discoverCourses(): CourseSummary[] {
   const consider = (dir: string, relPath: string) => {
     const resolved = path.resolve(dir);
     if (seenPaths.has(resolved)) return false;
-    const { videos, docs } = looksLikeCourse(dir);
-    if (videos < 2 && docs < 2) return false;
+    const { videos, audio, docs } = looksLikeCourse(dir);
+    // A folder of recorded lectures is as much a course as a folder of screen
+    // captures, so the two counts decide together.
+    const media = videos + audio;
+    if (media < 2 && docs < 2) return false;
     seenPaths.add(resolved);
     // For a nested root, the course is the parent — "Lectures and Material"
     // is a container name, not a course name.
@@ -763,11 +821,11 @@ function discoverCourses(): CourseSummary[] {
       id: courseIdFor(relPath),
       name,
       rootPath: resolved,
-      badge: videos > 0 ? 'Local Course' : 'Reading Material',
+      badge: media > 0 ? 'Local Course' : 'Reading Material',
       gradient: COURSE_GRADIENTS[discovered.length % COURSE_GRADIENTS.length],
-      description: videos > 0
-        ? `${videos} video${videos === 1 ? '' : 's'}${docs ? ` and ${docs} document${docs === 1 ? '' : 's'}` : ''} found on disk.`
-        : `${docs} document${docs === 1 ? '' : 's'} found on disk.`
+      description: `${countedList([
+        [videos, 'video'], [audio, 'audio file'], [docs, 'document']
+      ])} found on disk.`
     });
     return true;
   };
@@ -817,8 +875,9 @@ function discoverCourses(): CourseSummary[] {
     // even though asking for exactly that is the point of registering it.
     if (discovered.some(d => d.rootPath && path.resolve(d.rootPath) === resolved)) continue;
 
-    const { videos, docs } = looksLikeCourse(resolved);
-    if (videos === 0 && docs === 0) continue;
+    const { videos, audio, docs } = looksLikeCourse(resolved);
+    const media = videos + audio;
+    if (media === 0 && docs === 0) continue;
 
     const base = path.basename(resolved) || resolved;
     const id = courseIdFor(base);
@@ -828,15 +887,15 @@ function discoverCourses(): CourseSummary[] {
       id,
       name: prettyCourseName(base),
       rootPath: resolved,
-      badge: videos > 0 ? 'Local Course' : 'Reading Material',
+      badge: media > 0 ? 'Local Course' : 'Reading Material',
       // You added this folder, so you can take it away again. Courses found by
       // scanning the library are not removable — deleting one would only make
       // it reappear on the next scan.
       removable: true,
       gradient: COURSE_GRADIENTS[discovered.length % COURSE_GRADIENTS.length],
-      description: videos > 0
-        ? `${videos} video${videos === 1 ? '' : 's'} and ${docs} document${docs === 1 ? '' : 's'} in a folder you added.`
-        : `${docs} document${docs === 1 ? '' : 's'} in a folder you added.`
+      description: `${countedList([
+        [videos, 'video'], [audio, 'audio file'], [docs, 'document']
+      ])} in a folder you added.`
     });
   }
 
@@ -955,9 +1014,9 @@ function scanForCourses(root: string, deadlineMs: number) {
   const MAX_DEPTH = 6;
   const MAX_RESULTS = 200;
   const found: {
-    path: string; name: string; videoCount: number; totalBytes: number;
+    path: string; name: string; videoCount: number; audioCount: number; totalBytes: number;
     depth: number; docCount: number; likelyCourse: boolean; reason: string;
-    kind: 'videos' | 'documents' | 'mixed';
+    kind: 'videos' | 'audio' | 'documents' | 'mixed';
   }[] = [];
   let truncated = false;
   const visitedDirs = new Set<string>();
@@ -983,6 +1042,7 @@ function scanForCourses(root: string, deadlineMs: number) {
     }
 
     let videoCount = 0;
+    let audioCount = 0;
     let totalBytes = 0;
     let docCount = 0;
     const subdirs: string[] = [];
@@ -1000,23 +1060,35 @@ function scanForCourses(root: string, deadlineMs: number) {
             const st = fs.statSync(full);
             if (st.size > 1024 * 1024) { videoCount++; totalBytes += st.size; fileNames.push(entry.name); }
           } catch (e) {}
+        } else if (AUDIO_EXTENSIONS.has(ext)) {
+          // No size floor here, unlike video. The 1MB floor drops sample clips
+          // sitting beside a real course; a spoken-word MP3 is legitimately
+          // small and would vanish under it.
+          try {
+            const st = fs.statSync(full);
+            audioCount++; totalBytes += st.size; fileNames.push(entry.name);
+          } catch (e) {}
         } else if (isDocFile(entry.name)) {
           docCount++;
         }
       }
     }
 
-    const hasVideos = videoCount >= MIN_VIDEOS;
+    // Either kind of playable media counts toward the threshold, so a folder
+    // of recorded lectures is offered like any other course.
+    const hasVideos = videoCount + audioCount >= MIN_VIDEOS;
     const hasDocs = docCount >= MIN_DOCS;
 
     if (hasVideos || hasDocs) {
       const { likelyCourse, reason } = classifyFolder(dir, fileNames, docCount);
-      const kind: 'videos' | 'documents' | 'mixed' =
-        videoCount > 0 && docCount > 0 ? 'mixed'
+      const media = videoCount + audioCount;
+      const kind: 'videos' | 'audio' | 'documents' | 'mixed' =
+        media > 0 && docCount > 0 ? 'mixed'
         : videoCount > 0 ? 'videos'
+        : audioCount > 0 ? 'audio'
         : 'documents';
       found.push({
-        path: dir, name: path.basename(dir) || dir, videoCount, totalBytes, depth,
+        path: dir, name: path.basename(dir) || dir, videoCount, audioCount, totalBytes, depth,
         docCount, kind,
         // A folder of slides is study material by definition — the media-vs-course
         // heuristic only makes sense for video.
@@ -1053,6 +1125,7 @@ function scanForCourses(root: string, deadlineMs: number) {
       path: parent,
       name: path.basename(parent) || parent,
       videoCount: children.reduce((n, c) => n + c.videoCount, 0),
+      audioCount: children.reduce((n, c) => n + c.audioCount, 0),
       totalBytes: children.reduce((n, c) => n + c.totalBytes, 0),
       // Summing the children under-reports badly: the walk stops descending as
       // soon as a folder qualifies, so anything deeper was never counted and a
@@ -1066,8 +1139,10 @@ function scanForCourses(root: string, deadlineMs: number) {
       likelyCourse: children.some(c => c.likelyCourse),
       kind: children.every(c => c.kind === 'documents')
         ? 'documents'
-        : children.some(c => c.videoCount > 0) && children.some(c => c.docCount > 0)
-          ? 'mixed' : children[0].kind,
+        : children.some(c => c.videoCount + c.audioCount > 0) && children.some(c => c.docCount > 0)
+          ? 'mixed'
+          : children.every(c => c.kind === 'audio')
+            ? 'audio' : children[0].kind,
       reason: children.every(c => c.kind === 'documents')
         ? `${children.length} sub-folders of slides and PDFs`
         : `${children.length} sub-folders of lessons`
@@ -1196,6 +1271,7 @@ app.post('/api/courses/add-virtual', (req: Request, res: Response) => {
         relativePath: videoId,
         fileSizeBytes: 0,
         extension: '.mp4',
+        mediaKind: 'video',
         duration: v.durationText || v.duration || '',
         durationSeconds: Number(v.durationSeconds) || 0,
         source: 'youtube',
@@ -1774,6 +1850,8 @@ function pendingTranscodes(course: CourseSummary): { title: string; targetPath: 
   for (const mod of catalog.modules) {
     for (const lesson of mod.lessons) {
       const ext = path.extname(lesson.relativePath).toLowerCase();
+      // Audio never lands here: it is not in VIDEO_EXTENSIONS, and it must stay
+      // out — transcoding an MP3 into an MP4 would burn the fan for nothing.
       if (ext === '.mp4' || ext === '.webm' || !VIDEO_EXTENSIONS.has(ext)) continue;
       const targetPath = path.resolve(course.rootPath, lesson.relativePath);
       if (!fs.existsSync(targetPath)) continue;
@@ -1923,7 +2001,11 @@ app.get('/api/stream/:courseId/:lessonId', async (req: Request, res: Response) =
   let serveSize = fileSize;
   let contentType = 'video/mp4';
 
-  if (ext === '.webm') {
+  if (AUDIO_EXTENSIONS.has(ext)) {
+    // Served exactly as it sits on disk. Note .m4a would otherwise fall into
+    // the branch below and be remuxed into an MP4 it does not need.
+    contentType = AUDIO_CONTENT_TYPES[ext];
+  } else if (ext === '.webm') {
     contentType = 'video/webm';
   } else if (ext !== '.mp4' && ext !== '.m4v') {
     // Non-native browser container (.mkv, .avi, .ts, .flv, .wmv, etc.) -> Ensure web-playable MP4

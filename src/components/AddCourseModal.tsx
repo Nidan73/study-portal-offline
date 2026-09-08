@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import {
+  AudioLines,
   FolderPlus,
   X,
   AlertCircle,
@@ -24,13 +25,14 @@ interface Candidate {
   path: string;
   name: string;
   videoCount: number;
+  audioCount?: number;
   docCount: number;
   totalBytes: number;
   likelyCourse: boolean;
   reason: string;
   alreadyAdded: boolean;
   /** What the folder actually holds, which decides where adding it sends it. */
-  kind: 'videos' | 'documents' | 'mixed';
+  kind: 'videos' | 'audio' | 'documents' | 'mixed';
 }
 
 const formatSize = (bytes: number) => {
@@ -374,6 +376,9 @@ export const AddCourseModal: React.FC = () => {
                             <span className="flex items-center gap-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-400 mt-1">
                               {c.videoCount > 0 && (
                                 <span className="flex items-center gap-1"><Film className="w-3 h-3" strokeWidth={1.5} />{c.videoCount}</span>
+                              )}
+                              {(c.audioCount ?? 0) > 0 && (
+                                <span className="flex items-center gap-1" title="audio lessons"><AudioLines className="w-3 h-3" strokeWidth={1.5} />{c.audioCount}</span>
                               )}
                               {c.docCount > 0 && <span className="flex items-center gap-1"><FileText className="w-3 h-3" strokeWidth={1.5} />{c.docCount}</span>}
                               {c.totalBytes > 0 && <span>{formatSize(c.totalBytes)}</span>}

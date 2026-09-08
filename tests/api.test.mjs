@@ -354,6 +354,124 @@ try {
     }
   }
 
+  // ------------------------------------------------------------ audio lessons
+section('The scanner tells audio and video apart');
+{
+  const pathMod = (await import('path')).default;
+  const { tmpdir } = await import('os');
+  const lib = mkdtempSync(pathMod.join(tmpdir(), 'studyhub-audioscan-'));
+  const mk = (name, files) => {
+    const d = pathMod.join(lib, name);
+    mkdirSync(d, { recursive: true });
+    for (const [f, size] of files) writeFileSync(pathMod.join(d, f), Buffer.alloc(size));
+    return d;
+  };
+  // Audio has no 1MB floor, so these are deliberately tiny.
+  mk('Recorded Talks', [['01.mp3', 4096], ['02.mp3', 4096], ['03.mp3', 4096]]);
+
+  const fresh = await startServer();
+  try {
+    const r = await post(fresh.base, '/api/scan', { rootPath: lib });
+    const hit = (r.body?.candidates || []).find(c => c.name === 'Recorded Talks');
+    check('an audio-only folder is offered as a course', !!hit, JSON.stringify(r.body).slice(0, 120));
+    if (hit) {
+      check('it is reported as audio, not video', hit.kind === 'audio', String(hit.kind));
+      check('audioCount is split out from videoCount',
+        hit.audioCount === 3 && hit.videoCount === 0,
+        `video=${hit.videoCount} audio=${hit.audioCount}`);
+    }
+  } finally { fresh.stop(); }
+}
+
+  section('Audio lessons');
+  {
+    // Recorded lectures and podcast-format courses are mp3s, and the crawler
+    // only knew video containers, so those folders opened with an empty
+    // curriculum and no way to play anything.
+    const lib = mkdtempSync(path.join(tmpdir(), 'studyhub-audio-'));
+    const week = path.join(lib, 'Recorded Lectures', 'Week 1');
+    mkdirSync(week, { recursive: true });
+    // Well under the 1MB floor the video crawler applies. Spoken word is small,
+    // and it is still a lesson.
+    writeFileSync(path.join(week, '01 Intro.mp3'), Buffer.alloc(256 * 1024));
+    writeFileSync(path.join(week, '02 Phonetics.mp3'), Buffer.alloc(256 * 1024));
+    writeFileSync(path.join(week, '03 Field Recording.m4a'), Buffer.alloc(128 * 1024));
+
+    const mixed = path.join(lib, 'Mixed Course', 'Week 1');
+    mkdirSync(mixed, { recursive: true });
+    for (const n of [1, 2]) writeFileSync(path.join(mixed, `lesson${n}.mp4`), Buffer.alloc(2 * 1024 * 1024));
+    writeFileSync(path.join(mixed, 'q-and-a.mp3'), Buffer.alloc(256 * 1024));
+
+    const fresh = await startServer({ coursesRoot: lib });
+    try {
+      const ids = ((await get(fresh.base, '/api/courses')).body?.courses || []).map(c => c.id);
+      check('a folder of recordings is discovered as a course',
+        ids.includes('recorded-lectures'), ids.join(','));
+
+      const cat = (await get(fresh.base, '/api/catalog/recorded-lectures')).body;
+      const lessons = (cat?.modules || []).flatMap(m => m.lessons || []);
+      check('every recording is indexed as a lesson', lessons.length === 3,
+        lessons.map(l => l.filename).join(','));
+      check('an audio lesson says so', lessons.every(l => l.mediaKind === 'audio'),
+        lessons.map(l => `${l.filename}=${l.mediaKind}`).join(','));
+      check('audio counts towards the lecture total the client shows',
+        cat?.totalVideos === 3, String(cat?.totalVideos));
+      check('the extension is stripped from the title, as it is for video',
+        lessons[0]?.title === '01 Intro', lessons[0]?.title);
+
+      const mp3 = lessons.find(l => l.filename.endsWith('.mp3'));
+      const whole = await fetch(`${fresh.base}/api/stream/recorded-lectures/${mp3?.id}`);
+      await whole.arrayBuffer();
+      check('an mp3 streams from the same endpoint video uses',
+        whole.status === 200, String(whole.status));
+      check('and is served as audio rather than as video/mp4',
+        whole.headers.get('content-type') === 'audio/mpeg',
+        whole.headers.get('content-type'));
+
+      const ranged = await fetch(`${fresh.base}/api/stream/recorded-lectures/${mp3?.id}`,
+        { headers: { Range: 'bytes=0-99' } });
+      const slice = await ranged.arrayBuffer();
+      check('seeking in audio is honoured as a range request',
+        ranged.status === 206, String(ranged.status));
+      check('and returns exactly the bytes asked for',
+        slice.byteLength === 100 && ranged.headers.get('content-range') === `bytes 0-99/${256 * 1024}`,
+        `${slice.byteLength} bytes, ${ranged.headers.get('content-range')}`);
+
+      // .m4a is the trap: it is neither .mp4 nor .m4v, so the video path would
+      // have handed it to the transcoder and served an MP4 back.
+      const m4a = lessons.find(l => l.filename.endsWith('.m4a'));
+      const asIs = await fetch(`${fresh.base}/api/stream/recorded-lectures/${m4a?.id}`);
+      await asIs.arrayBuffer();
+      check('an .m4a keeps its own type instead of being remuxed',
+        asIs.headers.get('content-type') === 'audio/mp4', asIs.headers.get('content-type'));
+      check('and is served at its size on disk, untranscoded',
+        Number(asIs.headers.get('content-length')) === 128 * 1024,
+        asIs.headers.get('content-length'));
+
+      // The warmer exists to turn containers a browser cannot open into MP4
+      // ahead of playback. An MP3 in that queue would spin the fan up to
+      // produce a video file nobody asked for.
+      await new Promise(r => setTimeout(r, 1200));
+      const status = (await get(fresh.base, '/api/transcode/status')).body;
+      check('the transcode warmer leaves audio alone',
+        status?.total === 0 && status?.active === false, JSON.stringify(status));
+      const { readdirSync } = await import('fs');
+      const cached = readdirSync(path.join(fresh.dataDir, 'video-cache'));
+      check('so no transcoded copy is written for it', cached.length === 0, cached.join(','));
+
+      const mixedCat = (await get(fresh.base, '/api/catalog/mixed-course')).body;
+      const mixedLessons = (mixedCat?.modules || []).flatMap(m => m.lessons || []);
+      check('video lessons still report themselves as video',
+        mixedLessons.filter(l => l.mediaKind === 'video').length === 2,
+        mixedLessons.map(l => `${l.filename}=${l.mediaKind}`).join(','));
+      check('one course can hold both kinds at once',
+        mixedLessons.some(l => l.mediaKind === 'audio') && mixedCat?.totalVideos === 3,
+        String(mixedCat?.totalVideos));
+    } finally {
+      fresh.stop();
+    }
+  }
+
   // ------------------------------------------------ slide folders as courses
   section('A folder of slides is a course');
   {

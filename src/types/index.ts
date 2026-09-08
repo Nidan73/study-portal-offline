@@ -19,6 +19,10 @@ export interface LessonItem {
   fileSizeBytes: number;
   durationSeconds?: number;
   extension: string;
+  /** How the player should present this lesson. The server stamps it on every
+   *  lesson; it stays optional so an older payload (or a lesson this app builds
+   *  itself, like a YouTube video) simply reads as video. */
+  mediaKind?: 'video' | 'audio';
   companionPdf?: SupplementaryFile;
   source?: 'local' | 'youtube' | 'direct';
   youtubeVideoId?: string;
