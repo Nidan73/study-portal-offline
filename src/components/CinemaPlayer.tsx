@@ -7,8 +7,9 @@ import {
   RotateCw, 
   Volume2, 
   VolumeX, 
-  Maximize, 
-  PictureInPicture2, 
+  Maximize,
+  Minimize,
+  PictureInPicture2,
   SkipForward, 
   SkipBack, 
   Check, 
@@ -102,6 +103,7 @@ export const CinemaPlayer: React.FC = () => {
   const [isLoopMenuOpen, setIsLoopMenuOpen] = useState(false);
   const [isBookmarksMenuOpen, setIsBookmarksMenuOpen] = useState(false);
   const [isBoostMenuOpen, setIsBoostMenuOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const bookmarks = activeLesson ? (userData?.courses?.[dataBucketFor(activeLesson.id, activeCourseId)]?.bookmarks?.[activeLesson.id] || []) : [];
   const isCompleted = activeLesson ? (userData?.courses?.[dataBucketFor(activeLesson.id, activeCourseId)]?.completedLessonIds || []).includes(activeLesson.id) : false;
@@ -866,6 +868,18 @@ export const CinemaPlayer: React.FC = () => {
     }
   };
 
+  // Track fullscreen from the event rather than from the click, so Esc and the
+  // browser's own exit are reflected too — the button showed "enter fullscreen"
+  // while already fullscreen otherwise. Scoped to this container so the slide
+  // viewer going fullscreen does not flip the player's icon.
+  useEffect(() => {
+    const onFsChange = () => {
+      setIsFullscreen(document.fullscreenElement === containerRef.current);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
   if (isCatalogLoading) {
     return (
       <div className="p-2 rounded-[2rem] bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08]">
@@ -909,7 +923,14 @@ export const CinemaPlayer: React.FC = () => {
         className="relative group rounded-[calc(2rem-0.375rem)] sm:rounded-[calc(2rem-0.5rem)] overflow-hidden bg-black border border-black/[0.1] dark:border-white/[0.08] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] select-none"
       >
         {/* HTML5 Video or YouTube IFrame Element */}
-        <div className="relative aspect-video w-full max-h-[calc(100vh-var(--player-reserve,220px))] bg-black flex items-center justify-center">
+        {/* The height cap is a windowed-layout concern: --player-reserve is set
+            on a layout ancestor in App.tsx and keeps inheriting in here, because
+            going fullscreen restyles this subtree without moving it in the DOM.
+            index.css lifts the cap under :fullscreen, keyed off this id. */}
+        <div
+          id="cinema-video-stage"
+          className="relative aspect-video w-full max-h-[calc(100vh-var(--player-reserve,220px))] bg-black flex items-center justify-center"
+        >
           {isYouTube ? (
             <>
               <div ref={ytMountRef} id="youtube-player-element" className="w-full h-full pointer-events-none" />
@@ -1572,9 +1593,12 @@ export const CinemaPlayer: React.FC = () => {
               id="hud-fullscreen-btn"
               onClick={toggleFullscreen}
               className="p-1.5 text-white/70 hover:text-white transition-colors"
-              title="Fullscreen"
+              title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
-              <Maximize className="w-3.5 h-3.5" strokeWidth={1.5} />
+              {isFullscreen
+                ? <Minimize className="w-3.5 h-3.5" strokeWidth={1.5} />
+                : <Maximize className="w-3.5 h-3.5" strokeWidth={1.5} />}
             </button>
           </div>
         </div>

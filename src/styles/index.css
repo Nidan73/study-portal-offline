@@ -95,6 +95,23 @@ body {
 }
 
 
+/* The player reserves room for the notes dock with
+   max-height: calc(100vh - var(--player-reserve)), set on a layout ancestor in
+   App.tsx. Fullscreen restyles the container and promotes it to the top layer
+   but does NOT move it in the DOM, so that custom property keeps inheriting
+   into the stage — and 100vh now means the whole screen. The video was left
+   capped at 100vh minus a reservation for a dock that is no longer on screen,
+   stranded at the top above a black band with the HUD pinned to the real
+   bottom. In fullscreen the container IS the viewport, so the stage simply
+   fills it and the video's object-contain does the letterboxing.
+   An id plus :fullscreen outranks the Tailwind utility, which Tailwind v3
+   emits unlayered — no !important needed. */
+#cinema-player-container:fullscreen #cinema-video-stage {
+  aspect-ratio: auto;
+  height: 100%;
+  max-height: none;
+}
+
 @keyframes toast-drain {
   from { transform: scaleX(1); }
   to   { transform: scaleX(0); }
