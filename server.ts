@@ -1002,10 +1002,13 @@ function classifyFolder(dir: string, fileNames: string[], docCount: number): { l
  * A directory qualifies when it directly contains at least MIN_VIDEOS video
  * files over 1MB — the same threshold the course crawler already uses, so what
  * the scan offers is what the crawler will actually index. Bounded by depth,
- * a wall-clock deadline and a result cap so scanning a whole drive cannot hang
- * the single-threaded server.
+ * a wall-clock deadline and a result cap so scanning a whole drive cannot run
+ * away.
+ *
+ * Async purely to yield: those bounds cap how long a scan lasts, but they did
+ * nothing for what the server could do meanwhile, which was nothing at all.
  */
-function scanForCourses(root: string, deadlineMs: number) {
+async function scanForCourses(root: string, deadlineMs: number) {
   const MIN_VIDEOS = 3;
   // Study material is often slides and PDFs with no video at all, and those
   // folders were invisible to the scanner — you could only add them by typing
@@ -1013,6 +1016,18 @@ function scanForCourses(root: string, deadlineMs: number) {
   const MIN_DOCS = 2;
   const MAX_DEPTH = 6;
   const MAX_RESULTS = 200;
+  // Come up for air every so often. The walk is otherwise one uninterrupted
+  // synchronous burst, and the server is single-threaded: for the whole scan
+  // it answered nothing. Byte-range requests stalled, so a lecture playing in
+  // another pane hitched, and /api/health blew its four second client timeout
+  // and put the "server went away" overlay up — during a scan the user had
+  // just asked for. Worst on an external drive, where cold directory stats are
+  // slow and the budget runs to two minutes.
+  // Per directory rather than per file: the deadline is already checked each
+  // directory, so this rides along with it, and one setImmediate per 200
+  // folders is nothing against the readdir and stat calls it interleaves.
+  const YIELD_EVERY_DIRS = 200;
+  let dirsSinceYield = 0;
   const found: {
     path: string; name: string; videoCount: number; audioCount: number; totalBytes: number;
     depth: number; docCount: number; likelyCourse: boolean; reason: string;
@@ -1021,9 +1036,14 @@ function scanForCourses(root: string, deadlineMs: number) {
   let truncated = false;
   const visitedDirs = new Set<string>();
 
-  const walk = (dir: string, depth: number) => {
+  const walk = async (dir: string, depth: number): Promise<void> => {
     if (depth > MAX_DEPTH || found.length >= MAX_RESULTS) return;
     if (Date.now() > deadlineMs) { truncated = true; return; }
+
+    if (++dirsSinceYield >= YIELD_EVERY_DIRS) {
+      dirsSinceYield = 0;
+      await new Promise(resolve => setImmediate(resolve));
+    }
 
     let real: string;
     try {
@@ -1100,10 +1120,10 @@ function scanForCourses(root: string, deadlineMs: number) {
       return;   // stop here: this is the folder, not its subfolders
     }
 
-    for (const sub of subdirs) walk(sub, depth + 1);
+    for (const sub of subdirs) await walk(sub, depth + 1);
   };
 
-  walk(root, 0);
+  await walk(root, 0);
 
   // Roll siblings up to their parent: a course usually presents as several
   // "Week N" folders that each qualify on their own. Offering the parent once
@@ -1166,7 +1186,7 @@ function scanForCourses(root: string, deadlineMs: number) {
 }
 
 // API: Scan a drive or folder for course material.
-app.post('/api/scan', (req: Request, res: Response) => {
+app.post('/api/scan', async (req: Request, res: Response) => {
   const { rootPath, timeoutMs } = req.body || {};
   if (!rootPath || typeof rootPath !== 'string') {
     return res.status(400).json({ error: 'A folder or drive path is required' });
@@ -1183,24 +1203,33 @@ app.post('/api/scan', (req: Request, res: Response) => {
 
   const budget = Math.min(Math.max(Number(timeoutMs) || 20000, 2000), 120000);
   const started = Date.now();
-  const { found, truncated } = scanForCourses(resolved, started + budget);
 
-  // Mark anything already in the library so the UI can grey it out.
-  const existingRoots = discoverCourses()
-    .map(c => c.rootPath && path.resolve(c.rootPath))
-    .filter(Boolean) as string[];
-  // A folder counts as covered if it IS a course root or sits inside one —
-  // otherwise every week of an added course reappears as a new suggestion.
-  const isCovered = (p: string) => existingRoots.some(root => isInside(root, p));
+  // The walk yields now, so it can reject where it used to only throw
+  // synchronously — and Express 4 does not catch a rejected async handler,
+  // which would leave the request hanging until the client gave up.
+  try {
+    const { found, truncated } = await scanForCourses(resolved, started + budget);
 
-  res.json({
-    scannedPath: resolved,
-    elapsedMs: Date.now() - started,
-    truncated,
-    candidates: found
-      .sort((a, b) => (Number(b.likelyCourse) - Number(a.likelyCourse)) || (b.videoCount - a.videoCount))
-      .map(c => ({ ...c, alreadyAdded: isCovered(path.resolve(c.path)) }))
-  });
+    // Mark anything already in the library so the UI can grey it out.
+    const existingRoots = discoverCourses()
+      .map(c => c.rootPath && path.resolve(c.rootPath))
+      .filter(Boolean) as string[];
+    // A folder counts as covered if it IS a course root or sits inside one —
+    // otherwise every week of an added course reappears as a new suggestion.
+    const isCovered = (p: string) => existingRoots.some(root => isInside(root, p));
+
+    res.json({
+      scannedPath: resolved,
+      elapsedMs: Date.now() - started,
+      truncated,
+      candidates: found
+        .sort((a, b) => (Number(b.likelyCourse) - Number(a.likelyCourse)) || (b.videoCount - a.videoCount))
+        .map(c => ({ ...c, alreadyAdded: isCovered(path.resolve(c.path)) }))
+    });
+  } catch (e: any) {
+    console.error('Scan error:', e?.message);
+    res.status(500).json({ error: 'Could not finish scanning that folder' });
+  }
 });
 
 // API: List Courses
